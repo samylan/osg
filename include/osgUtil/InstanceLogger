@@ -1,0 +1,57 @@
+/* -*-c++-*- OpenSceneGraph - Copyright (C) 1998-2006 Robert Osfield 
+ *
+ * This library is open source and may be redistributed and/or modified under  
+ * the terms of the OpenSceneGraph Public License (OSGPL) version 0.0 or 
+ * (at your option) any later version.  The full license is in LICENSE file
+ * included with this distribution, and on the openscenegraph.org website.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the 
+ * OpenSceneGraph Public License for more details.
+*/
+
+#ifndef OSGUTIL_INSTANCELOGGER
+#define OSGUTIL_INSTANCELOGGER 1
+
+#include <osg/Referenced>
+#include <osg/ConstructorDestructorHandler>
+#include <set>
+#include <map>
+#include <string>
+
+namespace osgUtil {
+
+    class InstanceLogger : public osg::ConstructorDestructorHandler
+    {
+    public:
+        typedef std::set<const osg::Referenced*> ObjectObserver;
+        typedef std::map<std::string, int> TypeInstance;
+
+        void createInstance(const osg::Referenced* object);
+        void deleteInstance(const osg::Referenced* object);
+            
+        void log(const osg::Referenced* obj);
+        void unlog(const osg::Referenced* obj);
+        void gnuPlot(std::map<int, TypeInstance >& data, std::ostream& plotData, std::ostream& plotScript);
+        void reportCurrentMemoryObject(bool dump = false);
+        void dumpStats();
+        void clear();
+
+        void install();
+        InstanceLogger();
+
+    protected:
+        OpenThreads::Mutex& getLogObjectMutex() { return _mutex; }
+
+        ObjectObserver _allObjects;
+        std::map<int, TypeInstance > _toPlot;
+        unsigned int _nbSamples;
+        OpenThreads::Mutex _mutex;
+
+        bool _installed;
+    };
+
+}
+
+#endif

@@ -25,9 +25,11 @@
 #include <OpenThreads/Mutex>
 
 #include <osg/DeleteHandler>
+#include <osg/ConstructorDestructorHandler>
 
 namespace osg
 {
+
 
 //#define ENFORCE_THREADSAFE
 //#define DEBUG_OBJECT_ALLOCATION_DESTRUCTION
@@ -78,6 +80,8 @@ struct ResetPointer
     T* _ptr;
 };
 
+typedef ResetPointer<ConstructorDestructorHandler> ConstructorDestructorHandlerPointer;
+
 typedef ResetPointer<DeleteHandler> DeleteHandlerPointer;
 typedef ResetPointer<OpenThreads::Mutex> GlobalMutexPointer;
 
@@ -103,6 +107,7 @@ static bool s_useThreadSafeReferenceCounting = getenv("OSG_THREAD_SAFE_REF_UNREF
 #endif
 // static std::auto_ptr<DeleteHandler> s_deleteHandler(0);
 static DeleteHandlerPointer s_deleteHandler(0);
+static ConstructorDestructorHandlerPointer s_constructorDestructorHandler(0);
 
 static ApplicationUsageProxy Referenced_e0(ApplicationUsage::ENVIRONMENTAL_VARIABLE,"OSG_THREAD_SAFE_REF_UNREF","");
 
@@ -122,6 +127,16 @@ bool Referenced::getThreadSafeReferenceCounting()
 #endif
 }
 
+
+void Referenced::setConstructorDestructorHandler(ConstructorDestructorHandler* handler)
+{
+    s_constructorDestructorHandler.reset(handler);
+}
+
+ConstructorDestructorHandler* Referenced::getConstructorDestructorHandler()
+{
+    return s_constructorDestructorHandler.get();
+}
 
 void Referenced::setDeleteHandler(DeleteHandler* handler)
 {
@@ -166,7 +181,7 @@ Referenced::Referenced():
         printf("Object created, total num=%d\n",s_numObjects);
     }
 #endif
-
+    if (getConstructorDestructorHandler()) getConstructorDestructorHandler()->createInstance(this);
 }
 
 Referenced::Referenced(bool threadSafeRefUnref):
@@ -193,6 +208,7 @@ Referenced::Referenced(bool threadSafeRefUnref):
         printf("Object created, total num=%d\n",s_numObjects);
     }
 #endif
+    if (getConstructorDestructorHandler()) getConstructorDestructorHandler()->createInstance(this);
 }
 
 Referenced::Referenced(const Referenced&):
@@ -219,6 +235,7 @@ Referenced::Referenced(const Referenced&):
         printf("Object created, total num=%d\n",s_numObjects);
     }
 #endif
+    if (getConstructorDestructorHandler()) getConstructorDestructorHandler()->createInstance(this);
 }
 
 Referenced::~Referenced()
@@ -250,6 +267,7 @@ Referenced::~Referenced()
 #if !defined(_OSG_REFERENCED_USE_ATOMIC_OPERATIONS)
     if (_refMutex) delete _refMutex;
 #endif
+    if (getConstructorDestructorHandler()) getConstructorDestructorHandler()->deleteInstance(this);
 }
 
 ObserverSet* Referenced::getOrCreateObserverSet() const
@@ -370,5 +388,8 @@ void Referenced::deleteUsingDeleteHandler() const
 {
     getDeleteHandler()->requestDelete(this);
 }
+
+
+
 
 } // end of namespace osg

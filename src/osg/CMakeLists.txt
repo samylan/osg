@@ -53,6 +53,7 @@ SET(TARGET_H
     ${HEADER_PATH}/ConvexPlanarPolygon
     ${HEADER_PATH}/CoordinateSystemNode
     ${HEADER_PATH}/CopyOp
+    ${HEADER_PATH}/ConstructorDestructorHandler
     ${HEADER_PATH}/CullFace
     ${HEADER_PATH}/CullingSet
     ${HEADER_PATH}/CullSettings
@@ -228,6 +229,7 @@ SET(TARGET_SRC
     ConvexPlanarPolygon.cpp
     CoordinateSystemNode.cpp
     CopyOp.cpp
+    ConstructorDestructorHandler.cpp
     CullFace.cpp
     CullingSet.cpp
     CullSettings.cpp
