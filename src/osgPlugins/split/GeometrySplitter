@@ -1,0 +1,32 @@
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson 
+ *
+ * This application is open source and may be redistributed and/or modified   
+ * freely and without restriction, both in commercial and non commercial
+ * applications, as long as this copyright notice is maintained.
+ * 
+ * This application is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+*/
+
+#include <osg/NodeVisitor>
+#include <osg/Geometry>
+
+typedef std::vector<osg::ref_ptr<osg::Geometry> > GeometryList;
+class SplitGeometryVisitor : public osg::NodeVisitor
+{
+public:
+
+    SplitGeometryVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {
+        _maxVertexes = 65535;
+        _maxPrimitivesIndexes = 65535;
+    }
+
+    void convertToBindPerVertex(osg::Geometry& srcGeom);
+    unsigned int splitByVertexArray(osg::Geometry& srcGeom, GeometryList& list);
+    void apply(osg::Geode& node);
+
+    unsigned int _maxVertexes;
+    unsigned int _maxPrimitivesIndexes;
+};
