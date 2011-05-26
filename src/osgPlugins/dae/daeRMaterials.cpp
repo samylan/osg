@@ -1096,11 +1096,11 @@ osg::Texture2D* daeReader::processTexture(
             parameters.wrap_t = getWrapMode(sampler->getWrap_s()->getValue());
         }
 
-        if (sampler->getMinfilter())
+        if (sampler->getMinfilter() && sampler->getMinfilter()->getValue() != FX_SAMPLER_FILTER_COMMON_NONE)
         {
             parameters.filter_min = getFilterMode(sampler->getMinfilter()->getValue(), true);
         }
-        if (sampler->getMagfilter())
+        if (sampler->getMagfilter() && sampler->getMagfilter()->getValue() != FX_SAMPLER_FILTER_COMMON_NONE)
         {
             parameters.filter_mag = getFilterMode(sampler->getMagfilter()->getValue(), false);
         }
