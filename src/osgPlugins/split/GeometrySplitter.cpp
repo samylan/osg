@@ -239,6 +239,13 @@ struct ConvertToBindPerVertex {
             convert(*vec4Array, fromBinding, primitives, size);
             return;
         }
+
+        osg::Vec4ubArray* vec4ubArray= dynamic_cast<osg::Vec4ubArray*>(src);
+        if (vec4ubArray) {
+            convert(*vec4ubArray, fromBinding, primitives, size);
+            return;
+        }
+
     }
 };
 
