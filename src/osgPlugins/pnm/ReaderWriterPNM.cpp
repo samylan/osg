@@ -22,55 +22,50 @@ template <class T>
     unsigned char* read_bitmap_ascii(std::istream& fin, int width, int height)
 {
     T* data = new T[width*height];
-
-    T* dst = data;
     T* end = data + width*height;
-    T value = 0;
-    unsigned long num;
 
-    while(dst < end)
+    int x = 0;
+    T* dst = end - width;
+    int value = 0;
+
+    while(dst >= data)
     {
-        // read in characters looking for '0's and '1's, these
-        // values map to 255 and 0. Any other characters
-        // are silently ignored.
-        fin >> num;
+        fin >> value;
         if (!fin.good())
         {
             delete [] data;
             return NULL;
         }
 
-        if (num == 1)
-        {
-            value = 0;
-            break;
-        }
-        else if (num == 0)
-        {
-            value = 255;
-            break;
-        }
+        // place value in the image. 0 is white and anything else is black.
+        *(dst++) = value ? 0 : 255;
 
-        // place value in the image
-        *(dst++) = value;
+        // At end of each row, jump back two rows
+        ++x;
+        if (x == width)
+        {
+            x = 0;
+            dst -= 2*width;
+        }
     }
 
     return reinterpret_cast<unsigned char*>(data);
 }
 
 template <class T>
-    unsigned char* read_grayscale_ascii(std::istream& fin, int width, int height)
+    unsigned char* read_grayscale_ascii(std::istream& fin, int width, int height, int max_value)
 {
     T* data = new T[width*height];
-
-    T* dst = data;
     T* end = data + width*height;
-    T value = 0;
-    unsigned long num;
 
-    while(dst < end)
+    int x = 0;
+    T* dst = end - width;
+    int value = 0;
+    float max = (sizeof(T) == 1) ? 255.0 : 65535.0;
+
+    while(dst >= data)
     {
-        fin >> num;
+        fin >> value;
         if (!fin.good())
         {
             delete [] data;
@@ -78,25 +73,34 @@ template <class T>
         }
 
         // place value in the image
-        *(dst++) = value;
+        *(dst++) = T(float(value)/float(max_value)*max);
+
+        // At end of each row, jump back two rows
+        ++x;
+        if (x == width)
+        {
+            x = 0;
+            dst -= 2*width;
+        }
     }
 
     return reinterpret_cast<unsigned char*>(data);
 }
 
 template <class T>
-    unsigned char* read_color_ascii(std::istream& fin, int width, int height)
+    unsigned char* read_color_ascii(std::istream& fin, int width, int height, int max_value)
 {
     T* data = new T[3*width*height];
-
-    T* dst = data;
     T* end = data + 3*width*height;
-    T value = 0;
-    unsigned long num;
 
-    while(dst < end)
+    int x = 0;
+    T* dst = end - 3*width;
+    int value = 0;
+    float max = (sizeof(T) == 1) ? 255.0 : 65535.0;
+
+    while(dst >= data)
     {
-        fin >> num;
+        fin >> value;
         if (!fin.good())
         {
             delete [] data;
@@ -104,7 +108,15 @@ template <class T>
         }
 
         // place value in the image
-        *(dst++) = value;
+        *(dst++) = T(float(value)/float(max_value)*max);
+
+        // At end of the row, jump back two rows
+        ++x;
+        if (x == width*3)
+        {
+            x = 0;
+            dst -= 6*width;
+        }
     }
 
     return reinterpret_cast<unsigned char*>(data);
@@ -115,7 +127,7 @@ template <class T>
 {
     T* data = new T[width*height];
 
-    for(int y = 0; y < height; y++)
+    for(int y = height-1; y >= 0; --y)
     {
         T* dst = data + (y+0)*width;
         T* end = data + (y+1)*width;
@@ -144,46 +156,56 @@ template <class T>
 template <class T>
     unsigned char* read_grayscale_binary(std::istream& fin, int width, int height)
 {
-    unsigned char* data = new unsigned char[sizeof(T)*width*height];
+    T* data = new T[width*height];
 
-    fin.read((char*)data, sizeof(T)*width*height);
-    if (!fin.good())
+    for(int y = height-1; y >= 0; --y)
     {
-        delete [] data;
-        return NULL;
+        T* dst = data + y*width;
+        fin.read((char*)dst, sizeof(T)*width);
+        if (!fin.good())
+        {
+            delete [] data;
+            return NULL;
+        }
     }
 
     // if the machine is little endian swap the bytes around
     if (sizeof(T) == 2 && getCpuByteOrder() == osg::LittleEndian)
     {
-        for(int i = 0; i < width*height; i++)
+        unsigned char *bs = reinterpret_cast<unsigned char *>(data);
+        unsigned char *end = bs + sizeof(T)*width*height;
+        for (; bs < end; bs += 2)
         {
-            unsigned char* bs = (unsigned char*)(&data[i]);
             std::swap(bs[0], bs[1]);
         }
     }
 
-    return data;
+    return reinterpret_cast<unsigned char *>(data);
 }
 
 template <class T>
     unsigned char* read_color_binary(std::istream& fin, int width, int height)
 {
-    unsigned char* data = new unsigned char[sizeof(T)*3*width*height];
+    T* data = new T[3*width*height];
 
-    fin.read((char*)data, sizeof(T)*3*width*height);
-    if (!fin.good())
+    for(int y = height-1; y >= 0; --y)
     {
-        delete [] data;
-        return NULL;
+        T* dst = data + y*3*width;
+        fin.read((char*)dst, sizeof(T)*3*width);
+        if (!fin.good())
+        {
+            delete [] data;
+            return NULL;
+        }
     }
 
     // if the machine is little endian swap the bytes around
     if (sizeof(T) == 2 && getCpuByteOrder() == osg::LittleEndian)
     {
-        for(int i = 0; i < 3*width*height; i++)
+        unsigned char *bs = reinterpret_cast<unsigned char *>(data);
+        unsigned char *end = bs + sizeof(T)*3*width*height;
+        for (; bs < end; bs+=2)
         {
-            unsigned char* bs = (unsigned char*)(&data[i]);
             std::swap(bs[0], bs[1]);
         }
     }
@@ -272,25 +294,16 @@ class ReaderWriterPNM : public osgDB::ReaderWriter
 
             if (max_value > 255)
             {
-                OSG_NOTICE<<"OpenSceneGraph PPM reader: width="<<width<<" height="<<height<<std::endl;
                 dataType = GL_UNSIGNED_SHORT;
                 switch(ppmtype)
                 {
-                    case 1:    // bitmap ascii
-                        pixelFormat = GL_LUMINANCE;
-                        data = read_bitmap_ascii<unsigned short>(fin, width, height);
-                        break;
                     case 2:    // grayscale ascii
                         pixelFormat = GL_LUMINANCE;
-                        data = read_grayscale_ascii<unsigned short>(fin, width, height);
+                        data = read_grayscale_ascii<unsigned short>(fin, width, height, max_value);
                         break;
                     case 3:    // color ascii
                         pixelFormat = GL_RGB;
-                        data = read_color_ascii<unsigned short>(fin, width, height);
-                        break;
-                    case 4:    // bitmap binary
-                        pixelFormat = GL_LUMINANCE;
-                        data = read_bitmap_binary<unsigned short>(fin, width, height);
+                        data = read_color_ascii<unsigned short>(fin, width, height, max_value);
                         break;
                     case 5:    // grayscale binary
                         pixelFormat = GL_LUMINANCE;
@@ -299,6 +312,9 @@ class ReaderWriterPNM : public osgDB::ReaderWriter
                     case 6:    // color binary
                         pixelFormat = GL_RGB;
                         data = read_color_binary<unsigned short>(fin, width, height);
+                        break;
+                    default:
+                        return ReadResult::ERROR_IN_READING_FILE;
                         break;
                 }
             }
@@ -313,11 +329,11 @@ class ReaderWriterPNM : public osgDB::ReaderWriter
                         break;
                     case 2:    // grayscale ascii
                         pixelFormat = GL_LUMINANCE;
-                        data = read_grayscale_ascii<unsigned char>(fin, width, height);
+                        data = read_grayscale_ascii<unsigned char>(fin, width, height, max_value);
                         break;
                     case 3:    // color ascii
                         pixelFormat = GL_RGB;
-                        data = read_color_ascii<unsigned char>(fin, width, height);
+                        data = read_color_ascii<unsigned char>(fin, width, height, max_value);
                         break;
                     case 4:    // bitmap binary
                         pixelFormat = GL_LUMINANCE;
@@ -330,6 +346,9 @@ class ReaderWriterPNM : public osgDB::ReaderWriter
                     case 6:    // color binary
                         pixelFormat = GL_RGB;
                         data = read_color_binary<unsigned char>(fin, width, height);
+                        break;
+                    default:
+                        return ReadResult::ERROR_IN_READING_FILE;
                         break;
                 }
             }
@@ -364,7 +383,7 @@ class ReaderWriterPNM : public osgDB::ReaderWriter
             std::string fileName = osgDB::findDataFile( file, options );
             if (fileName.empty()) return ReadResult::FILE_NOT_FOUND;
 
-            std::ifstream fin(fileName.c_str());
+            std::ifstream fin(fileName.c_str(), std::ios_base::in | std::ios_base::binary);
             if (!fin.good())
                 return ReadResult::ERROR_IN_READING_FILE;
 

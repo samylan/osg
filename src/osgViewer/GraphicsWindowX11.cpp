@@ -18,7 +18,6 @@
 
 // TODO:
 // implement http://www.opengl.org/registry/specs/OML/glx_swap_method.txt
-// Fix toggling of fullscreen to window mode as it does enable window decoration with recent linux window managers
 
 #include <osgViewer/api/X11/GraphicsWindowX11>
 #include <osgViewer/api/X11/PixelBufferX11>
@@ -360,6 +359,45 @@ bool GraphicsWindowX11::createVisualInfo()
 
     return _visualInfo != 0;
 }
+
+bool GraphicsWindowX11::checkAndSendEventFullScreenIfNeeded(Display* display, int x, int y, int width, int height, bool windowDecoration)
+{
+    osg::GraphicsContext::WindowingSystemInterface *wsi = osg::GraphicsContext::getWindowingSystemInterface();
+    if (wsi == NULL)
+    {
+        OSG_NOTICE << "Error, no WindowSystemInterface available, cannot toggle window fullscreen." << std::endl;
+        return false;
+    }
+
+    unsigned int    screenWidth;
+    unsigned int    screenHeight;
+
+    wsi->getScreenResolution(*_traits, screenWidth, screenHeight);
+    bool isFullScreen = x == 0 && y == 0 && width == (int)screenWidth && height == (int)screenHeight && !windowDecoration;
+
+    Atom netWMStateAtom = XInternAtom(display, "_NET_WM_STATE", True);
+    Atom netWMStateFullscreenAtom = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", True);
+
+    if (netWMStateAtom != None && netWMStateFullscreenAtom != None)
+    {
+        XEvent xev;
+        xev.xclient.type = ClientMessage;
+        xev.xclient.serial = 0;
+        xev.xclient.send_event = True;
+        xev.xclient.window = _window;
+        xev.xclient.message_type = netWMStateAtom;
+        xev.xclient.format = 32;
+        xev.xclient.data.l[0] = isFullScreen ? 1 : 0;
+        xev.xclient.data.l[1] = netWMStateFullscreenAtom;
+        xev.xclient.data.l[2] = 0;
+
+        XSendEvent(display, RootWindow(display, DefaultScreen(display)),
+                    False,  SubstructureRedirectMask | SubstructureNotifyMask, &xev);
+        return true;
+    }
+    return false;
+}
+
 #define MWM_HINTS_FUNCTIONS   (1L << 0)
 #define MWM_HINTS_DECORATIONS (1L << 1)
 #define MWM_HINTS_INPUT_MODE  (1L << 2)
@@ -379,44 +417,6 @@ bool GraphicsWindowX11::createVisualInfo()
 #define MWM_FUNC_MINIMIZE     (1L<<3)
 #define MWM_FUNC_MAXIMIZE     (1L<<4)
 #define MWM_FUNC_CLOSE        (1L<<5)
-
-
-bool GraphicsWindowX11::checkAndSendEventFullScreenIfNeeded(Display* display, int x, int y, int width, int height, bool windowDecoration)
-{
-  osg::GraphicsContext::WindowingSystemInterface *wsi = osg::GraphicsContext::getWindowingSystemInterface();
-  if (wsi == NULL) {
-    OSG_NOTICE << "Error, no WindowSystemInterface available, cannot toggle window fullscreen." << std::endl;
-    return false;
-  }
-
-  unsigned int    screenWidth;
-  unsigned int    screenHeight;
-
-  wsi->getScreenResolution(*_traits, screenWidth, screenHeight);
-  bool isFullScreen = x == 0 && y == 0 && width == (int)screenWidth && height == (int)screenHeight && !windowDecoration;
-
-  Atom netWMStateAtom = XInternAtom(display, "_NET_WM_STATE", True);
-  Atom netWMStateFullscreenAtom = XInternAtom(display,
-                                              "_NET_WM_STATE_FULLSCREEN", True);
-
-  if (netWMStateAtom != None && netWMStateFullscreenAtom != None) {
-    XEvent xev;
-    xev.xclient.type = ClientMessage;
-    xev.xclient.serial = 0;
-    xev.xclient.send_event = True;
-    xev.xclient.window = _window;
-    xev.xclient.message_type = netWMStateAtom;
-    xev.xclient.format = 32;
-    xev.xclient.data.l[0] = isFullScreen ? 1 : 0;
-    xev.xclient.data.l[1] = netWMStateFullscreenAtom;
-    xev.xclient.data.l[2] = 0;
-
-    XSendEvent(display, RootWindow(display, DefaultScreen(display)),
-               False,  SubstructureRedirectMask | SubstructureNotifyMask, &xev);
-    return true;
-  }
-  return false;
-}
 
 bool GraphicsWindowX11::setWindowDecorationImplementation(bool flag)
 {
@@ -439,28 +439,34 @@ bool GraphicsWindowX11::setWindowDecorationImplementation(bool flag)
     if( (atom = XInternAtom( display, "_MOTIF_WM_HINTS", 0 )) != None )
     {
 
-        wmHints.flags = 0;
-        wmHints.functions = MWM_FUNC_ALL;
-        wmHints.decorations = MWM_DECOR_ALL;
-        wmHints.inputMode = 0;
-        wmHints.status = 0;
-
-        if (!flag)
+        if (flag)
         {
-            wmHints.flags = MWM_HINTS_DECORATIONS;
-            wmHints.decorations = 0;
+            wmHints.flags = MWM_HINTS_DECORATIONS | MWM_HINTS_FUNCTIONS;
+            wmHints.functions = MWM_FUNC_ALL;
+            wmHints.decorations = MWM_DECOR_ALL;
+            wmHints.inputMode = 0;
+            wmHints.status = 0;
+
+            // if traits says not resize we want to set the functions to exlude MWM_FUNC_RESIZE,
+            // but this bitmask needs to be set if the MWM_FUNC_ALL bit is already set in order to toggle it off.
+            if (_traits.valid() && !_traits->supportsResize) wmHints.functions = wmHints.functions | MWM_FUNC_RESIZE;
+            
         }
         else
         {
-            wmHints.flags |= MWM_HINTS_FUNCTIONS;
-            if (_traits.valid() && !_traits->supportsResize) wmHints.functions |= MWM_FUNC_RESIZE;
+            wmHints.flags = MWM_HINTS_DECORATIONS;
+            wmHints.functions = 0;
+            wmHints.decorations = 0;
+            wmHints.inputMode = 0;
+            wmHints.status = 0;
         }
+        
         XChangeProperty( display, _window, atom, atom, 32, PropModeReplace, (unsigned char *)&wmHints,  5 );
         result = true;
     }
     else
     {
-        OSG_NOTICE<<"Error: GraphicsWindowX11::setBorder(" << flag << ") - couldn't change decorations." << std::endl;
+        OSG_NOTICE<<"Error: GraphicsWindowX11::setWindowDecorationImplementation(" << flag << ") - couldn't change decorations." << std::endl;
         result = false;
     }
 
@@ -479,13 +485,13 @@ bool GraphicsWindowX11::setWindowRectangleImplementation(int x, int y, int width
 
     Display* display = getDisplayToUse();
 
+    checkAndSendEventFullScreenIfNeeded(display, x, y, width, height, _traits->windowDecoration);
+
     XMoveResizeWindow(display, _window, x, y, width, height);
 
     XFlush(display);
     XSync(display, 0);
-
-    checkAndSendEventFullScreenIfNeeded(display, x, y, width, height, _traits->windowDecoration);
-
+    
     // add usleep here to give window manager a chance to handle the request, if
     // we don't add this sleep then any X11 calls right afterwards can produce
     // X11 errors.
@@ -809,8 +815,17 @@ void GraphicsWindowX11::init()
 
     if (_valid == false)
     {
-        XCloseDisplay( _display );
-        _display = 0;
+        if (_display)
+        {
+            XCloseDisplay( _display );
+            _display = 0;
+        }
+
+        if (_eventDisplay)
+        {
+            XCloseDisplay( _eventDisplay );
+            _eventDisplay = 0;
+        }
     }
 
 
@@ -845,10 +860,54 @@ bool GraphicsWindowX11::createWindow()
         OSG_INFO<<"Setting override redirect"<<std::endl;
     }
 
+
+    osg::GraphicsContext::WindowingSystemInterface *wsi = osg::GraphicsContext::getWindowingSystemInterface();
+    if (wsi == NULL) {
+    OSG_NOTICE << "Error, no WindowSystemInterface available, cannot toggle window fullscreen." << std::endl;
+    return false;
+    }
+
+    int x = _traits->x;
+    int y = _traits->y;
+    int width = _traits->width;
+    int height = _traits->height;
+
+
+    unsigned int screenWidth;
+    unsigned int screenHeight;
+    wsi->getScreenResolution(*_traits, screenWidth, screenHeight);
+
+    bool doFullSceenWorkAround = false;
+    bool isFullScreen = x == 0 && y == 0 && width == (int)screenWidth && height == (int)screenHeight && !_traits->windowDecoration;
+    if (isFullScreen && !_traits->overrideRedirect)
+    {
+        // follows is hack to get around problems with toggling off full screen with modern X11 window
+        // managers that try to be too clever when toggling off full screen and ignore the window size
+        // calls made by the OSG when the initial window size is full screen.
+
+        Atom netWMStateAtom = XInternAtom(_display, "_NET_WM_STATE", True);
+        Atom netWMStateFullscreenAtom = XInternAtom(_display, "_NET_WM_STATE_FULLSCREEN", True);
+
+        // we have a modern X11 server so assume we need the do the full screen hack.
+        if (netWMStateAtom != None && netWMStateFullscreenAtom != None)
+        {
+            // artifically reduce the initial window size so that the windowing
+            // system has a size to go back to when toggling off full screen,
+            // we don't have to worry about the window being initially smaller as the
+            // setWindowDecoration(..) implementation with enable full screen for us
+            x = width/4;
+            y = height/4;
+            width /= 2;
+            height /= 2;
+
+            doFullSceenWorkAround = true;
+        }
+    }
+    
     _window = XCreateWindow( _display, _parent,
-                             _traits->x,
-                             _traits->y,
-                             _traits->width, _traits->height, 0,
+                             x,
+                             y,
+                             width, height, 0,
                              _visualInfo->depth, InputOutput,
                              _visualInfo->visual, mask, &swatt );
 
@@ -881,6 +940,7 @@ bool GraphicsWindowX11::createWindow()
 
     setWindowDecoration(_traits->windowDecoration);
 
+    
     useCursor(_traits->useCursor);
 
     _deleteWindow = XInternAtom (_display, "WM_DELETE_WINDOW", False);
@@ -896,6 +956,18 @@ bool GraphicsWindowX11::createWindow()
     if (_traits->x != watt.x || _traits->y != watt.y
         ||_traits->width != watt.width || _traits->height != watt.height)
     {
+
+        if (doFullSceenWorkAround)
+        {
+            OSG_INFO<<"Full Screen failed, resizing manually"<<std::endl;
+            XMoveResizeWindow(_display, _window, _traits->x, _traits->y, _traits->width, _traits->height);
+
+            XFlush(_display);
+            XSync(_display, 0);
+
+            XGetWindowAttributes( _display, _window, &watt );
+        }
+
         resized( watt.x, watt.y, watt.width, watt.height );
     }
 
@@ -1090,6 +1162,25 @@ void GraphicsWindowX11::swapBuffersImplementation()
 #endif
         glXSwapBuffers( _display, _window );
     #endif
+
+
+    while( XPending(_display) )
+    {
+        XEvent ev;
+        XNextEvent( _display, &ev );
+
+        switch( ev.type )
+        {
+            case ClientMessage:
+            {
+                if (static_cast<Atom>(ev.xclient.data.l[0]) == _deleteWindow)
+                {
+                    OSG_INFO<<"DeleteWindow event received"<<std::endl;
+                    getEventQueue()->closeWindow();
+                }
+            }
+        }
+    }
 }
 
 void GraphicsWindowX11::checkEvents()
@@ -1110,8 +1201,6 @@ void GraphicsWindowX11::checkEvents()
     int windowWidth = _traits->width;
     int windowHeight = _traits->height;
 
-    bool destroyWindowRequested = false;
-
     Time firstEventTime = 0;
 
     // OSG_NOTICE<<"Check events"<<std::endl;
@@ -1129,7 +1218,6 @@ void GraphicsWindowX11::checkEvents()
                 {
                     OSG_NOTICE<<"DeleteWindow event received"<<std::endl;
                     // FIXME only do if _ownsWindow ?
-                    destroyWindowRequested = true;
                     getEventQueue()->closeWindow(eventTime);
                 }
                 break;
@@ -1460,36 +1548,6 @@ void GraphicsWindowX11::checkEvents()
             requestRedraw();
         }
     }
-
-
-    //
-    // process events of _display
-    //
-    while( XPending(_display) )
-    {
-        XEvent ev;
-        XNextEvent( _display, &ev );
-
-        switch( ev.type )
-        {
-            case ClientMessage:
-            {
-                if (static_cast<Atom>(ev.xclient.data.l[0]) == _deleteWindow)
-                {
-                    OSG_INFO<<"DeleteWindow event received"<<std::endl;
-                    getEventQueue()->closeWindow();
-                }
-                break;
-            }
-        }
-    }
-
-#if 0
-    if (destroyWindowRequested)
-    {
-        close();
-    }
-#endif
 }
 
 void GraphicsWindowX11::grabFocus()

@@ -194,6 +194,8 @@ Viewer::Viewer(osg::ArgumentParser& arguments)
 }
 
 Viewer::Viewer(const osgViewer::Viewer& viewer, const osg::CopyOp& copyop):
+    osg::Object(true),
+    ViewerBase(viewer),
     View(viewer,copyop)
 {
     _viewerBase = this;
@@ -246,7 +248,7 @@ Viewer::~Viewer()
     OSG_INFO<<"Viewer::~Viewer() end destructor getThreads = "<<threads.size()<<std::endl;
 }
 
-void Viewer::take(View& rhs)
+void Viewer::take(osg::View& rhs)
 {
     osgViewer::View::take(rhs);
 
@@ -584,6 +586,11 @@ void Viewer::advance(double simulationTime)
         _frameStamp->setSimulationTime(simulationTime);
     }
 
+    if (_eventQueue.valid())
+    {
+        _eventQueue->frame( getFrameStamp()->getReferenceTime() );
+    }
+
     if (getViewerStats() && getViewerStats()->collectStats("frame_rate"))
     {
         // update previous frame stats
@@ -594,6 +601,7 @@ void Viewer::advance(double simulationTime)
         // update current frames stats
         getViewerStats()->setAttribute(_frameStamp->getFrameNumber(), "Reference time", _frameStamp->getReferenceTime());
     }
+
 
     if (osg::Referenced::getDeleteHandler())
     {
@@ -607,6 +615,8 @@ void Viewer::eventTraversal()
 {
     if (_done) return;
 
+    double cutOffTime = (_runFrameScheme==ON_DEMAND) ? DBL_MAX : _frameStamp->getReferenceTime();
+    
     double beginEventTraversal = osg::Timer::instance()->delta_s(_startTick, osg::Timer::instance()->tick());
 
     // OSG_NOTICE<<"Viewer::frameEventTraversal()."<<std::endl;
@@ -645,7 +655,7 @@ void Viewer::eventTraversal()
             gw->checkEvents();
 
             osgGA::EventQueue::Events gw_events;
-            gw->getEventQueue()->takeEvents(gw_events);
+            gw->getEventQueue()->takeEvents(gw_events, cutOffTime);
 
             osgGA::EventQueue::Events::iterator itr;
             for(itr = gw_events.begin();
@@ -791,9 +801,7 @@ void Viewer::eventTraversal()
 
     // OSG_NOTICE<<"mouseEventState Xmin = "<<eventState->getXmin()<<" Ymin="<<eventState->getYmin()<<" xMax="<<eventState->getXmax()<<" Ymax="<<eventState->getYmax()<<std::endl;
 
-
-    _eventQueue->frame( getFrameStamp()->getReferenceTime() );
-    _eventQueue->takeEvents(events);
+    _eventQueue->takeEvents(events, cutOffTime);
 
 
 #if 0

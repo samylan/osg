@@ -70,8 +70,6 @@
 #include <osgVolume/RayTracedTechnique>
 #include <osgVolume/FixedFunctionTechnique>
 
-typedef std::vector< osg::ref_ptr<osg::Image> > ImageList;
-
 enum ShadingModel
 {
     Standard,
@@ -80,518 +78,53 @@ enum ShadingModel
     MaximumIntensityProjection
 };
 
-struct PassThroughTransformFunction
-{
-    unsigned char operator() (unsigned char c) const { return c; }
-};
 
-
-struct ProcessRow
-{
-    virtual ~ProcessRow() {}
-
-    virtual void operator() (unsigned int num,
-                    GLenum source_pixelFormat, unsigned char* source,
-                    GLenum dest_pixelFormat, unsigned char* dest) const
-    {
-        switch(source_pixelFormat)
-        {
-        case(GL_LUMINANCE):
-        case(GL_ALPHA):
-            switch(dest_pixelFormat)
-            {
-            case(GL_LUMINANCE):
-            case(GL_ALPHA): A_to_A(num, source, dest); break;
-            case(GL_LUMINANCE_ALPHA): A_to_LA(num, source, dest); break;
-            case(GL_RGB): A_to_RGB(num, source, dest); break;
-            case(GL_RGBA): A_to_RGBA(num, source, dest); break;
-            }
-            break;
-        case(GL_LUMINANCE_ALPHA):
-            switch(dest_pixelFormat)
-            {
-            case(GL_LUMINANCE):
-            case(GL_ALPHA): LA_to_A(num, source, dest); break;
-            case(GL_LUMINANCE_ALPHA): LA_to_LA(num, source, dest); break;
-            case(GL_RGB): LA_to_RGB(num, source, dest); break;
-            case(GL_RGBA): LA_to_RGBA(num, source, dest); break;
-            }
-            break;
-        case(GL_RGB):
-            switch(dest_pixelFormat)
-            {
-            case(GL_LUMINANCE):
-            case(GL_ALPHA): RGB_to_A(num, source, dest); break;
-            case(GL_LUMINANCE_ALPHA): RGB_to_LA(num, source, dest); break;
-            case(GL_RGB): RGB_to_RGB(num, source, dest); break;
-            case(GL_RGBA): RGB_to_RGBA(num, source, dest); break;
-            }
-            break;
-        case(GL_RGBA):
-            switch(dest_pixelFormat)
-            {
-            case(GL_LUMINANCE):
-            case(GL_ALPHA): RGBA_to_A(num, source, dest); break;
-            case(GL_LUMINANCE_ALPHA): RGBA_to_LA(num, source, dest); break;
-            case(GL_RGB): RGBA_to_RGB(num, source, dest); break;
-            case(GL_RGBA): RGBA_to_RGBA(num, source, dest); break;
-            }
-            break;
-        case(GL_BGR):
-            switch(dest_pixelFormat)
-            {
-            case(GL_LUMINANCE):
-            case(GL_ALPHA): BGR_to_A(num, source, dest); break;
-            case(GL_LUMINANCE_ALPHA): BGR_to_LA(num, source, dest); break;
-            case(GL_RGB): BGR_to_RGB(num, source, dest); break;
-            case(GL_RGBA): BGR_to_RGBA(num, source, dest); break;
-            }
-            break;
-        case(GL_BGRA):
-            switch(dest_pixelFormat)
-            {
-            case(GL_LUMINANCE):
-            case(GL_ALPHA): BGRA_to_A(num, source, dest); break;
-            case(GL_LUMINANCE_ALPHA): BGRA_to_LA(num, source, dest); break;
-            case(GL_RGB): BGRA_to_RGB(num, source, dest); break;
-            case(GL_RGBA): BGRA_to_RGBA(num, source, dest); break;
-            }
-            break;
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // alpha sources..
-    virtual void A_to_A(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void A_to_LA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void A_to_RGB(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source;
-            *dest++ = *source;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void A_to_RGBA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source;
-            *dest++ = *source;
-            *dest++ = *source;
-            *dest++ = *source++;
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // alpha luminance sources..
-    virtual void LA_to_A(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            ++source;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void LA_to_LA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source++;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void LA_to_RGB(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source;
-            *dest++ = *source;
-            *dest++ = *source;
-            source+=2;
-        }
-    }
-
-    virtual void LA_to_RGBA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source;
-            *dest++ = *source;
-            *dest++ = *source++;
-            *dest++ = *source++;
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // RGB sources..
-    virtual void RGB_to_A(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char val = *source;
-            *dest++ = val;
-            source += 3;
-        }
-    }
-
-    virtual void RGB_to_LA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char val = *source;
-            *dest++ = val;
-            *dest++ = val;
-            source += 3;
-        }
-    }
-
-    virtual void RGB_to_RGB(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source++;
-            *dest++ = *source++;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void RGB_to_RGBA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char val = *source;
-            *dest++ = *source++;
-            *dest++ = *source++;
-            *dest++ = *source++;
-            *dest++ = val;
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // RGBA sources..
-    virtual void RGBA_to_A(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            source += 3;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void RGBA_to_LA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char val = *source;
-            source += 3;
-            *dest++ = val;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void RGBA_to_RGB(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source++;
-            *dest++ = *source++;
-            *dest++ = *source++;
-            ++source;
-        }
-    }
-
-    virtual void RGBA_to_RGBA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            *dest++ = *source++;
-            *dest++ = *source++;
-            *dest++ = *source++;
-            *dest++ = *source++;
-        }
-    }
-
-     ///////////////////////////////////////////////////////////////////////////////
-    // BGR sources..
-    virtual void BGR_to_A(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char val = *source;
-            *dest++ = val;
-            source += 3;
-        }
-    }
-
-    virtual void BGR_to_LA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char val = *source;
-            *dest++ = val;
-            *dest++ = val;
-            source += 3;
-        }
-    }
-
-    virtual void BGR_to_RGB(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char blue = *source++;
-            unsigned char green = *source++;
-            unsigned char red = *source++;
-            *dest++ = red;
-            *dest++ = green;
-            *dest++ = blue;
-        }
-    }
-
-    virtual void BGR_to_RGBA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char blue = *source++;
-            unsigned char green = *source++;
-            unsigned char red = *source++;
-            unsigned char val = (unsigned char)((int(red)+int(green)+int(blue))/3);
-            *dest++ = red;
-            *dest++ = green;
-            *dest++ = blue;
-            *dest++ = val;
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // BGRA sources..
-    virtual void BGRA_to_A(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            source += 3;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void BGRA_to_LA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char val = *source;
-            source += 3;
-            *dest++ = val;
-            *dest++ = *source++;
-        }
-    }
-
-    virtual void BGRA_to_RGB(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char blue = *source++;
-            unsigned char green = *source++;
-            unsigned char red = *source++;
-            *dest++ = red;
-            *dest++ = green;
-            *dest++ = blue;
-            ++source;
-        }
-    }
-
-    virtual void BGRA_to_RGBA(unsigned int num, unsigned char* source, unsigned char* dest) const
-    {
-        for(unsigned int i=0;i<num;++i)
-        {
-            unsigned char blue = *source++;
-            unsigned char green = *source++;
-            unsigned char red = *source++;
-            unsigned char alpha = *source++;
-            *dest++ = red;
-            *dest++ = green;
-            *dest++ = blue;
-            *dest++ = alpha;
-        }
-    }
-
-};
-
-
-void clampToNearestValidPowerOfTwo(int& sizeX, int& sizeY, int& sizeZ, int s_maximumTextureSize, int t_maximumTextureSize, int r_maximumTextureSize)
-{
-    // compute nearest powers of two for each axis.
-    int s_nearestPowerOfTwo = 1;
-    while(s_nearestPowerOfTwo<sizeX && s_nearestPowerOfTwo<s_maximumTextureSize) s_nearestPowerOfTwo*=2;
-
-    int t_nearestPowerOfTwo = 1;
-    while(t_nearestPowerOfTwo<sizeY && t_nearestPowerOfTwo<t_maximumTextureSize) t_nearestPowerOfTwo*=2;
-
-    int r_nearestPowerOfTwo = 1;
-    while(r_nearestPowerOfTwo<sizeZ && r_nearestPowerOfTwo<r_maximumTextureSize) r_nearestPowerOfTwo*=2;
-
-    sizeX = s_nearestPowerOfTwo;
-    sizeY = t_nearestPowerOfTwo;
-    sizeZ = r_nearestPowerOfTwo;
-}
-
-osg::Image* createTexture3D(ImageList& imageList, ProcessRow& processRow,
+osg::Image* createTexture3D(osg::ImageList& imageList,
             unsigned int numComponentsDesired,
             int s_maximumTextureSize,
             int t_maximumTextureSize,
             int r_maximumTextureSize,
             bool resizeToPowerOfTwo)
 {
-    int max_s = 0;
-    int max_t = 0;
-    unsigned int max_components = 0;
-    int total_r = 0;
-    ImageList::iterator itr;
-    for(itr=imageList.begin();
-        itr!=imageList.end();
-        ++itr)
+
+    if (numComponentsDesired==0)
     {
-        osg::Image* image = itr->get();
-        GLenum pixelFormat = image->getPixelFormat();
-        if (pixelFormat==GL_ALPHA ||
-            pixelFormat==GL_INTENSITY ||
-            pixelFormat==GL_LUMINANCE ||
-            pixelFormat==GL_LUMINANCE_ALPHA ||
-            pixelFormat==GL_RGB ||
-            pixelFormat==GL_RGBA ||
-            pixelFormat==GL_BGR ||
-            pixelFormat==GL_BGRA)
-        {
-            max_s = osg::maximum(image->s(), max_s);
-            max_t = osg::maximum(image->t(), max_t);
-            max_components = osg::maximum(osg::Image::computeNumComponents(pixelFormat), max_components);
-            total_r += image->r();
-        }
-        else
-        {
-            osg::notify(osg::NOTICE)<<"Image "<<image->getFileName()<<" has unsuitable pixel format 0x"<< std::hex<< pixelFormat << std::dec << std::endl;
-        }
-    }
-
-    if (max_components==3)
-    {
-        // change RGB to a RGBA
-        max_components = 4;
-    }
-
-    if (numComponentsDesired!=0) max_components = numComponentsDesired;
-
-    GLenum desiredPixelFormat = 0;
-    switch(max_components)
-    {
-    case(1):
-        osg::notify(osg::NOTICE)<<"desiredPixelFormat = GL_LUMINANCE" << std::endl;
-        desiredPixelFormat = GL_LUMINANCE;
-        break;
-    case(2):
-        osg::notify(osg::NOTICE)<<"desiredPixelFormat = GL_LUMINANCE_ALPHA" << std::endl;
-        desiredPixelFormat = GL_LUMINANCE_ALPHA;
-        break;
-    case(3):
-        osg::notify(osg::NOTICE)<<"desiredPixelFormat = GL_RGB" << std::endl;
-        desiredPixelFormat = GL_RGB;
-        break;
-    case(4):
-        osg::notify(osg::NOTICE)<<"desiredPixelFormat = GL_RGBA" << std::endl;
-        desiredPixelFormat = GL_RGBA;
-        break;
-    }
-    if (desiredPixelFormat==0) return 0;
-
-    // compute nearest powers of two for each axis.
-
-    int s_nearestPowerOfTwo = 1;
-    int t_nearestPowerOfTwo = 1;
-    int r_nearestPowerOfTwo = 1;
-
-    if (resizeToPowerOfTwo)
-    {
-        while(s_nearestPowerOfTwo<max_s && s_nearestPowerOfTwo<s_maximumTextureSize) s_nearestPowerOfTwo*=2;
-        while(t_nearestPowerOfTwo<max_t && t_nearestPowerOfTwo<t_maximumTextureSize) t_nearestPowerOfTwo*=2;
-        while(r_nearestPowerOfTwo<total_r && r_nearestPowerOfTwo<r_maximumTextureSize) r_nearestPowerOfTwo*=2;
-
-        osg::notify(osg::NOTICE)<<"max image width = "<<max_s<<"  nearest power of two = "<<s_nearestPowerOfTwo<<std::endl;
-        osg::notify(osg::NOTICE)<<"max image height = "<<max_t<<"  nearest power of two = "<<t_nearestPowerOfTwo<<std::endl;
-        osg::notify(osg::NOTICE)<<"max image depth = "<<total_r<<"  nearest power of two = "<<r_nearestPowerOfTwo<<std::endl;
+        return osg::createImage3DWithAlpha(imageList,
+                                        s_maximumTextureSize,
+                                        t_maximumTextureSize,
+                                        r_maximumTextureSize,
+                                        resizeToPowerOfTwo);
     }
     else
     {
-        s_nearestPowerOfTwo = max_s;
-        t_nearestPowerOfTwo = max_t;
-        r_nearestPowerOfTwo = total_r;
-    }
-
-    // now allocate the 3d texture;
-    osg::ref_ptr<osg::Image> image_3d = new osg::Image;
-    image_3d->allocateImage(s_nearestPowerOfTwo,t_nearestPowerOfTwo,r_nearestPowerOfTwo,
-                            desiredPixelFormat,GL_UNSIGNED_BYTE);
-
-
-    unsigned int r_offset = (total_r<r_nearestPowerOfTwo) ? r_nearestPowerOfTwo/2 - total_r/2 : 0;
-
-    int curr_dest_r = r_offset;
-
-    // copy across the values from the source images into the image_3d.
-    for(itr=imageList.begin();
-        itr!=imageList.end();
-        ++itr)
-    {
-        osg::Image* image = itr->get();
-        GLenum pixelFormat = image->getPixelFormat();
-        if (pixelFormat==GL_ALPHA ||
-            pixelFormat==GL_LUMINANCE ||
-            pixelFormat==GL_INTENSITY ||
-            pixelFormat==GL_LUMINANCE_ALPHA ||
-            pixelFormat==GL_RGB ||
-            pixelFormat==GL_RGBA ||
-            pixelFormat==GL_BGR ||
-            pixelFormat==GL_BGRA)
+        GLenum desiredPixelFormat = 0;
+        switch(numComponentsDesired)
         {
-
-            int num_r = osg::minimum(image->r(), (image_3d->r() - curr_dest_r));
-            int num_t = osg::minimum(image->t(), image_3d->t());
-            int num_s = osg::minimum(image->s(), image_3d->s());
-
-            unsigned int s_offset_dest = (image->s()<s_nearestPowerOfTwo) ? s_nearestPowerOfTwo/2 - image->s()/2 : 0;
-            unsigned int t_offset_dest = (image->t()<t_nearestPowerOfTwo) ? t_nearestPowerOfTwo/2 - image->t()/2 : 0;
-
-            for(int r=0;r<num_r;++r, ++curr_dest_r)
-            {
-                for(int t=0;t<num_t;++t)
-                {
-                    unsigned char* dest = image_3d->data(s_offset_dest,t+t_offset_dest,curr_dest_r);
-                    unsigned char* source = image->data(0,t,r);
-
-                    processRow(num_s, image->getPixelFormat(), source, image_3d->getPixelFormat(), dest);
-                }
-            }
+            case(1) : desiredPixelFormat = GL_LUMINANCE; break;
+            case(2) : desiredPixelFormat = GL_LUMINANCE_ALPHA; break;
+            case(3) : desiredPixelFormat = GL_RGB; break;
+            case(4) : desiredPixelFormat = GL_RGBA; break;
         }
+
+        return osg::createImage3D(imageList,
+                                        desiredPixelFormat,
+                                        s_maximumTextureSize,
+                                        t_maximumTextureSize,
+                                        r_maximumTextureSize,
+                                        resizeToPowerOfTwo);
     }
-    return image_3d.release();
 }
+
+struct ModulateAlphaByLuminanceOperator
+{
+    ModulateAlphaByLuminanceOperator() {}
+
+    inline void luminance(float&) const {}
+    inline void alpha(float&) const {}
+    inline void luminance_alpha(float& l,float& a) const { a*= l; }
+    inline void rgb(float&,float&,float&) const {}
+    inline void rgba(float& r,float& g,float& b,float& a) const { float l = (r+g+b)*0.3333333; a *= l;}
+};
 
 
 struct ScaleOperator
@@ -639,6 +172,23 @@ struct WriteRowOperator
     inline void rgb(float& r,float& g,float& b) const { r = _colours[_pos].r(); g = _colours[_pos].g(); b = _colours[_pos].b(); }
     inline void rgba(float& r,float& g,float& b,float& a) const {  r = _colours[_pos].r(); g = _colours[_pos].g(); b = _colours[_pos].b(); a = _colours[_pos++].a(); }
 };
+
+void clampToNearestValidPowerOfTwo(int& sizeX, int& sizeY, int& sizeZ, int s_maximumTextureSize, int t_maximumTextureSize, int r_maximumTextureSize)
+{
+    // compute nearest powers of two for each axis.
+    int s_nearestPowerOfTwo = 1;
+    while(s_nearestPowerOfTwo<sizeX && s_nearestPowerOfTwo<s_maximumTextureSize) s_nearestPowerOfTwo*=2;
+
+    int t_nearestPowerOfTwo = 1;
+    while(t_nearestPowerOfTwo<sizeY && t_nearestPowerOfTwo<t_maximumTextureSize) t_nearestPowerOfTwo*=2;
+
+    int r_nearestPowerOfTwo = 1;
+    while(r_nearestPowerOfTwo<sizeZ && r_nearestPowerOfTwo<r_maximumTextureSize) r_nearestPowerOfTwo*=2;
+
+    sizeX = s_nearestPowerOfTwo;
+    sizeY = t_nearestPowerOfTwo;
+    sizeZ = r_nearestPowerOfTwo;
+}
 
 osg::Image* readRaw(int sizeX, int sizeY, int sizeZ, int numberBytesPerComponent, int numberOfComponents, const std::string& endian, const std::string& raw_filename)
 {
@@ -769,17 +319,6 @@ enum ColourSpaceOperation
     REPLACE_RGB_WITH_LUMINANCE
 };
 
-struct ModulateAlphaByLuminanceOperator
-{
-    ModulateAlphaByLuminanceOperator() {}
-
-    inline void luminance(float&) const {}
-    inline void alpha(float&) const {}
-    inline void luminance_alpha(float& l,float& a) const { a*= l; }
-    inline void rgb(float&,float&,float&) const {}
-    inline void rgba(float& r,float& g,float& b,float& a) const { float l = (r+g+b)*0.3333333; a *= l;}
-};
-
 struct ModulateAlphaByColourOperator
 {
     ModulateAlphaByColourOperator(const osg::Vec4& colour):_colour(colour) { _lum = _colour.length(); }
@@ -842,7 +381,7 @@ osg::Image* doColourSpaceConversion(ColourSpaceOperation op, osg::Image* image, 
 }
 
 
-osg::TransferFunction1D* readTransferFunctionFile(const std::string& filename)
+osg::TransferFunction1D* readTransferFunctionFile(const std::string& filename, float colorScale=1.0f)
 {
     std::string foundFile = osgDB::findDataFile(filename);
     if (foundFile.empty())
@@ -862,7 +401,7 @@ osg::TransferFunction1D* readTransferFunctionFile(const std::string& filename)
         if (fin)
         {
             std::cout<<"value = "<<value<<" ("<<red<<", "<<green<<", "<<blue<<", "<<alpha<<")"<<std::endl;
-            colorMap[value] = osg::Vec4(red,green,blue,alpha);
+            colorMap[value] = osg::Vec4(red*colorScale,green*colorScale,blue*colorScale,alpha*colorScale);
         }
     }
 
@@ -994,11 +533,6 @@ int main( int argc, char **argv )
     arguments.getApplicationUsage()->addCommandLineOption("--s_maxTextureSize <size>","Set the texture maximum resolution in the s (x) dimension.");
     arguments.getApplicationUsage()->addCommandLineOption("--t_maxTextureSize <size>","Set the texture maximum resolution in the t (y) dimension.");
     arguments.getApplicationUsage()->addCommandLineOption("--r_maxTextureSize <size>","Set the texture maximum resolution in the r (z) dimension.");
-    arguments.getApplicationUsage()->addCommandLineOption("--compressed","Enable the usage of compressed textures.");
-    arguments.getApplicationUsage()->addCommandLineOption("--compressed-arb","Enable the usage of OpenGL ARB compressed textures.");
-    arguments.getApplicationUsage()->addCommandLineOption("--compressed-dxt1","Enable the usage of S3TC DXT1 compressed textures.");
-    arguments.getApplicationUsage()->addCommandLineOption("--compressed-dxt3","Enable the usage of S3TC DXT3 compressed textures.");
-    arguments.getApplicationUsage()->addCommandLineOption("--compressed-dxt5","Enable the usage of S3TC DXT5 compressed textures.");
     arguments.getApplicationUsage()->addCommandLineOption("--modulate-alpha-by-luminance","For each pixel multiply the alpha value by the luminance.");
     arguments.getApplicationUsage()->addCommandLineOption("--replace-alpha-with-luminance","For each pixel set the alpha value to the luminance.");
     arguments.getApplicationUsage()->addCommandLineOption("--replace-rgb-with-luminance","For each rgb pixel convert to the luminance.");
@@ -1008,6 +542,8 @@ int main( int argc, char **argv )
     arguments.getApplicationUsage()->addCommandLineOption("--shift-min-to-zero","Shift the pixel data so min value is 0.0.");
     arguments.getApplicationUsage()->addCommandLineOption("--sequence-length <num>","Set the length of time that a sequence of images with run for.");
     arguments.getApplicationUsage()->addCommandLineOption("--sd <num>","Short hand for --sequence-length");
+    arguments.getApplicationUsage()->addCommandLineOption("--sdwm <num>","Set the SampleDensityWhenMovingProperty to specified value");
+    arguments.getApplicationUsage()->addCommandLineOption("--lod","Enable techniques to reduce the level of detail when moving.");
 //    arguments.getApplicationUsage()->addCommandLineOption("--raw <sizeX> <sizeY> <sizeZ> <numberBytesPerComponent> <numberOfComponents> <endian> <filename>","read a raw image data");
 
     // construct the viewer.
@@ -1050,6 +586,10 @@ int main( int argc, char **argv )
     while (arguments.read("--tf",tranferFunctionFile))
     {
         transferFunction = readTransferFunctionFile(tranferFunctionFile);
+    }
+    while (arguments.read("--tf-255",tranferFunctionFile))
+    {
+        transferFunction = readTransferFunctionFile(tranferFunctionFile,1.0f/255.0f);
     }
 
     while(arguments.read("--test"))
@@ -1130,14 +670,6 @@ int main( int argc, char **argv )
     while(arguments.read("--t_maxTextureSize",t_maximumTextureSize)) {}
     while(arguments.read("--r_maxTextureSize",r_maximumTextureSize)) {}
 
-    osg::Texture::InternalFormatMode internalFormatMode = osg::Texture::USE_IMAGE_DATA_FORMAT;
-    while(arguments.read("--compressed") || arguments.read("--compressed-arb")) { internalFormatMode = osg::Texture::USE_ARB_COMPRESSION; }
-
-    while(arguments.read("--compressed-dxt1")) { internalFormatMode = osg::Texture::USE_S3TC_DXT1_COMPRESSION; }
-    while(arguments.read("--compressed-dxt3")) { internalFormatMode = osg::Texture::USE_S3TC_DXT3_COMPRESSION; }
-    while(arguments.read("--compressed-dxt5")) { internalFormatMode = osg::Texture::USE_S3TC_DXT5_COMPRESSION; }
-
-
     // set up colour space operation.
     ColourSpaceOperation colourSpaceOperation = NO_COLOUR_SPACE_OPERATION;
     osg::Vec4 colourModulate(0.25f,0.25f,0.25f,0.25f);
@@ -1177,9 +709,14 @@ int main( int argc, char **argv )
     while(arguments.read("--gpu-tf")) { gpuTransferFunction = true; }
     while(arguments.read("--cpu-tf")) { gpuTransferFunction = false; }
 
+    double sampleDensityWhenMoving = 0.0;
+    while(arguments.read("--sdwm", sampleDensityWhenMoving)) {}
+
+    while(arguments.read("--lod")) { sampleDensityWhenMoving = 0.02; }
+
     double sequenceLength = 10.0;
     while(arguments.read("--sequence-duration", sequenceLength) ||
-        arguments.read("--sd", sequenceLength)) {}
+          arguments.read("--sd", sequenceLength)) {}
 
     typedef std::list< osg::ref_ptr<osg::Image> > Images;
     Images images;
@@ -1252,7 +789,7 @@ int main( int argc, char **argv )
     int images_pos = arguments.find("--images");
     if (images_pos>=0)
     {
-        ImageList imageList;
+        osg::ImageList imageList;
         int pos=images_pos+1;
         for(;pos<arguments.argc() && !arguments.isOption(pos);++pos)
         {
@@ -1287,8 +824,7 @@ int main( int argc, char **argv )
         arguments.remove(images_pos, pos-images_pos);
 
         // pack the textures into a single texture.
-        ProcessRow processRow;
-        osg::Image* image = createTexture3D(imageList, processRow, numComponentsDesired, s_maximumTextureSize, t_maximumTextureSize, r_maximumTextureSize, resizeToPowerOfTwo);
+        osg::Image* image = createTexture3D(imageList, numComponentsDesired, s_maximumTextureSize, t_maximumTextureSize, r_maximumTextureSize, resizeToPowerOfTwo);
         if (image)
         {
             images.push_back(image);
@@ -1576,7 +1112,7 @@ int main( int argc, char **argv )
 
         osgVolume::AlphaFuncProperty* ap = new osgVolume::AlphaFuncProperty(alphaFunc);
         osgVolume::SampleDensityProperty* sd = new osgVolume::SampleDensityProperty(0.005);
-        osgVolume::SampleDensityWhenMovingProperty* sdwm = new osgVolume::SampleDensityWhenMovingProperty(0.02);
+        osgVolume::SampleDensityWhenMovingProperty* sdwm = sampleDensityWhenMoving!=0.0 ? new osgVolume::SampleDensityWhenMovingProperty(sampleDensityWhenMoving) : 0;
         osgVolume::TransparencyProperty* tp = new osgVolume::TransparencyProperty(1.0);
         osgVolume::TransferFunctionProperty* tfp = transferFunction.valid() ? new osgVolume::TransferFunctionProperty(transferFunction.get()) : 0;
 
@@ -1585,8 +1121,8 @@ int main( int argc, char **argv )
             osgVolume::CompositeProperty* cp = new osgVolume::CompositeProperty;
             cp->addProperty(ap);
             cp->addProperty(sd);
-            cp->addProperty(sdwm);
             cp->addProperty(tp);
+            if (sdwm) cp->addProperty(sdwm);
             if (tfp) cp->addProperty(tfp);
 
             sp->addProperty(cp);
@@ -1599,6 +1135,7 @@ int main( int argc, char **argv )
             cp->addProperty(sd);
             cp->addProperty(tp);
             cp->addProperty(new osgVolume::LightingProperty);
+            if (sdwm) cp->addProperty(sdwm);
             if (tfp) cp->addProperty(tfp);
 
             sp->addProperty(cp);
@@ -1610,6 +1147,7 @@ int main( int argc, char **argv )
             cp->addProperty(sd);
             cp->addProperty(tp);
             cp->addProperty(new osgVolume::IsoSurfaceProperty(alphaFunc));
+            if (sdwm) cp->addProperty(sdwm);
             if (tfp) cp->addProperty(tfp);
 
             sp->addProperty(cp);
@@ -1622,6 +1160,7 @@ int main( int argc, char **argv )
             cp->addProperty(sd);
             cp->addProperty(tp);
             cp->addProperty(new osgVolume::MaximumIntensityProjectionProperty);
+            if (sdwm) cp->addProperty(sdwm);
             if (tfp) cp->addProperty(tfp);
 
             sp->addProperty(cp);
@@ -1649,7 +1188,7 @@ int main( int argc, char **argv )
     {
         std::string ext = osgDB::getFileExtension(outputFile);
         std::string name_no_ext = osgDB::getNameLessExtension(outputFile);
-        if (ext=="osg")
+        if (ext=="osg" || ext=="osgt" || ext=="osgx" )
         {
             if (image_3d.valid())
             {
@@ -1658,7 +1197,7 @@ int main( int argc, char **argv )
             }
             osgDB::writeNodeFile(*volume, outputFile);
         }
-        else if (ext=="ive")
+        else if (ext=="ive" || ext=="osgb" )
         {
             osgDB::writeNodeFile(*volume, outputFile);
         }

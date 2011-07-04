@@ -311,13 +311,11 @@ osg::Image* ReadDDSFile(std::istream& _istream)
         return NULL;
     }
 
-    bool is3dImage = false;
     int depth = 1;
 
     // Check for volume image
     if( ddsd.dwDepth > 0 && (ddsd.dwFlags & DDSD_DEPTH))
     {
-        is3dImage = true;
         depth = ddsd.dwDepth;
     }
 
@@ -718,7 +716,6 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
     //unsigned int components     = osg::Image::computeNumComponents(pixelFormat);
     unsigned int pixelSize      = osg::Image::computePixelSizeInBits(pixelFormat, dataType);
     unsigned int imageSize      = img->getImageSizeInBytes();
-    bool is3dImage = false;
 
     ddsd.dwWidth  = img->s();
     ddsd.dwHeight = img->t();
@@ -726,7 +723,6 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
 
     if(r > 1)  /* check for 3d image */
     {
-        is3dImage = true;
         ddsd.dwDepth = r;
         SD_flags    |= DDSD_DEPTH;
         CAPS_flags  |= DDSCAPS_COMPLEX;
@@ -776,6 +772,17 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
             ddpf.dwRBitMask        = 0x000000ff;
             ddpf.dwGBitMask        = 0x0000ff00;
             ddpf.dwBBitMask        = 0x00ff0000;  
+            PF_flags |= DDPF_RGB;
+            ddpf.dwRGBBitCount = pixelSize;
+            ddsd.lPitch = img->getRowSizeInBytes();
+            SD_flags |= DDSD_PITCH;
+        }
+        break;
+    case GL_BGR:
+        {
+            ddpf.dwBBitMask        = 0x000000ff;
+            ddpf.dwGBitMask        = 0x0000ff00;
+            ddpf.dwRBitMask        = 0x00ff0000;  
             PF_flags |= DDPF_RGB;
             ddpf.dwRGBBitCount = pixelSize;
             ddsd.lPitch = img->getRowSizeInBytes();

@@ -1,3 +1,1676 @@
+2011-06-23 11:09  robert
+
+	* include/osgGA/GUIEventHandler, include/osgManipulator/Dragger,
+	  include/osgSim/ShapeAttribute, src/osgPlugins/zip/unzip.cpp,
+	  src/osgViewer/CompositeViewer.cpp, src/osgViewer/View.cpp,
+	  src/osgViewer/Viewer.cpp, src/osgViewer/ViewerBase.cpp: Fixed
+	  warnings.
+	  
+	  OpenSceneGraph/src/osgGA/NodeTrackerManipulator.cpp:32:1:
+	  warning: base class ?class osg::Object? should be explicitly
+	  initialized in the copy constructor
+	  OpenSceneGraph/src/osgGA/TerrainManipulator.cpp:31:1: warning:
+	  base class ?class osg::Object? should be explicitly initialized
+	  in the copy constructor
+	  OpenSceneGraph/include/osgSim/ShapeAttribute:99:9: warning: base
+	  class ?class std::vector<osgSim::ShapeAttribute>? should be
+	  explicitly initialized in the copy constructor
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::gi?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::byte_before_the_zipfile?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::num_file?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::pos_in_central_dir?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::current_file_ok?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::central_pos?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::size_central_dir?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::offset_central_dir?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::cur_file_info?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::cur_file_info_internal?
+	  OpenSceneGraph/src/osgPlugins/zip/unzip.cpp:3102:14: warning:
+	  missing initializer for member ?unz_s::pfile_in_zip_read?
+	  OpenSceneGraph/src/osgViewer/CompositeViewer.cpp:30:1: warning:
+	  base class ?class osg::Object? should be explicitly initialized
+	  in the copy constructor
+	  OpenSceneGraph/src/osgViewer/View.cpp:159:1: warning: base class
+	  ?class osg::Object? should be explicitly initialized in the copy
+	  constructor
+	  OpenSceneGraph/src/osgViewer/Viewer.cpp:196:1: warning: base
+	  class ?class osg::Object? should be explicitly initialized in the
+	  copy constructor
+	  OpenSceneGraph/src/osgViewer/Viewer.cpp:196:1: warning: base
+	  class ?class osgViewer::ViewerBase? should be explicitly
+	  initialized in the copy constructor
+	  OpenSceneGraph/include/osgManipulator/Dragger:47:9: warning: base
+	  class ?class osg::Object? should be explicitly initialized in the
+	  copy constructor
+
+2011-06-23 09:26  robert
+
+	* include/osg/Array, include/osgAnimation/Interpolator,
+	  src/osgPlugins/lwo/lwo2parser.h: From Ryan Pavlik, "I have
+	  successfully compiled OpenSceneGraph trunk using the Clang
+	  compiler (using a recent trunk build of llvm and clang, haven't
+	  tested an older release). The attached files contain the change
+	  shown in the diff below, which was required to finish the build
+	  with Clang. It fixes an issue with two-phase name lookup -
+	  there's more information here
+	  http://blog.llvm.org/2009/12/dreaded-two-phase-name-lookup.html
+	  "
+
+2011-06-23 09:22  robert
+
+	* src/osg/glu/libutil/mipmap.cpp: From Dimi Christopoulos, "I
+	  attach a fixed version of mipmap.cpp which produced a lot of
+	  warning on my gcc
+	  compiler."
+
+2011-06-23 07:13  robert
+
+	* src/osgPlugins/lwo/lwo2parser.h: Converted tabs to four spaces
+
+2011-06-22 16:18  robert
+
+	* CMakeModules/FindCOLLADA.cmake: From Magnus Kessler, "I have
+	  recently installed the latest version of collada-dom on Linux,
+	  and
+	  found that the include path has changed. By default, collada-dom
+	  now installs
+	  its header files under /usr/local/include/collada-dom
+	  or/usr/include/collada-
+	  dom. The attached FindCollada.cmake has been updated to look for
+	  these
+	  locations in addition to the previous candidate locations."
+
+2011-06-22 12:30  robert
+
+	* applications/present3D/present3D.cpp,
+	  examples/osgdistortion/osgdistortion.cpp,
+	  examples/osgposter/osgposter.cpp,
+	  examples/osgtext3D/TextNode.cpp,
+	  examples/osgthreadedterrain/osgthreadedterrain.cpp,
+	  examples/osgvolume/osgvolume.cpp,
+	  examples/osgwidgetcanvas/osgwidgetcanvas.cpp,
+	  src/osg/ShapeDrawable.cpp, src/osgGA/NodeTrackerManipulator.cpp,
+	  src/osgGA/TerrainManipulator.cpp,
+	  src/osgParticle/FluidProgram.cpp,
+	  src/osgPlugins/Inventor/ConvertToInventor.cpp,
+	  src/osgPlugins/OpenFlight/GeometryRecords.cpp,
+	  src/osgPlugins/OpenFlight/ReaderWriterFLT.cpp,
+	  src/osgPlugins/ac/Geode.cpp, src/osgPlugins/cfg/ConfigParser.cpp,
+	  src/osgPlugins/dds/ReaderWriterDDS.cpp,
+	  src/osgPlugins/hdr/hdrloader.cpp,
+	  src/osgPlugins/ive/ShapeAttributeList.cpp,
+	  src/osgPlugins/jp2/ReaderWriterJP2.cpp,
+	  src/osgPlugins/p3d/ReaderWriterP3D.cpp,
+	  src/osgPlugins/pvr/ReaderWriterPVR.cpp,
+	  src/osgPlugins/txp/trpage_geom.cpp,
+	  src/osgPlugins/txp/trpage_material.cpp,
+	  src/osgPlugins/txp/trpage_rarchive.cpp,
+	  src/osgPlugins/vtf/ReaderWriterVTF.cpp,
+	  src/osgPlugins/zip/ZipArchive.cpp, src/osgPlugins/zip/unzip.cpp,
+	  src/osgQt/QGraphicsViewAdapter.cpp,
+	  src/osgShadow/ParallelSplitShadowMap.cpp,
+	  src/osgTerrain/GeometryTechnique.cpp, src/osgText/FadeText.cpp,
+	  src/osgText/Text.cpp, src/osgUtil/DelaunayTriangulator.cpp,
+	  src/osgUtil/RenderStage.cpp, src/osgViewer/View.cpp,
+	  src/osgVolume/FixedFunctionTechnique.cpp: Resolved warnings
+	  reported by g++ 4.6's -Wunused-but-set-variable.
+	  
+	  Warnings were:
+	  
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osg/ShapeDrawable.cpp:
+	  In member function ‘void
+	  PrimitiveShapeVisitor::createHalfSphere(unsigned int, unsigned
+	  int, float, int, float, const Matrix&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osg/ShapeDrawable.cpp:1409:11:
+	  warning: variable ‘nzBase’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osg/ShapeDrawable.cpp:1410:11:
+	  warning: variable ‘nRatioBase’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgUtil/DelaunayTriangulator.cpp:
+	  In function ‘osgUtil::Triangle_list
+	  osgUtil::fillHole(osg::Vec3Array*, std::vector<unsigned int,
+	  std::allocator<unsigned int> >)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgUtil/DelaunayTriangulator.cpp:569:27:
+	  warning: variable ‘ptest’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgUtil/DelaunayTriangulator.cpp:
+	  In member function ‘bool
+	  osgUtil::DelaunayTriangulator::triangulate()’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgUtil/DelaunayTriangulator.cpp:979:45:
+	  warning: variable ‘curp’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgUtil/RenderStage.cpp:
+	  In member function ‘void
+	  osgUtil::RenderStage::runCameraSetUp(osg::RenderInfo&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgUtil/RenderStage.cpp:631:18:
+	  warning: variable ‘stencilAttached’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgText/FadeText.cpp:
+	  In member function ‘void FadeTextPolytopeData::buildPolytope()’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgText/FadeText.cpp:74:20:
+	  warning: variable ‘edge23’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgText/FadeText.cpp:75:20:
+	  warning: variable ‘edge30’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgText/Text.cpp:
+	  In member function ‘void
+	  osgText::Text::computeBackdropPositions(unsigned int) const’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgText/Text.cpp:747:10:
+	  warning: variable ‘is_valid_size’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgGA/NodeTrackerManipulator.cpp:
+	  In member function ‘virtual bool
+	  osgGA::NodeTrackerManipulator::performMovementLeftMouseButton(double,
+	  double, double)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgGA/NodeTrackerManipulator.cpp:257:21:
+	  warning: variable ‘lookVector’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgGA/NodeTrackerManipulator.cpp:259:21:
+	  warning: variable ‘upVector’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgGA/TerrainManipulator.cpp:
+	  In member function ‘virtual bool
+	  osgGA::TerrainManipulator::performMovementMiddleMouseButton(double,
+	  double, double)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgGA/TerrainManipulator.cpp:217:11:
+	  warning: variable ‘lookVector’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgGA/TerrainManipulator.cpp:219:11:
+	  warning: variable ‘upVector’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgVolume/FixedFunctionTechnique.cpp:
+	  In member function ‘virtual void
+	  osgVolume::FixedFunctionTechnique::init()’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgVolume/FixedFunctionTechnique.cpp:124:30:
+	  warning: variable ‘tf’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgParticle/FluidProgram.cpp:
+	  In member function ‘virtual void
+	  osgParticle::FluidProgram::execute(double)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgParticle/FluidProgram.cpp:38:23:
+	  warning: variable ‘velBefore’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgShadow/ParallelSplitShadowMap.cpp:
+	  In member function ‘virtual void
+	  osgShadow::ParallelSplitShadowMap::cull(osgUtil::CullVisitor&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgShadow/ParallelSplitShadowMap.cpp:593:22:
+	  warning: variable ‘bb’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgTerrain/GeometryTechnique.cpp:
+	  In member function ‘virtual void
+	  osgTerrain::GeometryTechnique::generateGeometry(osgTerrain::GeometryTechnique::BufferData&,
+	  osgTerrain::Locator*, const osg::Vec3d&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgTerrain/GeometryTechnique.cpp:777:12:
+	  warning: variable ‘i_sampleFactor’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgTerrain/GeometryTechnique.cpp:778:12:
+	  warning: variable ‘j_sampleFactor’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/dds/ReaderWriterDDS.cpp:
+	  In function ‘osg::Image* ReadDDSFile(std::istream&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/dds/ReaderWriterDDS.cpp:314:10:
+	  warning: variable ‘is3dImage’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/dds/ReaderWriterDDS.cpp:
+	  In function ‘bool WriteDDSFile(const osg::Image*,
+	  std::ostream&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/dds/ReaderWriterDDS.cpp:721:10:
+	  warning: variable ‘is3dImage’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/hdr/hdrloader.cpp:
+	  In static member function ‘static bool HDRLoader::load(const
+	  char*, bool, HDRLoaderResult&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/hdr/hdrloader.cpp:101:10:
+	  warning: variable ‘cmd’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/vtf/ReaderWriterVTF.cpp:
+	  In function ‘osg::Image* ReadVTFFile(std::istream&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/vtf/ReaderWriterVTF.cpp:360:23:
+	  warning: variable ‘base’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/jp2/ReaderWriterJP2.cpp:
+	  In function ‘int putdata(jas_stream_t*, jas_image_t*, int)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/jp2/ReaderWriterJP2.cpp:41:13:
+	  warning: variable ‘linelen’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/Inventor/ConvertToInventor.cpp:
+	  In member function ‘void ConvertToInventor::processGeometry(const
+	  osg::Geometry*, ConvertToInventor::InventorState*)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/Inventor/ConvertToInventor.cpp:1639:10:
+	  warning: variable ‘ok’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/Inventor/ConvertFromInventor.cpp:
+	  In member function ‘virtual SbBool
+	  SoVRMLImageTextureOsg::readInstance(SoInput*, short unsigned
+	  int)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/Inventor/ConvertFromInventor.cpp:1264:16:
+	  warning: variable ‘retval’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/OpenFlight/GeometryRecords.cpp:
+	  In member function ‘virtual void
+	  flt::Face::readRecord(flt::RecordInputStream&, flt::Document&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/OpenFlight/GeometryRecords.cpp:369:19:
+	  warning: variable ‘secondaryPackedColor’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/OpenFlight/GeometryRecords.cpp:
+	  In member function ‘virtual void
+	  flt::Mesh::readRecord(flt::RecordInputStream&, flt::Document&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/OpenFlight/GeometryRecords.cpp:942:19:
+	  warning: variable ‘secondaryPackedColor’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/OpenFlight/ReaderWriterFLT.cpp:
+	  In member function ‘virtual osgDB::ReaderWriter::ReadResult
+	  FLTReaderWriter::readNode(std::istream&, const Options*) const’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/OpenFlight/ReaderWriterFLT.cpp:427:40:
+	  warning: variable ‘pos’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/ive/ShapeAttributeList.cpp:
+	  In member function ‘void
+	  ive::ShapeAttributeList::write(ive::DataOutputStream*)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/ive/ShapeAttributeList.cpp:31:48:
+	  warning: variable ‘it’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/ac/Geode.cpp:
+	  In member function ‘void
+	  ac3d::Geode::ProcessGeometry(std::ostream&, unsigned int)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/ac/Geode.cpp:806:35:
+	  warning: variable ‘fRep_s’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/ac/Geode.cpp:806:43:
+	  warning: variable ‘fRep_t’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/ac/Geode.cpp:807:35:
+	  warning: variable ‘fOffset_s’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/ac/Geode.cpp:807:46:
+	  warning: variable ‘fOffset_t’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/ac/Geode.cpp:932:38:
+	  warning: variable ‘primLength’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/txp/trpage_geom.cpp:
+	  In member function ‘virtual bool
+	  trpgGeometry::Write(trpgWriteBuffer&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/txp/trpage_geom.cpp:615:19:
+	  warning: variable ‘u’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/txp/trpage_material.cpp:
+	  In member function ‘int trpgMatTable::AddMaterial(const
+	  trpgMaterial&, bool)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/txp/trpage_material.cpp:103:10:
+	  warning: variable ‘spaceInTable’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/txp/trpage_rarchive.cpp:
+	  In member function ‘virtual bool
+	  trpgr_Archive::ReadHeader(bool)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/txp/trpage_rarchive.cpp:261:14:
+	  warning: variable ‘headerHasTexTable’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/zip/unzip.cpp:
+	  In member function ‘ZRESULT TUnzip::Get(int, ZIPENTRY*)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/zip/unzip.cpp:4055:8:
+	  warning: variable ‘hidden’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/zip/unzip.cpp:4055:22:
+	  warning: variable ‘system’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/zip/unzip.cpp:4055:36:
+	  warning: variable ‘archive’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/zip/ZipArchive.cpp:
+	  In member function ‘virtual bool
+	  ZipArchive::getFileNames(osgDB::Archive::FileNameList&) const’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/zip/ZipArchive.cpp:91:37:
+	  warning: variable ‘iterEnd’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/pvr/ReaderWriterPVR.cpp:
+	  In member function ‘osgDB::ReaderWriter::ReadResult
+	  ReaderWriterPVR::readPVRStream(std::istream&) const’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/pvr/ReaderWriterPVR.cpp:155:14:
+	  warning: variable ‘hasAlpha’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgViewer/View.cpp:
+	  In function ‘osg::Geometry*
+	  create3DSphericalDisplayDistortionMesh(const Vec3&, const Vec3&,
+	  const Vec3&, double, double, osg::Image*, const Matrix&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgViewer/View.cpp:737:15:
+	  warning: variable ‘cursor’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgViewer/View.cpp:
+	  In function ‘osg::Geometry*
+	  createParoramicSphericalDisplayDistortionMesh(const Vec3&, const
+	  Vec3&, const Vec3&, double, double, osg::Image*, const Matrix&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgViewer/View.cpp:1130:19:
+	  warning: variable ‘cursor’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgViewer/View.cpp:1118:15:
+	  warning: variable ‘dx’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgViewer/GraphicsWindowX11.cpp:
+	  In member function ‘virtual void
+	  osgViewer::GraphicsWindowX11::checkEvents()’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgViewer/GraphicsWindowX11.cpp:1181:10:
+	  warning: variable ‘destroyWindowRequested’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/cfg/ConfigParser.cpp:
+	  In member function ‘bool
+	  osgProducer::CameraConfig::parseFile(const string&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/cfg/ConfigParser.cpp:2247:13:
+	  warning: variable ‘result’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgQt/QGraphicsViewAdapter.cpp:
+	  In member function ‘bool
+	  osgQt::QGraphicsViewAdapter::handlePointerEvent(int, int, int)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgQt/QGraphicsViewAdapter.cpp:344:17:
+	  warning: variable ‘viewportGeometry’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgdistortion/osgdistortion.cpp:
+	  In function ‘osg::Node* createDistortionSubgraph(osg::Node*,
+	  const Vec4&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgdistortion/osgdistortion.cpp:125:19:
+	  warning: variable ‘cursor’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgdistortion/osgdistortion.cpp:126:19:
+	  warning: variable ‘texcoord’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgdistortion/osgdistortion.cpp:
+	  In function ‘osg::Geometry* createDomeDistortionMesh(const Vec3&,
+	  const Vec3&, const Vec3&, osg::ArgumentParser&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgdistortion/osgdistortion.cpp:358:15:
+	  warning: variable ‘cursor’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgposter/osgposter.cpp:
+	  In function ‘int main(int, char**)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgposter/osgposter.cpp:253:31:
+	  warning: variable ‘outputTiles’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgthreadedterrain/osgthreadedterrain.cpp:
+	  In function ‘int main(int, char**)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgthreadedterrain/osgthreadedterrain.cpp:669:10:
+	  warning: variable ‘readParameter’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgtext3D/TextNode.cpp:
+	  In member function ‘virtual void
+	  osgText::Layout::layout(osgText::TextNode&) const’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgtext3D/TextNode.cpp:80:11:
+	  warning: variable ‘characterHeightScale’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgvolume/osgvolume.cpp:
+	  In function ‘int main(int, char**)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgvolume/osgvolume.cpp:678:38:
+	  warning: variable ‘internalFormatMode’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgwidgetcanvas/osgwidgetcanvas.cpp:
+	  In function ‘bool windowMouseOver(osgWidget::Event&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgwidgetcanvas/osgwidgetcanvas.cpp:27:24:
+	  warning: variable ‘xy’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgwidgetcanvas/osgwidgetcanvas.cpp:
+	  In function ‘bool widgetMouseOver(osgWidget::Event&)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/examples/osgwidgetcanvas/osgwidgetcanvas.cpp:35:24:
+	  warning: variable ‘xy’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/p3d/ReaderWriterP3D.cpp:
+	  In member function ‘osg::Node*
+	  ReaderWriterP3DXML::parseXmlGraph(osgDB::XmlNode*, bool,
+	  osgDB::Options*) const’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/src/osgPlugins/p3d/ReaderWriterP3D.cpp:2121:10:
+	  warning: variable ‘readSlide’ set but not used
+	  [-Wunused-but-set-variable]
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/applications/present3D/present3D.cpp:
+	  In function ‘int main(int, char**)’:
+	  /home/stephan/Dev/LibSources/OpenSceneGraph-3.0.0-rc2/applications/present3D/present3D.cpp:639:10:
+	  warning: variable ‘sizesSpecified’ set but not used
+	  [-Wunused-but-set-variable]
+
+2011-06-22 09:12  robert
+
+	* src/osgViewer/CompositeViewer.cpp, src/osgViewer/Viewer.cpp:
+	  Fixed regression in --run-on-demand feature
+
+2011-06-21 17:26  robert
+
+	* src/osg/glu/libutil/mipmap.cpp: Removed assert() that always
+	  evaluated to true.
+
+2011-06-21 13:01  robert
+
+	* CMakeModules/Find3rdPartyDependencies.cmake: From Torben
+	  Dannhauer, "originally I posted the addendum of 'freetype244MT',
+	  but that was wrong.
+	  I updated it to the correct addendum of 'freetype244' yesterday,
+	  but supposedly that was not forwarded to you by the
+	  forum-to-mail-gateway.
+	  
+	  Find attached the corrected CMake module. "
+
+2011-06-21 10:15  robert
+
+	* ChangeLog: Updated ChangeLog
+
+2011-06-21 09:54  robert
+
+	* src/osgPlugins/fbx/WriterCompareTriangle.h,
+	  src/osgPlugins/fbx/fbxMaterialToOsgStateSet.h: Added returns to
+	  end of files
+
+2011-06-21 09:54  robert
+
+	* src/osgPlugins/fbx/WriterCompareTriangle.cpp: Added return to end
+	  of file
+
+2011-06-21 09:53  robert
+
+	* src/osgPlugins/fbx/fbxMaterialToOsgStateSet.cpp,
+	  src/osgPlugins/fbx/fbxRLight.cpp,
+	  src/osgPlugins/fbx/fbxRMesh.cpp, src/osgPlugins/fbx/fbxRNode.cpp:
+	  Conveted tabs to four spaces and added a return to end of file
+
+2011-06-21 09:29  mplatings
+
+	* src/osgPlugins/fbx/fbxMaterialToOsgStateSet.cpp,
+	  src/osgPlugins/fbx/fbxRLight.cpp,
+	  src/osgPlugins/fbx/fbxRMesh.cpp, src/osgPlugins/fbx/fbxRNode.cpp:
+	  Fixed redundant "enumeration not handled in switch" warnings.
+	  Fixed a warning about a comparison between different enums -
+	  EUnifiedMappingType was being compared with EMappingType. In
+	  general the FBX SDK is moving away from Get & Set functions to
+	  giving direct access to properties, so I have changed
+	  GetMappingType() to CurrentMappingType.Get()
+
+2011-06-21 09:00  robert
+
+	* src/osg/glu/libtess/tess.h: Disabled VisualStudio warning warning
+	  C4611: interaction between '_setjmp' and C++ object destruction
+	  is non-portable
+
+2011-06-20 19:15  robert
+
+	* examples/osgphotoalbum/PhotoArchive.cpp,
+	  src/osgDB/InputStream.cpp, src/osgDB/OutputStream.cpp,
+	  src/osgPlugins/Inventor/ConvertToInventor.cpp,
+	  src/osgPlugins/Inventor/ReaderWriterIV.cpp,
+	  src/osgPlugins/cfg/CameraConfig.cpp,
+	  src/osgPlugins/freetype/FreeTypeLibrary.cpp,
+	  src/osgPlugins/geo/ReaderWriterGEO.cpp,
+	  src/osgPlugins/geo/osgGeoNodes.h,
+	  src/osgPlugins/md2/ReaderWriterMD2.cpp,
+	  src/osgPlugins/pic/ReaderWriterPIC.cpp,
+	  src/osgPlugins/ply/plyfile.cpp,
+	  src/osgPlugins/pvr/ReaderWriterPVR.cpp,
+	  src/osgPlugins/shp/ESRIShapeParser.cpp,
+	  src/osgPlugins/shp/XBaseParser.cpp, src/osgPlugins/zip/unzip.cpp,
+	  src/osgShadow/MinimalCullBoundsShadowMap.cpp,
+	  src/osgViewer/ScreenCaptureHandler.cpp,
+	  src/osgVolume/Locator.cpp, src/osgVolume/RayTracedTechnique.cpp,
+	  src/osgWrappers/serializers/osg/ShaderBinary.cpp: Fixed a range
+	  of issues reported by cppcheck:
+	  
+	  [examples/osgphotoalbum/PhotoArchive.cpp:56]: (error) Memory
+	  leak: fileIndentifier
+	  [examples/osgphotoalbum/PhotoArchive.cpp:257]: (error)
+	  Deallocating a deallocated pointer: newData
+	  [examples/osgphotoalbum/PhotoArchive.cpp:318]: (error)
+	  Deallocating a deallocated pointer: newData
+	  [src/osg/ImageUtils.cpp:116]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:307]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:312]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:367]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:399]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:400]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:482]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:483]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:484]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:519]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/ImageUtils.cpp:536]: (portability) Extra qualification
+	  'osg::' unnecessary and considered an error by many compilers.
+	  [src/osg/OcclusionQueryNode.cpp:71]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:74]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:77]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:82]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:102]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:107]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:599]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:600]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:601]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:602]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:603]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:604]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:605]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osg/OcclusionQueryNode.cpp:606]: (portability) Extra
+	  qualification 'osg::' unnecessary and considered an error by many
+	  compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:134]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:135]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:136]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:137]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:139]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:177]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:178]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:195]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:198]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:203]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:205]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/ExternalFileWriter.cpp:253]: (portability) Extra
+	  qualification 'osgDB::' unnecessary and considered an error by
+	  many compilers.
+	  [src/osgDB/InputStream.cpp:553]: (error) Memory leak: data
+	  [src/osgDB/OutputStream.cpp:393]: (error) Memory leak: data
+	  [src/osgPlugins/Inventor/ConvertToInventor.cpp:656]: (error)
+	  Mismatching allocation and deallocation: tmpArray
+	  [src/osgPlugins/Inventor/ReaderWriterIV.cpp:237]: (error) Common
+	  realloc mistake: 'buf' nulled but not freed upon failure
+	  [src/osgPlugins/OpenFlight/expGeometryRecords.cpp:167]:
+	  (portability) Extra qualification 'flt::' unnecessary and
+	  considered an error by many compilers.
+	  [src/osgPlugins/OpenFlight/expGeometryRecords.cpp:373]:
+	  (portability) Extra qualification 'flt::' unnecessary and
+	  considered an error by many compilers.
+	  [src/osgPlugins/cfg/CameraConfig.cpp:635]: (error) Unusual
+	  pointer arithmetic
+	  [src/osgPlugins/freetype/FreeTypeLibrary.cpp:122]: (error) Memory
+	  leak: buffer
+	  [src/osgPlugins/geo/ReaderWriterGEO.cpp:210]: (error) Possible
+	  null pointer dereference: gfd - otherwise it is redundant to
+	  check if gfd is null at line 211
+	  [src/osgPlugins/geo/ReaderWriterGEO.cpp:227]: (error) Possible
+	  null pointer dereference: gfd - otherwise it is redundant to
+	  check if gfd is null at line 228
+	  [src/osgPlugins/geo/ReaderWriterGEO.cpp:903]: (error) Possible
+	  null pointer dereference: gfd - otherwise it is redundant to
+	  check if gfd is null at line 904
+	  [src/osgPlugins/geo/osgGeoNodes.h:180]: (error) Memory leak:
+	  geoHeaderGeo::intVars
+	  [src/osgPlugins/geo/osgGeoNodes.h:181]: (error) Memory leak:
+	  geoHeaderGeo::useVars
+	  [src/osgPlugins/geo/osgGeoNodes.h:182]: (error) Memory leak:
+	  geoHeaderGeo::extVars
+	  [src/osgPlugins/md2/ReaderWriterMD2.cpp:180]: (error) Memory
+	  leak: mapbase
+	  [src/osgPlugins/md2/ReaderWriterMD2.cpp:166]: (error) Resource
+	  leak: file_fd
+	  [src/osgPlugins/pic/ReaderWriterPIC.cpp:152]: (error) Mismatching
+	  allocation and deallocation: tmpbuf
+	  [src/osgPlugins/pic/ReaderWriterPIC.cpp:153]: (error) Mismatching
+	  allocation and deallocation: buffer
+	  [src/osgPlugins/ply/plyfile.cpp:843]: (error) Memory leak:
+	  plyfile
+	  [src/osgPlugins/pvr/ReaderWriterPVR.cpp:179]: (error) Memory
+	  leak: imageData
+	  [src/osgPlugins/shp/ESRIShapeParser.cpp:29]: (error) Resource
+	  leak: fd
+	  [src/osgPlugins/shp/XBaseParser.cpp:96]: (error) Resource leak:
+	  fd
+	  [src/osgPlugins/zip/unzip.cpp:3158]: (error) Possible null
+	  pointer dereference: s - otherwise it is redundant to check if s
+	  is null at line 3159
+	  [src/osgPlugins/zip/unzip.cpp:4155]: (error) Dangerous usage of
+	  'rd' (strncpy doesn't always 0-terminate it)
+	  [src/osgShadow/MinimalCullBoundsShadowMap.cpp:334]: (error)
+	  Possible null pointer dereference: rl - otherwise it is redundant
+	  to check if rl is null at line 331
+	  [src/osgViewer/ScreenCaptureHandler.cpp:617]: (error) Possible
+	  null pointer dereference: camera - otherwise it is redundant to
+	  check if camera is null at line 611
+	  [src/osgViewer/ScreenCaptureHandler.cpp:632]: (error) Possible
+	  null pointer dereference: camera - otherwise it is redundant to
+	  check if camera is null at line 626
+	  [src/osgVolume/Locator.cpp:209]: (error) Dangerous iterator usage
+	  after erase()-method.
+	  [src/osgVolume/RayTracedTechnique.cpp:274]: (error) Possible null
+	  pointer dereference: imageLayer - otherwise it is redundant to
+	  check if imageLayer is null at line 259
+	  [src/osgVolume/RayTracedTechnique.cpp:275]: (error) Possible null
+	  pointer dereference: imageLayer - otherwise it is redundant to
+	  check if imageLayer is null at line 259
+	  [src/osgWrappers/serializers/osg/ShaderBinary.cpp:28]: (error)
+	  Mismatching allocation and deallocation: data
+
+2011-06-20 14:09  robert
+
+	* src/osg/ImageUtils.cpp, src/osg/OcclusionQueryNode.cpp,
+	  src/osgDB/ExternalFileWriter.cpp,
+	  src/osgPlugins/OpenFlight/expGeometryRecords.cpp: Removed
+	  unneccesary namespace qualifiers, and issue picked out by
+	  cppcheck.
+
+2011-06-20 12:36  robert
+
+	* src/osgPlugins/bmp/ReaderWriterBMP.cpp,
+	  src/osgPlugins/png/ReaderWriterPNG.cpp,
+	  src/osgPlugins/tga/ReaderWriterTGA.cpp: From Farshid Lashkari,
+	  BGR write support for BMP, PNG and TGA
+
+2011-06-20 11:25  robert
+
+	* src/osgViewer/GraphicsWindowX11.cpp: Added catch for window
+	  manager doesn't set the window size to full screen.
+
+2011-06-20 09:28  robert
+
+	* src/osgViewer/GraphicsWindowX11.cpp: Added check against
+	  Traits::overrideRedirct to prevent the fullscreen workaround
+	  being run when overrideRedirect
+	  is on as overrideRedirect switches off the window managers
+	  ability to manage the fullscreen so the problem doesn't
+	  need working around.
+
+2011-06-20 09:22  robert
+
+	* src/osgViewer/GraphicsWindowX11.cpp: Introduced a workaround for
+	  fullscreen toggle issues under modern X11 window managers.
+
+2011-06-20 09:20  robert
+
+	* src/osgViewer/ViewerEventHandlers.cpp: Added sleep before window
+	  resizing to make it less likely that the previous frames
+	  rendering traversal is still
+	  running when the window(s) is resized, something that creates
+	  what looks like a glitch in rendering.
+
+2011-06-19 19:16  robert
+
+	* CMakeModules/Find3rdPartyDependencies.cmake: From Torben
+	  Dannhauer, "Just in time for OSG 3.0 I will present an updated
+	  3rdParty package for VS2008 , which includes some updated
+	  libraries (libcurl, freetype, jpeg). It also provides now all
+	  debug databases (*.pdb), so all the annoying compile warnings
+	  about missing .pdb files are gone.
+	  
+	  I extended the CMAKE module to find the new library."
+
+2011-06-17 16:55  robert
+
+	* CMakeLists.txt, include/osg/Version: Updated version to 3.1.0 in
+	  prep for the first developer release for 3.x series
+
+2011-06-17 12:57  robert
+
+	* src/osgPlugins/ffmpeg/FFmpegParameters.cpp: Added extern "C" to
+	  fix build issues under OSX
+
+2011-06-17 12:31  robert
+
+	* ChangeLog, NEWS.txt, README.txt: Updated ChangeLog, NEWS and
+	  READE for 3.0.0-rc1
+
+2011-06-17 11:47  robert
+
+	* include/OpenThreads/Version: Updated version number
+
+2011-06-17 11:47  robert
+
+	* AUTHORS.txt, applications/osgversion/Contributors.cpp: Fixed
+	  Jorge Izquierdo name.
+
+2011-06-17 11:02  robert
+
+	* src/OpenThreads/CMakeLists.txt: Updated OpenThreads version
+	  number for stable release
+
+2011-06-17 10:35  robert
+
+	* applications/present3D/CMakeLists.txt: Tempory fix for static
+	  build of Present3D which disables the use of ffmpeg when
+	  compiling static, will need to
+	  look into unresolved symbols assoiated with FFMPEG at a later
+	  date.
+
+2011-06-17 09:20  robert
+
+	* AUTHORS.txt: Updated AUTHORS file for 3.0.0-rc1
+
+2011-06-17 09:19  robert
+
+	* ChangeLog: Updated ChangeLog
+
+2011-06-17 09:05  robert
+
+	* src/osg/StencilTwoSided.cpp: From Jan Peciva, "sending updated
+	  version of StencilTwoSided.
+	  It supports now even GL_ATI_separate_stencil extension and there
+	  are more
+	  OSG_INFOs to see, which API is used."
+
+2011-06-17 09:02  robert
+
+	* CMakeLists.txt, include/osg/Version: Updated version number of
+	  3.0.0-rc1
+
+2011-06-17 08:47  robert
+
+	* src/osgUtil/RenderStage.cpp: Added GLES version checks to prevent
+	  build problems under GLES1 and GLES2
+
+2011-06-17 08:42  robert
+
+	* src/osgPlugins/ffmpeg/FFmpegParameters.cpp: Refined the version
+	  checking
+
+2011-06-17 08:41  robert
+
+	* src/osgPlugins/ffmpeg/FFmpegHeaders.hpp,
+	  src/osgPlugins/ffmpeg/FFmpegParameters.cpp: Build fix
+
+2011-06-17 08:26  robert
+
+	* src/osgViewer/GraphicsWindowCocoa.mm: From Ulrich Hertlein, "the
+	  OS X/Cocoa implementation logs some debug junk on every key
+	  stroke. The attached
+	  patch removes this."
+
+2011-06-17 08:15  robert
+
+	* CMakeLists.txt: From Jorge Ciges, "This is one of those bugs that
+	  you don't find until you try to compile under another pc that
+	  doesn't have Cmake 2.8."
+
+2011-06-17 06:22  robert
+
+	* src/osgPlugins/ffmpeg/FFmpegHeaders.hpp,
+	  src/osgPlugins/ffmpeg/FFmpegParameters.cpp: Fixed warning
+
+2011-06-17 06:09  robert
+
+	* src/osgPlugins/dae/daeReader.cpp: Fixed warnings
+
+2011-06-17 05:57  robert
+
+	* src/osg/glu/libtess/tess.h,
+	  src/osgPlugins/jpeg/ReaderWriterJPEG.cpp: Added disabling of
+	  VisualStudio warning C4324 : structure was padded due to
+	  __declspec(align())
+
+2011-06-16 18:43  robert
+
+	* src/osgPlugins/fbx/ReaderWriterFBX.cpp,
+	  src/osgPlugins/fbx/WriterNodeVisitor.cpp,
+	  src/osgPlugins/fbx/WriterNodeVisitor.h: Fixed warnings.
+
+2011-06-16 18:25  robert
+
+	* src/osgWrappers/deprecated-dotosg/osg/Texture.cpp,
+	  src/osgWrappers/serializers/osg/Texture.cpp: Added support for
+	  new InternalTextureFormatModes
+
+2011-06-16 18:12  robert
+
+	* src/osgDB/ExternalFileWriter.cpp: Added wider file extension
+	  support to ExternalFileWriter::generateObjectName
+
+2011-06-16 16:02  robert
+
+	* src/osgPlugins/dds/ReaderWriterDDS.cpp: From Farshid Lashkari,
+	  "Attached is a small patch that adds support for writing BGR
+	  images to the DDS plugin."
+
+2011-06-16 16:00  robert
+
+	* src/OpenThreads/qt/CMakeLists.txt: From John Cummings, "While
+	  testing recent OSG developer releases and the subversion trunk, I
+	  have noticed that on my 64-bit Linux machines, all of the OSG
+	  libraries
+	  get installed into the "lib64" directory as I would expect.
+	  However, the
+	  OpenThreads library gets installed into the "lib" directory when
+	  selecting "Build OpenThreads with Qt threading support." That is,
+	  with
+	  the BUILD_OPENTHREADS_WITH_QT set to ON.
+	  
+	  I am attaching the a fix for this issue in the file:
+	  
+	  src/OpenThreads/qt/CMakeLists.txt
+	  
+	  It simply adds ${LIB_POSTFIX} to the destination as in done with
+	  all
+	  other CMakeLists.txt with libraries in OSG. I have tested it on
+	  both
+	  32-bit and 64-bit Linux."
+
+2011-06-16 15:57  robert
+
+	* examples/osgcluster/receiver.cpp,
+	  src/OpenThreads/win32/Win32Thread.cpp,
+	  src/osgPlugins/shp/ESRIShape.cpp, src/osgPlugins/zip/unzip.cpp:
+	  Windows warning fixes
+
+2011-06-16 13:00  robert
+
+	* src/osgPlugins/txp/trpage_compat.cpp,
+	  src/osgPlugins/txp/trpage_geom.h,
+	  src/osgPlugins/txp/trpage_label.cpp,
+	  src/osgPlugins/txp/trpage_managers.cpp,
+	  src/osgPlugins/txp/trpage_managers.h,
+	  src/osgPlugins/txp/trpage_material.cpp,
+	  src/osgPlugins/txp/trpage_nodes.cpp,
+	  src/osgPlugins/txp/trpage_parse.cpp,
+	  src/osgPlugins/txp/trpage_read.h,
+	  src/osgPlugins/txp/trpage_readbuf.cpp,
+	  src/osgPlugins/txp/trpage_warchive.cpp: Fixed indentation issues
+
+2011-06-16 10:05  robert
+
+	* src/osgPlugins/txp/ReaderWriterTXP.cpp,
+	  src/osgPlugins/txp/TXPArchive.h, src/osgPlugins/txp/TXPNode.cpp,
+	  src/osgPlugins/txp/trpage_compat.cpp,
+	  src/osgPlugins/txp/trpage_geom.h,
+	  src/osgPlugins/txp/trpage_managers.cpp,
+	  src/osgPlugins/txp/trpage_managers.h,
+	  src/osgPlugins/txp/trpage_material.cpp,
+	  src/osgPlugins/txp/trpage_model.cpp,
+	  src/osgPlugins/txp/trpage_parse.cpp,
+	  src/osgPlugins/txp/trpage_print.h,
+	  src/osgPlugins/txp/trpage_range.cpp,
+	  src/osgPlugins/txp/trpage_warchive.cpp,
+	  src/osgPlugins/txp/trpage_write.h: Improved indentation.
+
+2011-06-16 08:59  robert
+
+	* src/osgPlugins/txp/TileMapper.cpp,
+	  src/osgPlugins/txp/TileMapper.h, src/osgPlugins/txp/trdll.h,
+	  src/osgPlugins/txp/trpage_basic.cpp,
+	  src/osgPlugins/txp/trpage_compat.cpp,
+	  src/osgPlugins/txp/trpage_compat.h,
+	  src/osgPlugins/txp/trpage_geom.cpp,
+	  src/osgPlugins/txp/trpage_geom.h,
+	  src/osgPlugins/txp/trpage_header.cpp,
+	  src/osgPlugins/txp/trpage_io.h,
+	  src/osgPlugins/txp/trpage_label.cpp,
+	  src/osgPlugins/txp/trpage_light.cpp,
+	  src/osgPlugins/txp/trpage_main.cpp,
+	  src/osgPlugins/txp/trpage_managers.cpp,
+	  src/osgPlugins/txp/trpage_managers.h,
+	  src/osgPlugins/txp/trpage_material.cpp,
+	  src/osgPlugins/txp/trpage_model.cpp,
+	  src/osgPlugins/txp/trpage_nodes.cpp,
+	  src/osgPlugins/txp/trpage_parse.cpp,
+	  src/osgPlugins/txp/trpage_pparse.cpp,
+	  src/osgPlugins/txp/trpage_range.cpp,
+	  src/osgPlugins/txp/trpage_read.h,
+	  src/osgPlugins/txp/trpage_scene.cpp,
+	  src/osgPlugins/txp/trpage_scene.h,
+	  src/osgPlugins/txp/trpage_swap.h,
+	  src/osgPlugins/txp/trpage_sys.h,
+	  src/osgPlugins/txp/trpage_tile.cpp,
+	  src/osgPlugins/txp/trpage_util.cpp,
+	  src/osgPlugins/txp/trpage_util.h,
+	  src/osgPlugins/txp/trpage_write.h: Replaced tabs with four spaces
+
+2011-06-16 08:46  robert
+
+	* CMakeModules/FindOurDCMTK.cmake: From Jean-Christophe Lombardo,
+	  "On Fedora 14, dcmtk libs are under /usr/lib/dcmtk. I've added a
+	  PATH_SUFFIX to take that into account"
+
+2011-06-15 18:31  robert
+
+	* include/osgUtil/IncrementalCompileOperation,
+	  src/osgUtil/IncrementalCompileOperation.cpp: Improved the
+	  handling of compiling vs flushing deleted objects
+
+2011-06-15 17:00  robert
+
+	* src/osgViewer/GraphicsWindowCocoa.mm: Changed the key handling
+	  code to use EventQueue::getTime() rather then the theEvent
+	  timestamp.
+
+2011-06-15 09:36  robert
+
+	* src/osgUtil/RenderStage.cpp: Fixed blitting of FBO's with
+	  multiple render targets.
+
+2011-06-15 09:35  robert
+
+	* examples/osgmultiplerendertargets/osgmultiplerendertargets.cpp:
+	  From Anthousis Andreadis, added multiple sampling test for
+	  multiple rendering targets which is activated by the --ms command
+	  line option.
+
+2011-06-14 18:10  robert
+
+	* CMakeModules/FindAndroidNDK.cmake: From Jorge Ciges, "Update to
+	  FindAndroidNDK to make it use the latest Ndk (r5c) automatically.
+	  
+	  That fixes compatibilities with some 2.1 devices. And it looks
+	  like all goes well."
+
+2011-06-14 16:54  robert
+
+	* examples/osganimate/osganimate.cpp,
+	  examples/osgblendequation/osgblendequation.cpp,
+	  examples/osgcallback/osgcallback.cpp,
+	  examples/osgcamera/osgcamera.cpp, examples/osgcatch/osgcatch.cpp,
+	  examples/osgclip/osgclip.cpp,
+	  examples/osgcompositeviewer/osgcompositeviewer.cpp,
+	  examples/osgcopy/osgcopy.cpp, examples/osgcubemap/osgcubemap.cpp,
+	  examples/osgdirectinput/osgdirectinput.cpp,
+	  examples/osgdistortion/osgdistortion.cpp,
+	  examples/osgdrawinstanced/osgdrawinstanced.cpp,
+	  examples/osgfxbrowser/osgfxbrowser.cpp,
+	  examples/osggeometry/osggeometry.cpp, examples/osghud/osghud.cpp,
+	  examples/osgkeyboardmouse/osgkeyboardmouse.cpp,
+	  examples/osglight/osglight.cpp,
+	  examples/osglogicop/osglogicop.cpp,
+	  examples/osgmotionblur/osgmotionblur.cpp,
+	  examples/osgmultitexture/osgmultitexture.cpp,
+	  examples/osgoccluder/osgoccluder.cpp,
+	  examples/osgoutline/osgoutline.cpp,
+	  examples/osgparticleeffects/osgparticleeffects.cpp,
+	  examples/osgphotoalbum/osgphotoalbum.cpp,
+	  examples/osgpick/osgpick.cpp, examples/osgposter/osgposter.cpp,
+	  examples/osgprerender/osgprerender.cpp,
+	  examples/osgreflect/osgreflect.cpp,
+	  examples/osgscribe/osgscribe.cpp,
+	  examples/osgsequence/osgsequence.cpp,
+	  examples/osgshadow/osgshadow.cpp,
+	  examples/osgsidebyside/osgsidebyside.cpp,
+	  examples/osgsimplifier/osgsimplifier.cpp,
+	  examples/osgsimulation/osgsimulation.cpp,
+	  examples/osgspheresegment/osgspheresegment.cpp,
+	  examples/osgspotlight/osgspotlight.cpp,
+	  examples/osgstereoimage/osgstereoimage.cpp,
+	  examples/osgtexture1D/osgtexture1D.cpp,
+	  examples/osgthirdpersonview/osgthirdpersonview.cpp,
+	  examples/osgunittests/FileNameUtils.cpp,
+	  examples/osgunittests/MultiThreadRead.cpp,
+	  examples/osgviewerFOX/FOX_OSG_MDIView.cpp,
+	  examples/osgviewerQt/osgviewerQt.cpp,
+	  examples/osgwidgetbox/osgwidgetbox.cpp,
+	  examples/osgwidgetmenu/osgwidgetmenu.cpp,
+	  examples/osgwidgetmessagebox/osgwidgetmessagebox.cpp,
+	  examples/osgwidgetprogress/osgwidgetprogress.cpp,
+	  examples/osgwidgetwindow/osgwidgetwindow.cpp,
+	  examples/osgwindows/osgwindows.cpp, runexamples.bat: Replaced
+	  .osg with .osgt file usage
+
+2011-06-14 16:50  robert
+
+	* examples/osgocclusionquery/osgocclusionquery.cpp: Improved the
+	  handling of command line parameters
+
+2011-06-14 15:55  robert
+
+	* CMakeLists.txt, include/osg/Version: Updated version
+
+2011-06-14 15:48  robert
+
+	* include/osg/State, src/osg/State.cpp: Added support
+	  osg::State::drawQuad(..) for number of vertices in quads to uint
+	  range rather than just ushort range.
+
+2011-06-14 12:44  robert
+
+	* include/osgGA/EventQueue, src/osgGA/EventQueue.cpp,
+	  src/osgViewer/CompositeViewer.cpp, src/osgViewer/Viewer.cpp:
+	  Fixed issue with events having a negative delta of time between
+	  them.
+
+2011-06-14 10:15  robert
+
+	* include/osg/BufferObject, src/osg/BufferObject.cpp: Added
+	  GLBufferObject::computeBufferAlignment(..) method to enable
+	  buffer entries to be aligned along specified buffer alignment
+	  boundaries, currently defaulting to 4.
+
+2011-06-14 09:16  robert
+
+	* src/osgViewer/GraphicsWindowWin32.cpp: From Stephan Huber,
+	  "attached you'll find a fix for the non-working
+	  useCursor()-method for
+	  Windows. With the old code you can switch off the cursor, but not
+	  back on."
+
+2011-06-14 09:11  robert
+
+	* include/osgViewer/api/IOS/GraphicsWindowIOS,
+	  src/osgPlugins/imageio/ReaderWriterImageIO_IOS.cpp,
+	  src/osgViewer/GraphicsWindowIOS.mm, src/osgViewer/IOSUtils.h,
+	  src/osgViewer/IOSUtils.mm: Removed executable permission.
+
+2011-06-14 09:01  robert
+
+	* CMakeModules/FindQTKit.cmake, CMakeModules/FindQuickTime.cmake:
+	  From Stephan Huber, "attached you'll find some tweaks for the
+	  FindQuicktime and
+	  > FindQTKit-cmake-plugins, so they get disabled for ios-builds."
+
+2011-06-13 15:20  robert
+
+	* src/osgDB/FileUtils.cpp: Fixed wild card search when wild card
+	  filename includes a path.
+
+2011-06-13 08:52  robert
+
+	* src/osgText/Style.cpp: From Jeremy Moles, fixed style ==
+	  operator.
+
+2011-06-13 08:45  robert
+
+	* src/osg/ImageUtils.cpp: From Stephan Huber, build fix for IOS
+
+2011-06-10 11:42  robert
+
+	* include/osg/ValueObject: Added handling of s/gUserValue()
+	  directly on a UserDataContainer.
+
+2011-06-09 14:20  robert
+
+	* AUTHORS.txt, ChangeLog: Updated ChangeLog and AUTHORS file for
+	  2.9.16 dev release
+
+2011-06-09 14:11  robert
+
+	* examples/osgAndroidExampleGLES1,
+	  examples/osgAndroidExampleGLES1/AndroidManifest.xml,
+	  examples/osgAndroidExampleGLES1/assets,
+	  examples/osgAndroidExampleGLES1/default.properties,
+	  examples/osgAndroidExampleGLES1/jni,
+	  examples/osgAndroidExampleGLES1/jni/Android.mk,
+	  examples/osgAndroidExampleGLES1/jni/Application.mk,
+	  examples/osgAndroidExampleGLES1/jni/OsgAndroidNotifyHandler.cpp,
+	  examples/osgAndroidExampleGLES1/jni/OsgAndroidNotifyHandler.hpp,
+	  examples/osgAndroidExampleGLES1/jni/OsgMainApp.cpp,
+	  examples/osgAndroidExampleGLES1/jni/OsgMainApp.hpp,
+	  examples/osgAndroidExampleGLES1/jni/osgNativeLib.cpp,
+	  examples/osgAndroidExampleGLES1/proguard.cfg,
+	  examples/osgAndroidExampleGLES1/res,
+	  examples/osgAndroidExampleGLES1/res/drawable-hdpi,
+	  examples/osgAndroidExampleGLES1/res/drawable-hdpi/osg.png,
+	  examples/osgAndroidExampleGLES1/res/drawable-hdpi/web_browser.png,
+	  examples/osgAndroidExampleGLES1/res/drawable-ldpi,
+	  examples/osgAndroidExampleGLES1/res/drawable-ldpi/osg.png,
+	  examples/osgAndroidExampleGLES1/res/drawable-mdpi,
+	  examples/osgAndroidExampleGLES1/res/drawable-mdpi/osg.png,
+	  examples/osgAndroidExampleGLES1/res/layout,
+	  examples/osgAndroidExampleGLES1/res/layout/dialog_text_entry.xml,
+	  examples/osgAndroidExampleGLES1/res/layout/main.xml,
+	  examples/osgAndroidExampleGLES1/res/layout/ui_layout_gles.xml,
+	  examples/osgAndroidExampleGLES1/res/menu,
+	  examples/osgAndroidExampleGLES1/res/menu/appmenu.xml,
+	  examples/osgAndroidExampleGLES1/res/values,
+	  examples/osgAndroidExampleGLES1/res/values/strings.xml,
+	  examples/osgAndroidExampleGLES1/src,
+	  examples/osgAndroidExampleGLES1/src/osg,
+	  examples/osgAndroidExampleGLES1/src/osg/AndroidExample,
+	  examples/osgAndroidExampleGLES1/src/osg/AndroidExample/ColorPickerDialog.java,
+	  examples/osgAndroidExampleGLES1/src/osg/AndroidExample/EGLview.java,
+	  examples/osgAndroidExampleGLES1/src/osg/AndroidExample/osgNativeLib.java,
+	  examples/osgAndroidExampleGLES1/src/osg/AndroidExample/osgViewer.java,
+	  examples/osgAndroidExampleGLES2,
+	  examples/osgAndroidExampleGLES2/AndroidManifest.xml,
+	  examples/osgAndroidExampleGLES2/assets,
+	  examples/osgAndroidExampleGLES2/default.properties,
+	  examples/osgAndroidExampleGLES2/jni,
+	  examples/osgAndroidExampleGLES2/jni/Android.mk,
+	  examples/osgAndroidExampleGLES2/jni/Application.mk,
+	  examples/osgAndroidExampleGLES2/jni/OsgAndroidNotifyHandler.cpp,
+	  examples/osgAndroidExampleGLES2/jni/OsgAndroidNotifyHandler.hpp,
+	  examples/osgAndroidExampleGLES2/jni/OsgMainApp.cpp,
+	  examples/osgAndroidExampleGLES2/jni/OsgMainApp.hpp,
+	  examples/osgAndroidExampleGLES2/jni/osgNativeLib.cpp,
+	  examples/osgAndroidExampleGLES2/proguard.cfg,
+	  examples/osgAndroidExampleGLES2/res,
+	  examples/osgAndroidExampleGLES2/res/drawable-hdpi,
+	  examples/osgAndroidExampleGLES2/res/drawable-hdpi/osg.png,
+	  examples/osgAndroidExampleGLES2/res/drawable-hdpi/web_browser.png,
+	  examples/osgAndroidExampleGLES2/res/drawable-ldpi,
+	  examples/osgAndroidExampleGLES2/res/drawable-ldpi/osg.png,
+	  examples/osgAndroidExampleGLES2/res/drawable-mdpi,
+	  examples/osgAndroidExampleGLES2/res/drawable-mdpi/osg.png,
+	  examples/osgAndroidExampleGLES2/res/layout,
+	  examples/osgAndroidExampleGLES2/res/layout/dialog_text_entry.xml,
+	  examples/osgAndroidExampleGLES2/res/layout/main.xml,
+	  examples/osgAndroidExampleGLES2/res/layout/ui_layout_gles.xml,
+	  examples/osgAndroidExampleGLES2/res/menu,
+	  examples/osgAndroidExampleGLES2/res/menu/appmenu.xml,
+	  examples/osgAndroidExampleGLES2/res/values,
+	  examples/osgAndroidExampleGLES2/res/values/strings.xml,
+	  examples/osgAndroidExampleGLES2/src,
+	  examples/osgAndroidExampleGLES2/src/osg,
+	  examples/osgAndroidExampleGLES2/src/osg/AndroidExample,
+	  examples/osgAndroidExampleGLES2/src/osg/AndroidExample/ColorPickerDialog.java,
+	  examples/osgAndroidExampleGLES2/src/osg/AndroidExample/EGLview.java,
+	  examples/osgAndroidExampleGLES2/src/osg/AndroidExample/osgNativeLib.java,
+	  examples/osgAndroidExampleGLES2/src/osg/AndroidExample/osgViewer.java:
+	  From Jorge Ciges, "two clean example viewers (GLES1/2) that
+	  permit load models withouth recompiling by options in the menu
+	  and some basic options. basic options.
+	  
+	  As Rafa and I told you earlier this can't be integrated in the
+	  CMAKE chain. It needs to be compiled by the user out of the OSG
+	  standard compilation. It could be stored in the examples. That
+	  way users will not come here asking for the examples.
+	  
+	  Main characteristics are:
+	  
+	  -Menu with loading and unloading by path.
+	  -Return to home view
+	  -Keyboard capabilities with manipilator switch and basic state
+	  changing.
+	  -Change color screen.
+	  -Osg log bypassed to LogCat (This comes practically straight from
+	  Marcin Hajder example I've only added personal TAG)
+	  -Earmbi / Earmbi V7
+	  -Install to SD (if the device supports the feature)
+	  
+	  And that's all. Now I'm looking to fix the environmental mapping
+	  with true GLES (it does not work well in Android) I will try to
+	  make it in time for 3.0. The other work that i'm studying Dynamic
+	  build with Android but that will need a lot of time to test.
+
+2011-06-09 12:57  robert
+
+	* examples/osguserdata/osguserdata.cpp, include/osg/Node,
+	  include/osg/Object, include/osg/UserDataContainer,
+	  include/osg/ValueObject, src/osg/Node.cpp, src/osg/Object.cpp,
+	  src/osg/UserDataContainer.cpp,
+	  src/osgWrappers/serializers/osg/Object.cpp,
+	  src/osgWrappers/serializers/osg/UserDataContainer.cpp: Refactored
+	  the UserDataContainer so that the osg::UserDataContainer is now a
+	  pure virtual base class,
+	  with a osg::DefaultUserDataContainer subclassed from this. The
+	  user object access methods have now all
+	  been moved from osg::Object into the UserDataContainer class,
+	  except for the set/getUserData() methods
+	  that are left in osg::Object for backwards compatibility, and the
+	  description list access methods have
+	  been moved back into osg::Node.
+	  
+	  main UserObject access methods are now all def
+
+2011-06-09 11:07  robert
+
+	* src/osgPlugins/vrml/ReaderWriterVRML2.cpp: From Mathias
+	  Froehlich, "the attached patch adds an additional null pointer
+	  check"
+
+2011-06-09 11:05  robert
+
+	* src/osgUtil/TangentSpaceGenerator.cpp: From Mathias Froehlich,
+	  "The attached patch adds the polygon primitive to the
+	  TangentSpace computation.
+	  As far as I understand, this should just work for the polygon as
+	  well as with
+	  the tristrip primitive.
+	  "
+
+2011-06-09 10:48  robert
+
+	* examples/osgvolume/osgvolume.cpp,
+	  include/osgPresentation/SlideShowConstructor: Changed the
+	  defaults volume setting to not enable the SampleDensityWhenMoving
+	  property.
+
+2011-06-08 17:45  robert
+
+	* examples/osgvolume/osgvolume.cpp: Cleaned up example to use the
+	  new ImageUtils functions for creating a 3D image from a list of
+	  images.
+
+2011-06-08 16:10  robert
+
+	* examples/osgvolume/osgvolume.cpp, include/osg/ImageUtils,
+	  src/osg/ImageUtils.cpp,
+	  src/osgPresentation/SlideShowConstructor.cpp: Added support for
+	  creating a 3D Image from an image list.
+	  
+	  Added support for reading a list of images in the Present3D
+	  <volume> tag.
+
+2011-06-08 09:28  robert
+
+	* examples/osguserdata/osguserdata.cpp: Removed OSG_EXPORT
+
+2011-06-08 09:24  robert
+
+	* src/osgViewer/View.cpp: Introduced a less conservative near
+	  ratio.
+
+2011-06-08 09:24  robert
+
+	* examples/osgdepthpartition/CMakeLists.txt,
+	  examples/osgdepthpartition/DepthPartitionNode.cpp,
+	  examples/osgdepthpartition/DepthPartitionNode.h,
+	  examples/osgdepthpartition/DistanceAccumulator.cpp,
+	  examples/osgdepthpartition/DistanceAccumulator.h,
+	  examples/osgdepthpartition/osgdepthpartition.cpp: Simplified the
+	  osgdepthpartion example to use the
+	  osgView::View::setUpDepthPartition(..) feature
+
+2011-06-07 20:24  robert
+
+	* src/osgPresentation/SlideShowConstructor.cpp: Added support for
+	  reading .osg, .osgb, .osgx, .osgt and .ive models that contain
+	  volumes from within the volume tag.
+
+2011-06-07 16:17  robert
+
+	* examples/osgvolume/osgvolume.cpp,
+	  src/osgWrappers/serializers/osgVolume/SampleDensityProperty.cpp:
+	  Added support for .osgt, .osgb and .osgx plugins to osgvolume
+	  example
+
+2011-06-07 15:33  robert
+
+	* AUTHORS.txt, ChangeLog: Updated ChangeLog and AUTHORS file for
+	  release
+
+2011-06-07 14:28  robert
+
+	* src/osgPlugins/fbx/WriterNodeVisitor.cpp: From Sukender, "Lastest
+	  change (update to FBX 2012.1) introduced a regression. It didn't
+	  take materials' order into consideration. The line
+	  lMaterialLayer->GetDirectArray().SetAt(it->second.getIndex(),
+	  lMaterial);
+	  has been replaced by
+	  _curFbxNode->AddMaterial(lMaterial);
+	  because KFbxLayerElementMaterial::GetDirectArray() is now private
+	  and we can't access to it.
+	  However, pushing back the material at the end of the vector is
+	  wrong.
+	  We can use the (now) public attribute
+	  KFbxLayerElementMaterial::mDirectArray, as in this submission.
+	  "
+
+2011-06-07 14:26  robert
+
+	* examples/osguserdata/osguserdata.cpp, include/osg/Object,
+	  src/osgPlugins/zip/ZipArchive.cpp,
+	  src/osgQt/GraphicsWindowQt.cpp: From Mathias Froehlich, build
+	  fixes for legacy unix systems
+
+2011-06-07 13:02  robert
+
+	* examples/osguserdata/osguserdata.cpp, include/osg/Object,
+	  include/osg/UserDataContainer, src/osg/CMakeLists.txt,
+	  src/osg/Object.cpp, src/osg/UserDataContainer.cpp,
+	  src/osgWrappers/serializers/osg/Node.cpp,
+	  src/osgWrappers/serializers/osg/Object.cpp,
+	  src/osgWrappers/serializers/osg/UserDataContainer.cpp: Added
+	  ability to subclass from osg::Object to provide custom user data
+	  functionality. A new UserDataContainer provides the
+	  default implementation of the user data functionality.
+
+2011-06-07 09:28  robert
+
+	* src/osg/Object.cpp: Added the return of the index position of the
+	  added UserObject
+
+2011-06-07 08:53  robert
+
+	* include/osg/Object, src/osg/Object.cpp: Added support for
+	  searching for user objects from a given startPosition in the
+	  UserDataContainer object.
+
+2011-06-06 11:48  robert
+
+	* src/osgPlugins/imageio/ReaderWriterImageIO_IOS.cpp: From Frida
+	  Schlaug, "Imageio for ios had a poorly implemented function for
+	  reading from streams (always returning null). In this patch I
+	  copied some code from the non-ios imageio file and adjusted it to
+	  work on ios. "
+
+2011-06-06 11:45  robert
+
+	* PlatformSpecifics/Android/Android.mk.modules.in: From Jorge
+	  Ciges, Minor tweaks in Android makefiles that make possible to
+	  compile for armeabi v7 with neon
+
+2011-06-06 11:44  robert
+
+	* PlatformSpecifics/Android/Application.mk.master.in: From Jorge
+	  Ciges, Minor tweaks in Android makefiles that make possible to
+	  compile for armeabi v7 with neon
+
+2011-06-03 15:58  robert
+
+	* examples/osgvolume/osgvolume.cpp: Added support for --tf-255
+	  transfer function files
+
+2011-06-03 13:47  robert
+
+	* src/osgPresentation/SlideShowConstructor.cpp: Added support for
+	  using the sampleDensityWhenMoving tag with all techniques
+
+2011-06-02 22:49  robert
+
+	* src/osg/Object.cpp: Added extra check to make sure that
+	  _userDataContainer was available before copying it
+
+2011-06-02 22:07  robert
+
+	* include/osgDB/Serializer: Add new macro's to help with
+	  serialization of new user objects
+
+2011-06-02 22:06  robert
+
+	* examples/CMakeLists.txt, examples/osguserdata,
+	  examples/osguserdata/CMakeLists.txt,
+	  examples/osguserdata/osguserdata.cpp: Added new osguserdata
+	  example as a guide to the new user object API and as a testbed
+
+2011-06-02 22:05  robert
+
+	* src/osgWrappers/serializers/osg/Object.cpp,
+	  src/osgWrappers/serializers/osg/ValueObject.cpp: Added support
+	  for new osg::Object user objects.
+
+2011-06-02 22:04  robert
+
+	* include/osg/CopyOp, include/osg/Node, include/osg/Object,
+	  include/osg/ValueObject, src/osg/Drawable.cpp, src/osg/Node.cpp,
+	  src/osg/Object.cpp: Introduced new user object support into
+	  osg::Object that allows assignment of a list of user objects to
+	  an osg::Object.
+	  
+	  Refactored original UserData and Descriptions strings to be
+	  managed alongside the new user object suppport within
+	  a single osg::Object::UserDataContainer.
+
+2011-06-02 21:32  robert
+
+	* include/osg/Version: Updated version
+
+2011-06-02 20:38  robert
+
+	* src/osgWrappers/serializers/osg/Group.cpp: Added ref_ptr<> usage
+	  to avoid possible memory leak.
+
+2011-06-02 14:42  robert
+
+	* CMakeLists.txt: Updated version and so number for next dev
+	  release
+
+2011-05-30 15:43  robert
+
+	* AUTHORS.txt, ChangeLog, applications/osgversion/Contributors.cpp:
+	  Updated AUTHORS and ChangeLog for 2.9.15 dev release
+
+2011-05-30 13:02  robert
+
+	* src/osgPlugins/tiff/ReaderWriterTIFF.cpp: From Dimi Christop,
+	  build fix for RHEL 4.
+
+2011-05-30 09:26  robert
+
+	* src/osgViewer/GraphicsWindowX11.cpp: Added closing of the
+	  _eventDisplay on failure of initializing the context properly.
+
+2011-05-30 09:25  robert
+
+	* src/osg/GraphicsContext.cpp: Fixed X11 related crash that occured
+	  when GraphicsWindow::setCursor was called right after
+	  viewer.realize();
+	  The fix was to simply move the setting of the thread that has
+	  done the makeCurrent to right before the makeCurrent()
+	  rather than right after.
+
+2011-05-30 08:26  robert
+
+	* CMakeModules/Find3rdPartyDependencies.cmake: From Wang Rui, "The
+	  submission fixes the spelling bug we discussed in osg-users. It
+	  replaces the variable ACTUAL_3DPARTY_DIR to ACTUAL_3RDPARTY_DIR
+	  with
+	  back compatibility. Please find it in attachment.
+	  "
+
+2011-05-30 08:24  robert
+
+	* src/osgText/TextBase.cpp: From Terry Welsh, "I was having a small
+	  culling problem with osgText... new TextBase.cpp that fixes it."
+
+2011-05-27 16:04  robert
+
+	* src/osgViewer/GraphicsWindowX11.cpp: Reverted part of revision
+	  r12294 that introduced threading related problems under X11 due
+	  to checking the _display
+	  Display member variable assigned to the graphics thread from the
+	  main thread.
+
+2011-05-27 11:22  robert
+
+	* applications/osgconv/OrientationConverter.cpp,
+	  applications/osgconv/OrientationConverter.h,
+	  applications/osgconv/osgconv.cpp: From Ryan Pavlik, "Existing
+	  osgconv behavior is to transform the model bounding sphere center
+	  to the world origin before performing transformations specified
+	  on the command line, and translating back after rotation and
+	  scaling unless an alternate translation is specified. This patch
+	  adds a setting to the OrientationConverter class in osgconv to
+	  disable this extra transformation, which has the effect of
+	  applying specified transforms with respect to the input world
+	  coordinate system, rather than to the center of the bounding
+	  sphere. It also adds a command line argument "--use-world-frame"
+	  to enable this behavior. When this command line argument is not
+	  passed, behavior is unchanged from before the patch. The usage
+	  text has been updated to reflect this additional option, and the
+	  comments in OrientationConverter are also updated."
+	  
+	  Note from Robert Osfield, tweaked the OrientationConverter.cpp a
+	  little to improve readability.
+
+2011-05-27 11:18  robert
+
+	* applications/osgconv/OrientationConverter.h: Fixed indentation
+
+2011-05-27 11:07  robert
+
+	* examples/osg2cpp/osg2cpp.cpp: Fixed the searchAndReplace function
+	  so that it correctly skips over the newly inserted replacement
+	  strings.
+
+2011-05-27 09:08  robert
+
+	* CMakeLists.txt, CMakeModules/OsgCPack.cmake: From Jean-Sebastien
+	  Guay, "I like the recent addition that adds folders in the
+	  solution tree to better organize the numerous examples,
+	  libraries, plugins etc.
+	  
+	  I added two folders that were missing IMHO: packaging and
+	  documentation.
+	  "
+
+2011-05-27 09:05  robert
+
+	* src/osgPlugins/pnm/ReaderWriterPNM.cpp: From Eric Sokolowsky,
+	  "Attached is an updated PNM plugin for inclusion in both the
+	  trunk and for release version 2.8.5. The attached file fixes
+	  numerous bugs in reading 8-bit and 16-bit images, including
+	  loading the images upside-down. This file also incorporates trunk
+	  patch r12220 which updated the plugin for reading and writing
+	  images through streams instead of C-style FILE I/O."
+	  
+	  Note from Robert Osfield, previous revision was in error due to
+	  an incomplete merge, this revision completes the job.
+
+2011-05-27 09:00  robert
+
+	* src/osgUtil/TriStripVisitor.cpp: From Laurens Voerman, "While
+	  working on the osg exporter for 3dsmax I found a bug in the
+	  TriStripVisitor. I created a small example (attached), and a
+	  modified version of
+	  src\osgUtil\TriStripVisitor.cpp where the problem is removed."
+
+2011-05-27 08:55  robert
+
+	* src/osgPlugins/pnm/ReaderWriterPNM.cpp: From Eric Sokolowsky,
+	  "Attached is an updated PNM plugin for inclusion in both the
+	  trunk and for release version 2.8.5. The attached file fixes
+	  numerous bugs in reading 8-bit and 16-bit images, including
+	  loading the images upside-down. This file also incorporates trunk
+	  patch r12220 which updated the plugin for reading and writing
+	  images through streams instead of C-style FILE I/O."
+
+2011-05-27 08:22  robert
+
+	* src/osgPlugins/tiff/ReaderWriterTIFF.cpp: Reverted Bryce Eldrige
+	  submission.
+
+2011-05-26 16:52  robert
+
+	* include/osg/Math, src/osg/GL2Extensions.cpp,
+	  src/osg/GLExtensions.cpp, src/osg/Math.cpp: Form Jorge Ciges,
+	  improved GL version detection code.
+
+2011-05-26 16:34  robert
+
+	* src/osgDB/OutputStream.cpp: From Dietmar Funck, "I've noticed an
+	  issue when writing arrays of type Vec2D and Vec3D to a .osgb
+	  file. A number is written to the output stream to identify the
+	  array type. In case of Vec2D and Vec3D arrays Vec4D is written as
+	  array type - I guess this is a copy and paste mistake.
+	  Writing the correct array types fixes the issue - in my case it
+	  fixes writing and afterwards reading geometry instances."
+
+2011-05-26 16:26  robert
+
+	* src/osgPlugins/tiff/ReaderWriterTIFF.cpp: From Bryce Eldridge,
+	  "Here is an update for the TIFF plugin that includes the
+	  following features when writing out TIFF files:
+	  
+	  - Support for writing unsigned 16-bit images (GL_UNSIGNED_SHORT)
+	  - Code to parse the options string for the following options:
+	  -- Flag to turn off the compression. The PACKBITS compression
+	  type causes issues for me with some programs on Windows (Picasa
+	  for example).
+	  -- Options to set the XRESOLUTION and YRESOLUTION tags (DPI) in
+	  the TIFF file.
+	  
+	  Existing behavior (PACKBITS compression, DPI tags left at
+	  default) is preserved if the options string is not set.
+	  "
+
+2011-05-26 16:19  robert
+
+	* src/osgPlugins/3ds/WriterNodeVisitor.cpp: Fixed default setting
+	  of texture_no_tile to match the flags seet in lib3ds_material.cpp
+	  initialize_texture_map(..).
+
+2011-05-26 16:16  robert
+
+	* src/osgPlugins/tiff/ReaderWriterTIFF.cpp: From Oliver Neumann,
+	  
+	  "I checked your solution and found one missing point which makes
+	  it still produce the tif error:
+	  The very first seek_set on the empty stream with zero offset."
+	  
+	  "This means that the empty stream is seeked again resulting in
+	  the fail bit to be set. Your code does not check this case,
+	  furthermore you use t_off instead of std::ostream::streampos for
+	  the tellp() calls. In this special case (empty stream) tellp()
+	  returns -1 which is cast to 0xFFFFFFFFFF as t_off is unsigned. I
+	  suggest this addition to your code (within the switch statement)"
+
+2011-05-26 16:13  robert
+
+	* examples/osgmanipulator/osgmanipulator.cpp: Fixed indentation
+
+2011-05-26 15:47  robert
+
+	* src/osg/BufferObject.cpp: Fixed handling of changes in gl buffer
+	  object size so that when a gl buffer object is resized all the
+	  buffer data
+	  is recompiled.
+
+2011-05-25 12:41  robert
+
+	* src/osgPlugins/zip/ZipArchive.cpp,
+	  src/osgPlugins/zip/ZipArchive.h: From Bradley Anderegg, "Ok, I am
+	  re-submitting this with the changes we discussed. That is, there
+	  is a default implementation of
+	  osgDB::Archive::getDirectoryContents() that uses getFileNames(),
+	  and the osgDB::ArchiveExtended header was removed as it is now
+	  unnecessary.
+	  
+	  Here is a quick list of the modified files:
+	  
+	  Archive - getDirectoryContents() no longer pure virtual
+	  Archive.cpp - default getDirectoryContents() implementation
+	  unzip.cpp - modified to fix a bug where the same file will not
+	  load twice in a row
+	  ZipArchive.h / ZipArchive.cpp - extends osgDB::Archive and
+	  provides support for random access loading within a .zip file
+	  ReaderWriterZip.cpp - modified to use the ZipArchive class"
+
+2011-05-25 09:34  robert
+
+	* ChangeLog: Updated ChangeLog
+
+2011-05-25 09:34  robert
+
+	* CMakeLists.txt, src/osgViewer/CMakeLists.txt: From Olaf Flebbe,
+	  fixes for OSX AGL build
+
 2011-05-25 09:13  robert
 
 	* src/osgPlugins/osga/OSGA_Archive.cpp,

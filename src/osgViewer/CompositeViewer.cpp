@@ -28,7 +28,8 @@ CompositeViewer::CompositeViewer()
 }
 
 CompositeViewer::CompositeViewer(const CompositeViewer& cv,const osg::CopyOp& copyop):
-    ViewerBase()
+    osg::Object(true),
+    ViewerBase(cv)
 {
     constructorInit();
 }
@@ -635,6 +636,15 @@ void CompositeViewer::advance(double simulationTime)
         _frameStamp->setSimulationTime(simulationTime);
     }
 
+    for(RefViews::iterator vitr = _views.begin();
+        vitr != _views.end();
+        ++vitr)
+    {
+        View* view = vitr->get();
+        view->getEventQueue()->frame( getFrameStamp()->getReferenceTime() );
+    }
+
+
     if (getViewerStats() && getViewerStats()->collectStats("frame_rate"))
     {
         // update previous frame stats
@@ -676,6 +686,8 @@ void CompositeViewer::eventTraversal()
 
     if (_views.empty()) return;
 
+    double cutOffTime = (_runFrameScheme==ON_DEMAND) ? DBL_MAX : _frameStamp->getReferenceTime();
+    
     double beginEventTraversal = osg::Timer::instance()->delta_s(_startTick, osg::Timer::instance()->tick());
 
     // OSG_NOTICE<<"CompositeViewer::frameEventTraversal()."<<std::endl;
@@ -716,7 +728,7 @@ void CompositeViewer::eventTraversal()
             gw->checkEvents();
 
             osgGA::EventQueue::Events gw_events;
-            gw->getEventQueue()->takeEvents(gw_events);
+            gw->getEventQueue()->takeEvents(gw_events, cutOffTime);
 
             osgGA::EventQueue::Events::iterator itr;
             for(itr = gw_events.begin();
@@ -895,8 +907,7 @@ void CompositeViewer::eventTraversal()
         ++vitr)
     {
         View* view = vitr->get();
-        view->getEventQueue()->frame( getFrameStamp()->getReferenceTime() );
-        view->getEventQueue()->takeEvents(viewEventsMap[view]);
+        view->getEventQueue()->takeEvents(viewEventsMap[view], cutOffTime);
     }
 
 

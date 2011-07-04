@@ -29,10 +29,10 @@ endif()
 
 PROJECT(OpenSceneGraph)
 
-SET(OPENSCENEGRAPH_MAJOR_VERSION 2)
-SET(OPENSCENEGRAPH_MINOR_VERSION 9)
-SET(OPENSCENEGRAPH_PATCH_VERSION 15)
-SET(OPENSCENEGRAPH_SOVERSION 76)
+SET(OPENSCENEGRAPH_MAJOR_VERSION 3)
+SET(OPENSCENEGRAPH_MINOR_VERSION 1)
+SET(OPENSCENEGRAPH_PATCH_VERSION 0)
+SET(OPENSCENEGRAPH_SOVERSION 78)
 
 # set to 0 when not a release candidate, non zero means that any generated 
 # svn tags will be treated as release candidates of given number
@@ -66,6 +66,9 @@ SET(CMAKE_MODULE_PATH "${OpenSceneGraph_SOURCE_DIR}/CMakeModules;${CMAKE_MODULE_
 ## Option to enable Android build using AndroidNDK
 OPTION(OSG_BUILD_PLATFORM_ANDROID OFF)
 IF(OSG_BUILD_PLATFORM_ANDROID)
+
+    CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
+
     INCLUDE(OsgAndroidMacroUtils)
     SET(ANDROID TRUE)
     SET(ANDROID_PLATFORM 5)
@@ -916,9 +919,12 @@ IF(BUILD_DOCUMENTATION)
     ADD_CUSTOM_TARGET(doc_openscenegraph ${DOXYGEN}
         ${PROJECT_BINARY_DIR}/doc/openscenegraph.doxyfile
     )
+    SET_TARGET_PROPERTIES(doc_openscenegraph PROPERTIES FOLDER "Documentation")
+    
     ADD_CUSTOM_TARGET(doc_openthreads ${DOXYGEN}
         ${PROJECT_BINARY_DIR}/doc/openthreads.doxyfile
     )
+    SET_TARGET_PROPERTIES(doc_openthreads PROPERTIES FOLDER "Documentation")
 ENDIF(BUILD_DOCUMENTATION)
 
 OPTION(BUILD_DASHBOARD_REPORTS "Set to ON to activate reporting of OpenSceneGraph builds here http://www.cdash.org/CDashPublic/index.php?project=OpenSceneGraph" OFF)
