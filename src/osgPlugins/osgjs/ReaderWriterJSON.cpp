@@ -50,7 +50,7 @@ struct WriteVisitor : public osg::NodeVisitor
         osg::Geometry* geom = dynamic_cast<osg::Geometry*>(&drw);
         if (geom) {
             osg::ref_ptr<JSONObject> json = new JSONObject;
-
+            
             if (drw.getStateSet()) {
                 JSONObject* stateset = createJSONStateSet(drw.getStateSet());
                 if (stateset)
@@ -60,7 +60,10 @@ struct WriteVisitor : public osg::NodeVisitor
             JSONObject* parent = getParent();
             if (parent)
                 parent->addChild(json);
-            initJsonObjectFromNode(drw, *json);
+
+            if (!geom->getName().empty())
+                json->getMaps()["name"] = new JSONValue<std::string>(geom->getName());
+
             osg::ref_ptr<JSONObject> attributes = new JSONObject;
             
             if (geom->getVertexArray()) {
@@ -130,20 +133,9 @@ struct WriteVisitor : public osg::NodeVisitor
             _stateset.pop_back();
     }
 
-    void initJsonObjectFromNode(osg::Drawable& node, JSONObject& json) {
-        json.getMaps()["name"] = new JSONValue<std::string>(node.getName());
-        if (node.getStateSet()) {
-
-        }
-            
-    }
-
     void initJsonObjectFromNode(osg::Node& node, JSONObject& json) {
-        json.getMaps()["name"] = new JSONValue<std::string>(node.getName());
-        if (node.getStateSet()) {
-
-        }
-            
+        if (!node.getName().empty())
+            json.getMaps()["name"] = new JSONValue<std::string>(node.getName());
     }
 
     void apply(osg::Geode& node) {

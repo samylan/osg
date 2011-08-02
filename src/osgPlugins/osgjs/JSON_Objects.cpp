@@ -251,7 +251,8 @@ JSONObject* createTexture(osg::Texture* texture)
 JSONObject* createMaterial(osg::Material* material)
 {
     osg::ref_ptr<JSONObject> jsonMaterial = new JSONObject;
-    jsonMaterial->getMaps()["name"] = new JSONValue<std::string>(material->getName());
+    if (!material->getName().empty())
+        jsonMaterial->getMaps()["name"] = new JSONValue<std::string>(material->getName());
     jsonMaterial->getMaps()["ambient"] = new JSONVec4Array(material->getAmbient(osg::Material::FRONT));
     jsonMaterial->getMaps()["diffuse"] = new JSONVec4Array(material->getDiffuse(osg::Material::FRONT));
     jsonMaterial->getMaps()["specular"] = new JSONVec4Array(material->getSpecular(osg::Material::FRONT));
@@ -264,6 +265,11 @@ JSONObject* createMaterial(osg::Material* material)
 JSONObject* createJSONStateSet(osg::StateSet* stateset)
 {
     osg::ref_ptr<JSONObject> jsonStateSet = new JSONObject;
+
+    if (!stateset->getName().empty()) {
+        jsonStateSet->getMaps()["name"] = new JSONValue<std::string>(stateset->getName());
+    }
+
     osg::ref_ptr<JSONArray> textures = new JSONArray;
     int lastTextureIndex = -1;
     for (int i = 0; i < 32; ++i) {
