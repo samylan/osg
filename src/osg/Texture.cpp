@@ -94,7 +94,7 @@ void Texture::TextureObject::setAllocated(GLint     numMipmapLevels,
             // Update texture pool size
             _set->getParent()->getCurrTexturePoolSize() -= previousSize;
             _set->getParent()->getCurrTexturePoolSize() += _profile._size;
-       }
+        }
     }
 }
 
@@ -1078,7 +1078,7 @@ Texture::Texture():
             _useHardwareMipMapGeneration(true),
             _unrefImageDataAfterApply(false),
             _clientStorageHint(false),
-            _resizeNonPowerOfTwoHint(!OSG_GLES2_FEATURES && !OSG_GL3_FEATURES),
+            _resizeNonPowerOfTwoHint(true),
             _borderColor(0.0, 0.0, 0.0, 0.0),
             _borderWidth(0),
             _internalFormatMode(USE_IMAGE_DATA_FORMAT),
@@ -2479,7 +2479,9 @@ Texture::Extensions::Extensions(unsigned int contextID)
                                    isGLExtensionOrVersionSupported(contextID,"GL_EXT_texture_edge_clamp", 1.2f) || 
                                    isGLExtensionOrVersionSupported(contextID,"GL_SGIS_texture_edge_clamp", 1.2f);
                                    
-    _isTextureBorderClampSupported = OSG_GL3_FEATURES || isGLExtensionOrVersionSupported(contextID,"GL_ARB_texture_border_clamp", 1.3f);
+
+    _isTextureBorderClampSupported = OSG_GL3_FEATURES ||
+                                     ((OSG_GL1_FEATURES || OSG_GL2_FEATURES) && isGLExtensionOrVersionSupported(contextID,"GL_ARB_texture_border_clamp", 1.3f));
     
     _isGenerateMipMapSupported = builtInSupport || isGLExtensionOrVersionSupported(contextID,"GL_SGIS_generate_mipmap", 1.4f);
 
