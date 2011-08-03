@@ -5,6 +5,7 @@
 #include "JSON_Objects"
 #include <osgDB/WriteFile>
 #include <osg/Material>
+#include <osg/BlendFunc>
 #include <osg/Texture>
 #include <osg/Texture2D>
 #include <osg/Texture1D>
@@ -224,24 +225,24 @@ JSONObject* createTexture(osg::Texture* texture)
     }
 
     osg::ref_ptr<JSONObject> jsonTexture = new JSONObject;
-    jsonTexture->getMaps()["mag_filter"] = getJSONFilterMode(texture->getFilter(osg::Texture::MAG_FILTER));
-    jsonTexture->getMaps()["min_filter"] = getJSONFilterMode(texture->getFilter(osg::Texture::MIN_FILTER));
+    jsonTexture->getMaps()["MagFilter"] = getJSONFilterMode(texture->getFilter(osg::Texture::MAG_FILTER));
+    jsonTexture->getMaps()["MinFilter"] = getJSONFilterMode(texture->getFilter(osg::Texture::MIN_FILTER));
 
-    jsonTexture->getMaps()["wrap_s"] = getJSONWrapMode(texture->getWrap(osg::Texture::WRAP_S));
-    jsonTexture->getMaps()["wrap_t"] = getJSONWrapMode(texture->getWrap(osg::Texture::WRAP_T));
+    jsonTexture->getMaps()["WrapS"] = getJSONWrapMode(texture->getWrap(osg::Texture::WRAP_S));
+    jsonTexture->getMaps()["WrapT"] = getJSONWrapMode(texture->getWrap(osg::Texture::WRAP_T));
 
     osg::Texture2D* t2d = dynamic_cast<osg::Texture2D*>(texture);
     if (t2d) {
         JSONObject* image = createImage(t2d->getImage());
         if (image)
-            jsonTexture->getMaps()["file"] = image;
+            jsonTexture->getMaps()["File"] = image;
         return jsonTexture.release();
     }
     osg::Texture1D* t1d = dynamic_cast<osg::Texture1D*>(texture);
     if (t1d) {
         JSONObject* image = createImage(t1d->getImage());
         if (image)
-            jsonTexture->getMaps()["file"] = image;
+            jsonTexture->getMaps()["File"] = image;
 
         return jsonTexture.release();
     }
@@ -252,14 +253,50 @@ JSONObject* createMaterial(osg::Material* material)
 {
     osg::ref_ptr<JSONObject> jsonMaterial = new JSONObject;
     if (!material->getName().empty())
-        jsonMaterial->getMaps()["name"] = new JSONValue<std::string>(material->getName());
-    jsonMaterial->getMaps()["ambient"] = new JSONVec4Array(material->getAmbient(osg::Material::FRONT));
-    jsonMaterial->getMaps()["diffuse"] = new JSONVec4Array(material->getDiffuse(osg::Material::FRONT));
-    jsonMaterial->getMaps()["specular"] = new JSONVec4Array(material->getSpecular(osg::Material::FRONT));
-    jsonMaterial->getMaps()["emission"] = new JSONVec4Array(material->getEmission(osg::Material::FRONT));
-    jsonMaterial->getMaps()["shininess"] = new JSONValue<float>(material->getShininess(osg::Material::FRONT));
+        jsonMaterial->getMaps()["Name"] = new JSONValue<std::string>(material->getName());
+    jsonMaterial->getMaps()["Ambient"] = new JSONVec4Array(material->getAmbient(osg::Material::FRONT));
+    jsonMaterial->getMaps()["Diffuse"] = new JSONVec4Array(material->getDiffuse(osg::Material::FRONT));
+    jsonMaterial->getMaps()["Specular"] = new JSONVec4Array(material->getSpecular(osg::Material::FRONT));
+    jsonMaterial->getMaps()["Emission"] = new JSONVec4Array(material->getEmission(osg::Material::FRONT));
+    jsonMaterial->getMaps()["Shininess"] = new JSONValue<float>(material->getShininess(osg::Material::FRONT));
 
     return jsonMaterial.release();
+}
+
+static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
+    switch (mode) {
+    case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
+    case osg::BlendFunc::DST_COLOR: return new JSONValue<std::string>("DST_COLOR");
+    case osg::BlendFunc::ONE: return new JSONValue<std::string>("ONE");                      
+    case osg::BlendFunc::ONE_MINUS_DST_ALPHA: return new JSONValue<std::string>("ONE_MINUS_DST_ALPHA");      
+    case osg::BlendFunc::ONE_MINUS_DST_COLOR: return new JSONValue<std::string>("ONE_MINUS_DST_COLOR");      
+    case osg::BlendFunc::ONE_MINUS_SRC_ALPHA: return new JSONValue<std::string>("ONE_MINUS_SRC_ALPHA");      
+    case osg::BlendFunc::ONE_MINUS_SRC_COLOR: return new JSONValue<std::string>("ONE_MINUS_SRC_COLOR");      
+    case osg::BlendFunc::SRC_ALPHA: return new JSONValue<std::string>("SRC_ALPHA");                
+    case osg::BlendFunc::SRC_ALPHA_SATURATE: return new JSONValue<std::string>("SRC_ALPHA_SATURATE");       
+    case osg::BlendFunc::SRC_COLOR: return new JSONValue<std::string>("SRC_COLOR");                
+    case osg::BlendFunc::CONSTANT_COLOR: return new JSONValue<std::string>("CONSTANT_COLOR");           
+    case osg::BlendFunc::ONE_MINUS_CONSTANT_COLOR: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_COLOR"); 
+    case osg::BlendFunc::CONSTANT_ALPHA: return new JSONValue<std::string>("CONSTANT_ALPHA");           
+    case osg::BlendFunc::ONE_MINUS_CONSTANT_ALPHA: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_ALPHA"); 
+    case osg::BlendFunc::ZERO: return new JSONValue<std::string>("ZERO");                     
+    default:
+        return new JSONValue<std::string>("ONE");
+    }
+    return new JSONValue<std::string>("ONE");
+}
+
+JSONObject* createBlendFunc(osg::BlendFunc* sa)
+{
+    osg::ref_ptr<JSONObject> json = new JSONObject;
+    if (!sa->getName().empty())
+        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
+
+    json->getMaps()["SourceRGB"] = getBlendFuncMode(sa->getSource());
+    json->getMaps()["DestinationRGB"] = getBlendFuncMode(sa->getDestination());
+    json->getMaps()["SourceAlpha"] = getBlendFuncMode(sa->getSourceAlpha());
+    json->getMaps()["DestinationAlpha"] = getBlendFuncMode(sa->getDestinationAlpha());
+    return json.release();
 }
 
 JSONObject* createJSONStateSet(osg::StateSet* stateset)
@@ -267,7 +304,7 @@ JSONObject* createJSONStateSet(osg::StateSet* stateset)
     osg::ref_ptr<JSONObject> jsonStateSet = new JSONObject;
 
     if (!stateset->getName().empty()) {
-        jsonStateSet->getMaps()["name"] = new JSONValue<std::string>(stateset->getName());
+        jsonStateSet->getMaps()["Name"] = new JSONValue<std::string>(stateset->getName());
     }
 
     osg::ref_ptr<JSONArray> textures = new JSONArray;
@@ -295,7 +332,12 @@ JSONObject* createJSONStateSet(osg::StateSet* stateset)
 
     osg::Material* material = dynamic_cast<osg::Material*>(stateset->getAttribute(osg::StateAttribute::MATERIAL));
     if (material) {
-        jsonStateSet->getMaps()["material"] = createMaterial(material);
+        jsonStateSet->getMaps()["Material"] = createMaterial(material);
+    }
+
+    osg::BlendFunc* blendFunc = dynamic_cast<osg::BlendFunc*>(stateset->getAttribute(osg::StateAttribute::BLENDFUNC));
+    if (blendFunc) {
+        jsonStateSet->getMaps()["BlendFunc"] = createBlendFunc(blendFunc);
     }
 
     osg::StateSet::ModeList modeList = stateset->getModeList();

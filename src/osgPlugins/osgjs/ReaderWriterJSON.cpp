@@ -54,7 +54,7 @@ struct WriteVisitor : public osg::NodeVisitor
             if (drw.getStateSet()) {
                 JSONObject* stateset = createJSONStateSet(drw.getStateSet());
                 if (stateset)
-                    json->getMaps()["stateset"] = stateset;
+                    json->getMaps()["StateSet"] = stateset;
             }
 
             JSONObject* parent = getParent();
@@ -62,7 +62,7 @@ struct WriteVisitor : public osg::NodeVisitor
                 parent->addChild(json);
 
             if (!geom->getName().empty())
-                json->getMaps()["name"] = new JSONValue<std::string>(geom->getName());
+                json->getMaps()["Name"] = new JSONValue<std::string>(geom->getName());
 
             osg::ref_ptr<JSONObject> attributes = new JSONObject;
             
@@ -95,7 +95,7 @@ struct WriteVisitor : public osg::NodeVisitor
             if (geom->getTexCoordArray(4)) {
                 attributes->getMaps()["TexCoord4"] = new JSONBufferArray(geom->getTexCoordArray(4));
             }
-            json->getMaps()["attributes"] = attributes;
+            json->getMaps()["Attributes"] = attributes;
 
 
             if (!geom->getPrimitiveSetList().empty()) {
@@ -126,7 +126,7 @@ struct WriteVisitor : public osg::NodeVisitor
                         osg::notify(osg::WARN) << "Primitive Type " << geom->getPrimitiveSetList()[i]->getType() << " not supported, skipping" << std::endl;
                     }
                 }
-                json->getMaps()["primitives"] = primitives;
+                json->getMaps()["Primitives"] = primitives;
             }
         }
         if (drw.getStateSet())
@@ -135,7 +135,7 @@ struct WriteVisitor : public osg::NodeVisitor
 
     void initJsonObjectFromNode(osg::Node& node, JSONObject& json) {
         if (!node.getName().empty())
-            json.getMaps()["name"] = new JSONValue<std::string>(node.getName());
+            json.getMaps()["Name"] = new JSONValue<std::string>(node.getName());
     }
 
     void apply(osg::Geode& node) {
@@ -149,7 +149,7 @@ struct WriteVisitor : public osg::NodeVisitor
             if (node.getStateSet()) {
                 JSONObject* stateset = createJSONStateSet(node.getStateSet());
                 if (stateset)
-                    json->getMaps()["stateset"] = stateset;
+                    json->getMaps()["StateSet"] = stateset;
             }
 
             JSONObject* parent = getParent();
@@ -177,7 +177,7 @@ struct WriteVisitor : public osg::NodeVisitor
             if (node.getStateSet()) {
                 JSONObject* stateset = createJSONStateSet(node.getStateSet());
                 if (stateset)
-                    json->getMaps()["stateset"] = stateset;
+                    json->getMaps()["StateSet"] = stateset;
             }
 
             JSONObject* parent = getParent();
@@ -204,7 +204,7 @@ struct WriteVisitor : public osg::NodeVisitor
             if (node.getStateSet()) {
                 JSONObject* stateset = createJSONStateSet(node.getStateSet());
                 if (stateset)
-                    json->getMaps()["stateset"] = stateset;
+                    json->getMaps()["StateSet"] = stateset;
             }
 
             JSONObject* parent = getParent();
@@ -212,7 +212,7 @@ struct WriteVisitor : public osg::NodeVisitor
                 parent->addChild(json);
 
             initJsonObjectFromNode(node, *json);
-            json->getMaps()["projection"] = new JSONMatrix(node.getMatrix());
+            json->getMaps()["Projection"] = new JSONMatrix(node.getMatrix());
             _parents.push_back(json);
             traverse(node);
             _parents.pop_back();
@@ -231,7 +231,7 @@ struct WriteVisitor : public osg::NodeVisitor
             if (node.getStateSet()) {
                 JSONObject* stateset = createJSONStateSet(node.getStateSet());
                 if (stateset)
-                    json->getMaps()["stateset"] = stateset;
+                    json->getMaps()["StateSet"] = stateset;
             }
 
             JSONObject* parent = getParent();
@@ -239,7 +239,7 @@ struct WriteVisitor : public osg::NodeVisitor
                 parent->addChild(json);
 
             initJsonObjectFromNode(node, *json);
-            json->getMaps()["matrix"] = new JSONMatrix(node.getMatrix());
+            json->getMaps()["Matrix"] = new JSONMatrix(node.getMatrix());
             _parents.push_back(json);
             traverse(node);
             _parents.pop_back();
@@ -258,7 +258,7 @@ struct WriteVisitor : public osg::NodeVisitor
             if (node.getStateSet()) {
                 JSONObject* stateset = createJSONStateSet(node.getStateSet());
                 if (stateset)
-                    json->getMaps()["stateset"] = stateset;
+                    json->getMaps()["StateSet"] = stateset;
             }
 
             JSONObject* parent = getParent();
@@ -267,7 +267,7 @@ struct WriteVisitor : public osg::NodeVisitor
             initJsonObjectFromNode(node, *json);
             Matrix matrix = Matrix::identity();
             node.computeLocalToWorldMatrix(matrix,0);
-            json->getMaps()["matrix"] = new JSONMatrix(matrix);
+            json->getMaps()["Matrix"] = new JSONMatrix(matrix);
             _parents.push_back(json);
             traverse(node);
             _parents.pop_back();
