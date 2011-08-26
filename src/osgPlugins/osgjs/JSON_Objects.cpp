@@ -22,41 +22,81 @@ std::string JSONObjectBase::indent()
     return str;
 }
 
-void JSONObject::addChild(JSONObject* child) 
+
+void JSONNode::write(std::ostream& str)
 {
-    if (!getMaps()["children"])
-        getMaps()["children"] = new JSONArray;
-    getMaps()["children"]->asArray()->getArray().push_back(child);
+    std::vector<std::string> order;
+    order.push_back("Name");
+    order.push_back("TargetName");
+    order.push_back("Matrix");
+    order.push_back("UpdateCallbacks");
+    order.push_back("StateSet");
+    writeOrder(str, order);
 }
 
-void JSONObject::write(std::ostream& str)
+void JSONObject::addChild(const std::string& type, JSONObject* child)
 {
-    str <<  "{\n";
-    JSONObjectBase::level++;
-    for (JSONMap::iterator it = _maps.begin(); it != _maps.end(); ++it) {
-        std::string key = it->first;
-        if (key.empty())
-            continue;
-        JSONObject* obj = it->second.get();
-        if (!obj)
-            continue;
+    if (!getMaps()["Children"])
+        getMaps()["Children"] = new JSONArray;
 
+    JSONObject* jsonObject = new JSONObject();
+    jsonObject->getMaps()[type] = child;
+    getMaps()["Children"]->asArray()->getArray().push_back(jsonObject);
+}
+
+static void writeEntry(std::ostream& str, const std::string& key, JSONObject::JSONMap& map)
+{
+    if (key.empty())
+        return;
+
+    if ( map.find(key) != map.end() &&
+         map[ key ].valid() ) {
+        
         str << JSONObjectBase::indent() << '"' << key << '"' << ": ";
-        obj->write(str);
-        JSONMap::iterator itend = it;
-        itend++;
-        if (itend != _maps.end()) {
+        map[ key ]->write(str);
+        map.erase(key);
+
+        if (!map.empty()) {
             str << ", ";
             str << "\n";
         }
     }
+}
+void JSONObject::writeOrder(std::ostream& str, const std::vector<std::string>& order)
+{
+    str << "{" << std::endl;
+    JSONObjectBase::level++;
+    for (unsigned int i = 0; i < order.size(); i++) {
+        writeEntry(str, order[i], _maps);
+    }
+
+    while(!_maps.empty()) {
+        std::string key = _maps.begin()->first;
+        writeEntry(str, key, _maps);
+    }
+
     JSONObjectBase::level--;
     str << std::endl << JSONObjectBase::indent() << "}";
+}
+
+void JSONObject::write(std::ostream& str)
+{
+    OrderList defaultOrder;
+    defaultOrder.push_back("Name");
+    defaultOrder.push_back("TargetName");
+    writeOrder(str, defaultOrder);
 }
 
 JSONVec4Array::JSONVec4Array(const osg::Vec4& v) : JSONVec3Array()
 {
     for (int i = 0; i < 4; ++i) {
+        _array.push_back(new JSONValue<float>(v[i]));
+    }
+}
+
+JSONVec2Array::JSONVec2Array(const osg::Vec2& v) : JSONVec3Array()
+{
+    for (int i = 0; i < 2; ++i) {
         _array.push_back(new JSONValue<float>(v[i]));
     }
 }
@@ -83,11 +123,10 @@ void JSONVec3Array::write(std::ostream& str)
     str << "]";
 }
 
-
-void JSONArray::write(std::ostream& str)
+void JSONKeyframes::write(std::ostream& str)
 {
-    str << "[ ";
     JSONObjectBase::level++;
+    str << "[" << std::endl << JSONObjectBase::indent();
     for (unsigned int i = 0; i < _array.size(); i++) {
         if (_array[i].valid()) {
             _array[i]->write(str);
@@ -95,12 +134,31 @@ void JSONArray::write(std::ostream& str)
             str << "undefined";
         }
         if (i != _array.size() -1) {
-            str << ", ";
-            str << "\n";
+            str << ",";
+            str << "\n" << JSONObjectBase::indent();
         }
     }
+    str << " ]";
     JSONObjectBase::level--;
-    str << std::endl << JSONObjectBase::indent() << "]";
+}
+
+
+void JSONArray::write(std::ostream& str)
+{
+    str << "[ ";
+    for (unsigned int i = 0; i < _array.size(); i++) {
+        if (_array[i].valid()) {
+            _array[i]->write(str);
+        } else {
+            str << "undefined";
+        }
+        if (i != _array.size() -1) {
+            str << ",";
+            str << "\n" << JSONObjectBase::indent();
+        }
+    }
+    //str << std::endl << JSONObjectBase::indent() << "]";
+    str << " ]";
 }
 
 void JSONBufferArray::write(std::ostream& str)
@@ -251,7 +309,7 @@ JSONObject* createTexture(osg::Texture* texture)
 
 JSONObject* createMaterial(osg::Material* material)
 {
-    osg::ref_ptr<JSONObject> jsonMaterial = new JSONObject;
+    osg::ref_ptr<JSONObject> jsonMaterial = new JSONMaterial;
     if (!material->getName().empty())
         jsonMaterial->getMaps()["Name"] = new JSONValue<std::string>(material->getName());
     jsonMaterial->getMaps()["Ambient"] = new JSONVec4Array(material->getAmbient(osg::Material::FRONT));
@@ -299,46 +357,57 @@ JSONObject* createBlendFunc(osg::BlendFunc* sa)
     return json.release();
 }
 
+
 JSONObject* createJSONStateSet(osg::StateSet* stateset)
 {
-    osg::ref_ptr<JSONObject> jsonStateSet = new JSONObject;
+    osg::ref_ptr<JSONObject> jsonStateSet = new JSONStateSet;
 
     if (!stateset->getName().empty()) {
         jsonStateSet->getMaps()["Name"] = new JSONValue<std::string>(stateset->getName());
     }
 
-    osg::ref_ptr<JSONArray> textures = new JSONArray;
+    osg::ref_ptr<JSONArray> textureAttributeList = new JSONArray;
     int lastTextureIndex = -1;
     for (int i = 0; i < 32; ++i) {
         osg::Texture* texture = dynamic_cast<osg::Texture*>(stateset->getTextureAttribute(i,osg::StateAttribute::TEXTURE));
 
+        JSONArray* textureUnit = new JSONArray;
         JSONObject* jsonTexture = createTexture(texture);
+        textureAttributeList->getArray().push_back(textureUnit);
+
         if (jsonTexture) {
-            textures->getArray().push_back(jsonTexture);
+            JSONObject* textureObject = new JSONObject;
+            textureObject->getMaps()["osg.Texture"] = jsonTexture;
+            textureUnit->getArray().push_back(textureObject);
             lastTextureIndex = i;
-        } else
-            textures->getArray().push_back(0);
+        }
     }
     if (lastTextureIndex > -1) {
-        textures->getArray().resize(lastTextureIndex+1);
-        for (unsigned int i = 0; i < textures->getArray().size(); ++i) {
-            // replace empty texture by dummy object
-            if (textures->getArray()[i] == 0) {
-                textures->getArray()[i] = new JSONObject;
-            }
-        }
-        jsonStateSet->getMaps()["textures"] = textures;
+        textureAttributeList->getArray().resize(lastTextureIndex+1);
+        jsonStateSet->getMaps()["TextureAttributeList"] = textureAttributeList;
     }
+
+
+    osg::ref_ptr<JSONArray> attributeList = new JSONArray;
 
     osg::Material* material = dynamic_cast<osg::Material*>(stateset->getAttribute(osg::StateAttribute::MATERIAL));
     if (material) {
-        jsonStateSet->getMaps()["Material"] = createMaterial(material);
+        JSONObject* obj = new JSONObject;
+        obj->getMaps()["osg.Material"] = createMaterial(material);
+        attributeList->getArray().push_back(obj);
     }
 
     osg::BlendFunc* blendFunc = dynamic_cast<osg::BlendFunc*>(stateset->getAttribute(osg::StateAttribute::BLENDFUNC));
     if (blendFunc) {
-        jsonStateSet->getMaps()["BlendFunc"] = createBlendFunc(blendFunc);
+        JSONObject* obj = new JSONObject;
+        obj->getMaps()["osg.BlendFunc"] = createBlendFunc(blendFunc);
+        attributeList->getArray().push_back(obj);
     }
+
+    if (!attributeList->getArray().empty()) {
+        jsonStateSet->getMaps()["AttributeList"] = attributeList;
+    }
+
 
     osg::StateSet::ModeList modeList = stateset->getModeList();
     for (unsigned int i = 0; i < modeList.size(); ++i) {

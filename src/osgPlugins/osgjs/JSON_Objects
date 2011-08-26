@@ -2,6 +2,9 @@
  *  Copyright (C) 2010 Cedric Pinson <cedric.pinson@plopbyte.net>
  */
 
+#ifndef JSON_OBJECT
+#define JSON_OBJECT
+
 #include <osg/Matrix>
 #include <map>
 #include <string>
@@ -21,13 +24,25 @@ class JSONArray;
 struct JSONObject : public JSONObjectBase
 {
     typedef std::map<std::string, osg::ref_ptr<JSONObject> > JSONMap;
+    typedef std::vector<std::string> OrderList;
     JSONMap _maps;
     JSONMap& getMaps() { return _maps; }
+    void writeOrder(std::ostream& str, const OrderList& order);
     virtual void write(std::ostream& str);
-    void addChild(JSONObject* child);
+    void addChild(const std::string& type, JSONObject* child);
     virtual JSONArray* asArray() { return 0; }
 
 };
+
+
+struct JSONNode : public JSONObject
+{
+    void write(std::ostream& str);
+};
+
+typedef JSONObject JSONStateSet;
+typedef JSONObject JSONMaterial;
+
 
 struct JSONArray : public JSONObject
 {
@@ -40,6 +55,12 @@ struct JSONArray : public JSONObject
     JSONArray* asArray() { return this; }
 };
 
+struct JSONKeyframes : public JSONArray
+{
+    virtual void write(std::ostream& str);
+};
+
+
 struct JSONVec3Array : public JSONArray
 {
     JSONVec3Array() {}
@@ -50,6 +71,11 @@ struct JSONVec3Array : public JSONArray
 struct JSONVec4Array : public JSONVec3Array
 {
     JSONVec4Array(const osg::Vec4&);
+};
+
+struct JSONVec2Array : public JSONVec3Array
+{
+    JSONVec2Array(const osg::Vec2&);
 };
 
 template <class T> 
@@ -166,9 +192,9 @@ struct JSONBufferArray : public JSONObject
 {
     JSONBufferArray() {}
     JSONBufferArray(const osg::Array* array) {
-        getMaps()["elements"] = new JSONVertexArray(array);
-        getMaps()["itemSize"] = new JSONValue<int>(array->getDataSize());
-        getMaps()["type"] = new JSONValue<std::string>("ARRAY_BUFFER"); //0x8892);
+        getMaps()["Elements"] = new JSONVertexArray(array);
+        getMaps()["ItemSize"] = new JSONValue<int>(array->getDataSize());
+        getMaps()["Type"] = new JSONValue<std::string>("ARRAY_BUFFER"); //0x8892);
     }
 
     void write(std::ostream& str);
@@ -192,11 +218,11 @@ struct JSONDrawElements : public JSONObject
         for (unsigned int i = 0; i < array.getNumIndices(); ++i)
             arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i)));
         JSONBufferArray* buf = new JSONBufferArray();
-        buf->getMaps()["itemSize"] = new JSONValue<unsigned int>(1);
-        buf->getMaps()["type"] = new JSONValue<std::string>("ELEMENT_ARRAY_BUFFER");
-        buf->getMaps()["elements"] = arr;
+        buf->getMaps()["ItemSize"] = new JSONValue<unsigned int>(1);
+        buf->getMaps()["Type"] = new JSONValue<std::string>("ELEMENT_ARRAY_BUFFER");
+        buf->getMaps()["Elements"] = arr;
 
-        getMaps()["indices"] = buf;
+        getMaps()["Indices"] = buf;
         if (array.getMode() == GL_QUADS) {
             int size = array.getNumIndices();
             arr->getArray().clear();
@@ -209,9 +235,9 @@ struct JSONDrawElements : public JSONObject
                 arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i*4 + 2)));
                 arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i*4 + 3)));
             }
-            getMaps()["mode"] = getDrawMode(osg::PrimitiveSet::TRIANGLES);
+            getMaps()["Mode"] = getDrawMode(osg::PrimitiveSet::TRIANGLES);
         } else
-            getMaps()["mode"] = getDrawMode(array.getMode());
+            getMaps()["Mode"] = getDrawMode(array.getMode());
 
     }
 
@@ -222,3 +248,5 @@ JSONDrawElements<osg::DrawElementsUShort>* createJSONDrawElements(const osg::Dra
 
 
 JSONObject* createJSONStateSet(osg::StateSet* stateset);
+
+#endif
