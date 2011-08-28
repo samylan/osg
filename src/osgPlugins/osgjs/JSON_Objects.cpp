@@ -94,6 +94,13 @@ JSONVec4Array::JSONVec4Array(const osg::Vec4& v) : JSONVec3Array()
     }
 }
 
+JSONVec5Array::JSONVec5Array(const Vec5& v) : JSONVec3Array()
+{
+    for (int i = 0; i < 5; ++i) {
+        _array.push_back(new JSONValue<float>(v[i]));
+    }
+}
+
 JSONVec2Array::JSONVec2Array(const osg::Vec2& v) : JSONVec3Array()
 {
     for (int i = 0; i < 2; ++i) {
