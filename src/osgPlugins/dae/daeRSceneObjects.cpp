@@ -358,7 +358,7 @@ osg::Node* daeReader::processLight( domLight *dlight )
 
     osg::LightSource* lightsource = new osg::LightSource();
     lightsource->setLight(light);
-    std::string name = dlight->getId();
+    std::string name = dlight->getId() ? dlight->getId() : "";
     if (dlight->getName())
         name = dlight->getName();
     lightsource->setName(name);
