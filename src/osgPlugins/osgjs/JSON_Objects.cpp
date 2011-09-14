@@ -466,7 +466,7 @@ JSONObject* getDrawMode(GLenum mode)
 
 JSONDrawArray::JSONDrawArray(osg::DrawArrays& array) 
 {
-    getMaps()["first"] = new JSONValue<int>(array.getFirst());
-    getMaps()["count"] = new JSONValue<int>(array.getCount());
-    getMaps()["mode"] = getDrawMode(array.getMode());
+    getMaps()["First"] = new JSONValue<int>(array.getFirst());
+    getMaps()["Count"] = new JSONValue<int>(array.getCount());
+    getMaps()["Mode"] = getDrawMode(array.getMode());
 }
