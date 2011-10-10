@@ -44,9 +44,16 @@ struct FunctionCopy {
         }
 
         osg::Vec4Array* vec4Array= dynamic_cast<osg::Vec4Array*>(src);
-        if (vec2Array) {
+        if (vec4Array) {
             osg::Vec4Array* vec4ArrayDst = dynamic_cast<osg::Vec4Array*>(dst);
             vec4ArrayDst->push_back((*vec4Array)[index]);
+            return;
+        }
+
+        osg::Vec4ubArray* vec4ubArray= dynamic_cast<osg::Vec4ubArray*>(src);
+        if (vec4ubArray) {
+            osg::Vec4ubArray* vec4ubArrayDst = dynamic_cast<osg::Vec4ubArray*>(dst);
+            vec4ubArrayDst->push_back((*vec4ubArray)[index]);
             return;
         }
     }
@@ -258,6 +265,7 @@ struct ArrayList {
     osg::ref_ptr<osg::Array> _secondaryColors;
     osg::ref_ptr<osg::Array> _fogCoords;
     std::vector<osg::ref_ptr<osg::Array> > _texCoordArrays;
+    std::vector<osg::ref_ptr<osg::Array> > _attributesArrays;
 
     ArrayList() {}
     ArrayList(osg::Geometry& geometry) {
@@ -270,6 +278,10 @@ struct ArrayList {
         _texCoordArrays.resize(geometry.getNumTexCoordArrays());
         for(unsigned int i=0;i<geometry.getNumTexCoordArrays();++i)
             _texCoordArrays[i] = geometry.getTexCoordArray(i);
+
+        _attributesArrays.resize(geometry.getNumVertexAttribArrays());
+        for(unsigned int i=0;i<geometry.getNumVertexAttribArrays();++i)
+            _attributesArrays[i] = geometry.getVertexAttribArrayList()[i].array;
     }
 
     unsigned int append(unsigned int index, ArrayList& dst) {
@@ -292,6 +304,11 @@ struct ArrayList {
         for (unsigned int i = 0; i < _texCoordArrays.size(); i++)
             if (_texCoordArrays[i].valid()) {
                 FunctionCopy()(_texCoordArrays[i].get(), index, dst._texCoordArrays[i].get());
+            }
+
+        for (unsigned int i = 0; i < _attributesArrays.size(); i++)
+            if (_attributesArrays[i].valid()) {
+                FunctionCopy()(_attributesArrays[i].get(), index, dst._attributesArrays[i].get());
             }
 
         return dst._vertexes->getNumElements()-1;
@@ -319,6 +336,13 @@ struct ArrayList {
             if (_texCoordArrays[i].valid())
                 array._texCoordArrays[i] = dynamic_cast<osg::Array*>(_texCoordArrays[i]->cloneType());
         }
+
+        array._attributesArrays.resize(_attributesArrays.size());
+        for (unsigned int i = 0; i < _attributesArrays.size(); i++) {
+            if (_attributesArrays[i].valid())
+                array._attributesArrays[i] = dynamic_cast<osg::Array*>(_attributesArrays[i]->cloneType());
+        }
+
         return array;
     }
 
@@ -348,6 +372,11 @@ struct ArrayList {
         for (unsigned int i = 0; i < _texCoordArrays.size(); ++i) {
             if (_texCoordArrays[i].valid())
                 geom.setTexCoordArray(i, _texCoordArrays[i].get());
+        }
+
+        for (unsigned int i = 0; i < _attributesArrays.size(); ++i) {
+            if (_attributesArrays[i].valid())
+                geom.setVertexAttribArray(i, _attributesArrays[i].get());
         }
     }
 };

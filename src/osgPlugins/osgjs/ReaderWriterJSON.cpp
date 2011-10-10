@@ -22,6 +22,7 @@
 
 #include <sstream>
 #include <map>
+#include "TangentSpace"
 #include "JSON_Objects"
 #include "GeometrySplitter"
 #include "Animation"
@@ -101,6 +102,14 @@ struct WriteVisitor : public osg::NodeVisitor
             if (geom->getTexCoordArray(4)) {
                 attributes->getMaps()["TexCoord4"] = new JSONBufferArray(geom->getTexCoordArray(4));
             }
+
+            if (geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)) {
+                attributes->getMaps()["Tangent"] = new JSONBufferArray(geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX));
+            }
+            if (geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)) {
+                attributes->getMaps()["Bitangent"] = new JSONBufferArray(geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX));
+            }
+
             json->getMaps()["VertexAttributeList"] = attributes;
 
 
@@ -353,6 +362,7 @@ struct WriteVisitor : public osg::NodeVisitor
 
 };
 
+
 // the idea is to create true Geometry if skeleton with RigGeometry
 struct FakeUpdateVisitor : public osgUtil::UpdateVisitor
 {
@@ -367,6 +377,8 @@ public:
     ReaderWriterJSON()
     {
         supportsExtension("osgjs","OpenSceneGraph Javascript implementation format");
+        supportsOption("buildTangentSpace","Build tangent space to each geometry");
+        supportsOption("buildTangentSpaceTexUnit=<unit>","Specify on wich texture unit normal map is");
     }
         
     virtual const char* className() const { return "OSGJS json Writer"; }
@@ -391,8 +403,17 @@ public:
     {
         if (fout)
         {
+
+            OptionsStruct _options;
+            _options = parseOptions(options);
+
             osg::ref_ptr<osg::Node> dup = osg::clone(&node);
             {
+                if (_options.generateTangentSpace) {
+                    TangentSpaceVisitor tgen(_options.tangentSpaceTextureUnit);
+                    dup->accept(tgen);
+                }
+
                 SplitGeometryVisitor visitor;
                 dup->accept(visitor);
             }
@@ -410,6 +431,56 @@ public:
         }
         return WriteResult("Unable to write to output stream");
     }
+
+     struct OptionsStruct {
+        bool generateTangentSpace;
+        int tangentSpaceTextureUnit;
+    };
+
+    ReaderWriterJSON::OptionsStruct parseOptions(const osgDB::ReaderWriter::Options* options) const
+    {
+        OptionsStruct localOptions;
+        localOptions.generateTangentSpace = false;
+        localOptions.tangentSpaceTextureUnit = 0;
+        osg::notify(NOTICE) << "options " << options->getOptionString() << std::endl;
+        if (options!=NULL)
+        {
+            std::istringstream iss(options->getOptionString());
+            std::string opt;
+            while (iss >> opt)
+            {
+                // split opt into pre= and post=
+                std::string pre_equals;
+                std::string post_equals;
+
+                size_t found = opt.find("=");
+                if(found!=std::string::npos)
+                {
+                    pre_equals = opt.substr(0,found);
+                    post_equals = opt.substr(found+1);
+                } 
+                else
+                {
+                    pre_equals = opt;
+                }
+
+                if (pre_equals == "generateTangentSpace")
+                {
+                    localOptions.generateTangentSpace = true;
+                }                
+                else if (post_equals.length()>0)
+                {    
+                    if (pre_equals == "tangentSpaceTextureUnit") {
+                        int unit = atoi(post_equals.c_str());    // (probably should use istringstream rather than atoi)
+                        localOptions.tangentSpaceTextureUnit = unit;
+                    }
+                }
+            }
+        }
+        return localOptions;
+    }
+protected:
+
 };
 
 // now register with Registry to instantiate the above

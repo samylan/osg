@@ -1,0 +1,41 @@
+/* -*-c++-*- */
+
+#include <osgUtil/TangentSpaceGenerator>
+
+#define TANGENT_ATTRIBUTE_INDEX 20
+#define BITANGENT_ATTRIBUTE_INDEX 21
+
+struct TangentSpaceVisitor : osg::NodeVisitor
+{
+public:
+    int _textureUnit;
+
+public:
+    TangentSpaceVisitor(int textureUnit = 0) : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN){
+        _textureUnit = textureUnit;
+    }
+
+    void apply(osg::Geode& geode) {
+        for (unsigned int i = 0; i < geode.getNumDrawables(); i++) {
+            apply(*geode.getDrawable(i));
+        }
+    }
+
+    void apply(osg::Drawable& drw) {
+        osg::Geometry* geom = dynamic_cast<osg::Geometry*>(&drw);
+        if (geom) {
+            osg::ref_ptr<osgUtil::TangentSpaceGenerator> generator = new osgUtil::TangentSpaceGenerator;
+            generator->generate(geom, _textureUnit);
+            if (generator->getNormalArray()) {
+                geom->setNormalArray(generator->getNormalArray());
+            }
+            if (generator->getTangentArray()) {
+                geom->setVertexAttribArray(TANGENT_ATTRIBUTE_INDEX, generator->getTangentArray());
+            }
+            if (generator->getBinormalArray()) {
+                geom->setVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX, generator->getBinormalArray());
+            }
+        }
+    }
+};
+
