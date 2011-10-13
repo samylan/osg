@@ -442,9 +442,10 @@ public:
         OptionsStruct localOptions;
         localOptions.generateTangentSpace = false;
         localOptions.tangentSpaceTextureUnit = 0;
-        osg::notify(NOTICE) << "options " << options->getOptionString() << std::endl;
-        if (options!=NULL)
+
+        if (options)
         {
+            osg::notify(NOTICE) << "options " << options->getOptionString() << std::endl;
             std::istringstream iss(options->getOptionString());
             std::string opt;
             while (iss >> opt)
