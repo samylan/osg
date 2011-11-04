@@ -106,6 +106,7 @@ struct WriteVisitor : public osg::NodeVisitor
             if (geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)) {
                 attributes->getMaps()["Tangent"] = new JSONBufferArray(geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX));
             }
+
             if (geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)) {
                 attributes->getMaps()["Bitangent"] = new JSONBufferArray(geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX));
             }
@@ -122,24 +123,29 @@ struct WriteVisitor : public osg::NodeVisitor
                         osg::DrawArrays& da = dynamic_cast<osg::DrawArrays&>(*(geom->getPrimitiveSetList()[i]));
                         primitives->getArray().push_back(obj);
                         if (da.getMode() == GL_QUADS) {
-                            obj->getMaps()["DrawElementUShort"] = createJSONDrawElements(da);
+                            obj->getMaps()["DrawElementsUShort"] = createJSONDrawElements(da);
                         } else {
-                            obj->getMaps()["DrawArray"] = new JSONDrawArray(da);
+                            obj->getMaps()["DrawArrays"] = new JSONDrawArray(da);
                         }
                     } else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUIntPrimitiveType) {
                         osg::DrawElementsUInt& da = dynamic_cast<osg::DrawElementsUInt&>(*(geom->getPrimitiveSetList()[i]));
                         primitives->getArray().push_back(obj);
-                        obj->getMaps()["DrawElementUInt"] = new JSONDrawElements<osg::DrawElementsUInt>(da);
+                        obj->getMaps()["DrawElementsUInt"] = new JSONDrawElements<osg::DrawElementsUInt>(da);
 
                     }  else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUShortPrimitiveType) {
                         osg::DrawElementsUShort& da = dynamic_cast<osg::DrawElementsUShort&>(*(geom->getPrimitiveSetList()[i]));
                         primitives->getArray().push_back(obj);
-                        obj->getMaps()["DrawElementUShort"] = new JSONDrawElements<osg::DrawElementsUShort>(da);
+                        obj->getMaps()["DrawElementsUShort"] = new JSONDrawElements<osg::DrawElementsUShort>(da);
 
                     }  else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUBytePrimitiveType) {
                         osg::DrawElementsUByte& da = dynamic_cast<osg::DrawElementsUByte&>(*(geom->getPrimitiveSetList()[i]));
                         primitives->getArray().push_back(obj);
-                        obj->getMaps()["DrawElementUShort"] = new JSONDrawElements<osg::DrawElementsUByte>(da);
+                        obj->getMaps()["DrawElementsUShort"] = new JSONDrawElements<osg::DrawElementsUByte>(da);
+
+                    }  else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) {
+                        osg::DrawArrayLengths& dal = dynamic_cast<osg::DrawArrayLengths&>(*(geom->getPrimitiveSetList()[i]));
+                        primitives->getArray().push_back(obj);
+                        obj->getMaps()["DrawArrayLengths"] = new JSONDrawArrayLengths(dal);
 
                     } else {
                         osg::notify(osg::WARN) << "Primitive Type " << geom->getPrimitiveSetList()[i]->getType() << " not supported, skipping" << std::endl;

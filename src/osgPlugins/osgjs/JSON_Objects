@@ -229,6 +229,11 @@ struct JSONDrawArray : public JSONObject
     JSONDrawArray(osg::DrawArrays& array);
 };
 
+struct JSONDrawArrayLengths : public JSONObject
+{
+    JSONDrawArrayLengths(osg::DrawArrayLengths& array);
+};
+
 
 template <class T>
 struct JSONDrawElements : public JSONObject

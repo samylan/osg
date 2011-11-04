@@ -470,3 +470,16 @@ JSONDrawArray::JSONDrawArray(osg::DrawArrays& array)
     getMaps()["Count"] = new JSONValue<int>(array.getCount());
     getMaps()["Mode"] = getDrawMode(array.getMode());
 }
+
+
+JSONDrawArrayLengths::JSONDrawArrayLengths(osg::DrawArrayLengths& array)
+{
+    getMaps()["First"] = new JSONValue<int>(array.getFirst());
+    getMaps()["Mode"] = getDrawMode(array.getMode());
+
+    JSONArray* jsonArray = new JSONArray;
+    for (unsigned int i = 0; i < array.size(); i++) {
+        jsonArray->getArray().push_back(new JSONValue<int>(array[i]));
+    }
+    getMaps()["ArrayLengths"] = jsonArray;
+}

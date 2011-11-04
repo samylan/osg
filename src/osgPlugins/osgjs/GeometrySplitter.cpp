@@ -27,6 +27,7 @@
 #include <osgDB/Registry>
 
 
+
 struct FunctionCopy {
     void operator()(osg::Array* src, unsigned int index, osg::Array* dst) {
         osg::Vec3Array* vec3Array= dynamic_cast<osg::Vec3Array*>(src);
@@ -252,7 +253,6 @@ struct ConvertToBindPerVertex {
             convert(*vec4ubArray, fromBinding, primitives, size);
             return;
         }
-
     }
 };
 
@@ -393,6 +393,10 @@ struct GeometrySplitter
         for (unsigned int i = 0; i < primitives.size(); i++) {
             osg::DrawElements* currentPrimitives = dynamic_cast<osg::DrawElements*>(primitives[i].get());
 
+            if (!currentPrimitives) {
+                continue;
+            }
+
             unsigned int currentPrimitiveIndex = 0;
             while (currentPrimitiveIndex < currentPrimitives->getNumIndices()) {
 
@@ -449,7 +453,7 @@ struct SetupTriangleConvertorVertexes : public osg::TriangleFunctor<TriangleConv
 };
 
 
-void SplitGeometryVisitor::convertToBindPerVertex(osg::Geometry& srcGeom) 
+void SplitGeometryVisitor::convertToBindPerVertex(osg::Geometry& srcGeom)
 {
     unsigned int size = srcGeom.getVertexArray()->getNumElements();
     if (srcGeom.getNormalArray() && srcGeom.getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) {
@@ -475,11 +479,8 @@ void SplitGeometryVisitor::convertToBindPerVertex(osg::Geometry& srcGeom)
 
 unsigned int SplitGeometryVisitor::splitByVertexArray(osg::Geometry& srcGeom, GeometryList& list)
 {
-    //convertToBindPerVertex(srcGeom);
-
     osgUtil::IndexMeshVisitor opt;
     opt.makeMesh(srcGeom);
-
 
     GeometrySplitter splitter(srcGeom);
     splitter.split(_maxVertexes);
