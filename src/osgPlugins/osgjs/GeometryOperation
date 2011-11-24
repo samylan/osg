@@ -1,0 +1,35 @@
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson 
+ *
+ * This application is open source and may be redistributed and/or modified   
+ * freely and without restriction, both in commercial and non commercial
+ * applications, as long as this copyright notice is maintained.
+ * 
+ * This application is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+*/
+
+#include <osg/NodeVisitor>
+#include <osg/Geometry>
+
+
+class OpenGLESGeometryOptimizerVisitor : public osg::NodeVisitor
+{
+public:
+
+    OpenGLESGeometryOptimizerVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) , _disableTriStrip(false), _triStripCacheSize(16), _disableMergeTriStrip(false) {}
+    void apply(osg::Geode& node);
+
+    void setUseDrawArray(bool s) { _useDrawArray = s; }
+    void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
+    void setDisableTriStrip(bool s) { _disableTriStrip = s; }
+    void setDisableMergeTriStrip(bool s) { _disableMergeTriStrip = s; }
+
+protected:
+    bool _disableTriStrip;
+    unsigned int _triStripCacheSize;
+    bool _disableMergeTriStrip;
+    bool _useDrawArray;
+    
+};

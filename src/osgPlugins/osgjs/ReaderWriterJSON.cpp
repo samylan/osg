@@ -24,7 +24,8 @@
 #include <map>
 #include "TangentSpace"
 #include "JSON_Objects"
-#include "GeometrySplitter"
+
+#include "GeometryOperation"
 #include "Animation"
 
 using namespace osg;
@@ -130,7 +131,7 @@ struct WriteVisitor : public osg::NodeVisitor
                     } else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUIntPrimitiveType) {
                         osg::DrawElementsUInt& da = dynamic_cast<osg::DrawElementsUInt&>(*(geom->getPrimitiveSetList()[i]));
                         primitives->getArray().push_back(obj);
-                        obj->getMaps()["DrawElementsUInt"] = new JSONDrawElements<osg::DrawElementsUInt>(da);
+                        obj->getMaps()["DrawElementsUShort"] = new JSONDrawElements<osg::DrawElementsUInt>(da);
 
                     }  else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUShortPrimitiveType) {
                         osg::DrawElementsUShort& da = dynamic_cast<osg::DrawElementsUShort&>(*(geom->getPrimitiveSetList()[i]));
@@ -385,6 +386,10 @@ public:
         supportsExtension("osgjs","OpenSceneGraph Javascript implementation format");
         supportsOption("buildTangentSpace","Build tangent space to each geometry");
         supportsOption("buildTangentSpaceTexUnit=<unit>","Specify on wich texture unit normal map is");
+        supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
+        supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
+        supportsOption("disableTriStrip","disable generation of tristrip");
+        supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
     }
         
     virtual const char* className() const { return "OSGJS json Writer"; }
@@ -420,7 +425,11 @@ public:
                     dup->accept(tgen);
                 }
 
-                SplitGeometryVisitor visitor;
+                OpenGLESGeometryOptimizerVisitor visitor;
+                visitor.setUseDrawArray(_options.useDrawArray);
+                visitor.setTripStripCacheSize(_options.triStripCacheSize);
+                visitor.setDisableTriStrip(_options.disableTriStrip);
+                visitor.setDisableMergeTriStrip(_options.disableMergeTriStrip);
                 dup->accept(visitor);
             }
 
@@ -429,6 +438,11 @@ public:
                 FakeUpdateVisitor fakeUpdateVisitor;
                 dup->accept(fakeUpdateVisitor);
                 dup->accept(visitor);
+
+#if 0
+                osgDB::writeNodeFile(*dup, "/tmp/debug_osgjs.osg");
+#endif
+
                 if (visitor._root.valid()) {
                     visitor.write(fout);
                     return WriteResult::FILE_SAVED;
@@ -439,15 +453,26 @@ public:
     }
 
      struct OptionsStruct {
-        bool generateTangentSpace;
-        int tangentSpaceTextureUnit;
+         bool generateTangentSpace;
+         int tangentSpaceTextureUnit;
+         bool disableTriStrip;
+         bool disableMergeTriStrip;
+         int triStripCacheSize;
+         bool useDrawArray;
+
+         OptionsStruct() {
+             generateTangentSpace = false;
+             tangentSpaceTextureUnit = 0;
+             disableTriStrip = false;
+             disableMergeTriStrip = false;
+             triStripCacheSize = 16;
+             useDrawArray = false;
+         }
     };
 
     ReaderWriterJSON::OptionsStruct parseOptions(const osgDB::ReaderWriter::Options* options) const
     {
         OptionsStruct localOptions;
-        localOptions.generateTangentSpace = false;
-        localOptions.tangentSpaceTextureUnit = 0;
 
         if (options)
         {
@@ -471,15 +496,30 @@ public:
                     pre_equals = opt;
                 }
 
+                if (pre_equals == "useDrawArray")
+                {
+                    localOptions.useDrawArray = true;
+                }
+                if (pre_equals == "disableMergeTriStrip")
+                {
+                    localOptions.disableMergeTriStrip = true;
+                }
+                if (pre_equals == "disableTriStrip")
+                {
+                    localOptions.disableTriStrip = true;
+                }                
                 if (pre_equals == "generateTangentSpace")
                 {
                     localOptions.generateTangentSpace = true;
                 }                
-                else if (post_equals.length()>0)
+
+                if (post_equals.length()>0)
                 {    
                     if (pre_equals == "tangentSpaceTextureUnit") {
-                        int unit = atoi(post_equals.c_str());    // (probably should use istringstream rather than atoi)
-                        localOptions.tangentSpaceTextureUnit = unit;
+                        localOptions.tangentSpaceTextureUnit = atoi(post_equals.c_str());
+                    }
+                    if (pre_equals == "triStripCacheSize") {
+                        localOptions.triStripCacheSize = atoi(post_equals.c_str());
                     }
                 }
             }
