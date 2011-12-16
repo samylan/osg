@@ -38,7 +38,7 @@ public:
 
                         // special case for dds, we dont support it so try to load png / jpg instead
                         std::string extImage = osgDB::getLowerCaseFileExtension(fileName);
-                        if (extImage == "dds") {
+                        if (extImage == "dds" || extImage == "tga") {
                             if (osgDB::fileExists(fileName+".jpg")) { 
                                 fileName += ".jpg";
                             } else if (osgDB::fileExists(fileName+".png")) {
