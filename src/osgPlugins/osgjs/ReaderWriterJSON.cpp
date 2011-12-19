@@ -66,7 +66,7 @@ struct WriteVisitor : public osg::NodeVisitor
 
         osg::Geometry* geom = dynamic_cast<osg::Geometry*>(&drw);
         if (geom) {
-            if (needToSplit(geom))
+            if (needToSplit(*geom))
                 error();
             osg::ref_ptr<JSONObject> json = new JSONNode;
 
@@ -91,16 +91,16 @@ struct WriteVisitor : public osg::NodeVisitor
                 int nb = geom->getNormalArray()->getNumElements();
                 if (nbVertexes != nb) {
                     osg::notify(osg::FATAL) << "Fatal nb normals " << nb << " != " << nbVertexes << std::endl;
+                    error();
                 }
-                error();
             }
             if (geom->getColorArray()) {
                 attributes->getMaps()["Color"] = new JSONBufferArray(geom->getColorArray());
                 int nb = geom->getColorArray()->getNumElements();
                 if (nbVertexes != nb) {
                     osg::notify(osg::FATAL) << "Fatal nb colors " << nb << " != " << nbVertexes << std::endl;
+                    error();
                 }
-                error();
             }
             
             std::stringstream ss;
@@ -113,8 +113,8 @@ struct WriteVisitor : public osg::NodeVisitor
                     int nb = geom->getTexCoordArray(i)->getNumElements();
                     if (nbVertexes != nb) {
                         osg::notify(osg::FATAL) << "Fatal nb tex coord " << i << " " << nb << " != " << nbVertexes << std::endl;
+                        error();
                     }
-                    error();
                 }
             }
             if (geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)) {
@@ -122,8 +122,8 @@ struct WriteVisitor : public osg::NodeVisitor
                 int nb = geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)->getNumElements();
                 if (nbVertexes != nb) {
                     osg::notify(osg::FATAL) << "Fatal nb tangent " << nb << " != " << nbVertexes << std::endl;
+                    error();
                 }
-                error();
             }
 
             if (geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)) {
@@ -131,8 +131,8 @@ struct WriteVisitor : public osg::NodeVisitor
                 int nb = geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)->getNumElements();
                 if (nbVertexes != nb) {
                     osg::notify(osg::FATAL) << "Fatal nb bitangent " << nb << " != " << nbVertexes << std::endl;
+                    error();
                 }
-                error();
             }
 
             json->getMaps()["VertexAttributeList"] = attributes;
@@ -472,8 +472,8 @@ public:
                         visitor.write(fout);
                         return WriteResult::FILE_SAVED;
                     }
-                } catch {
-                    osg::Notify(osg::FATAL) << "can't save osgjs file" << std::endl
+                } catch (...){
+                    osg::notify(osg::FATAL) << "can't save osgjs file" << std::endl;
                 }
             }
         }
