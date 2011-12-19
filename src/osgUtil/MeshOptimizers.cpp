@@ -20,7 +20,7 @@
 #include <vector>
 
 #include <iostream>
-
+#include <osg/Notify>
 #include <osg/Geometry>
 #include <osg/Math>
 #include <osg/PrimitiveSet>
@@ -277,7 +277,7 @@ void IndexMeshVisitor::makeMesh(Geometry& geom)
     }
     
     // nothing to index
-    if (!numSurfacePrimitives || !numNonIndexedPrimitives) return;
+    if (!numSurfacePrimitives || ( !numNonIndexedPrimitives && !_forceReIndex )) return;
 
     // check to see if vertex attributes indices exists, if so expand them to remove them
     if (geom.suitableForOptimization())
@@ -418,6 +418,11 @@ void IndexMeshVisitor::makeMesh()
         makeMesh(*(*itr));
     }
 }
+    void IndexMeshVisitor::setForceReIndex(bool force)
+    {
+        _forceReIndex = force;
+        osg::notify(osg::INFO) << "All polygon type will be re indexed and convert as triangles" << std::endl;
+    }
 
 namespace
 {

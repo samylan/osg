@@ -46,11 +46,14 @@ class OSGUTIL_EXPORT IndexMeshVisitor : public GeometryCollector
 {
 public:
     IndexMeshVisitor(Optimizer* optimizer = 0)
-        : GeometryCollector(optimizer, Optimizer::INDEX_MESH)
+        : GeometryCollector(optimizer, Optimizer::INDEX_MESH), _forceReIndex(false)
     {
     }
     void makeMesh(osg::Geometry& geom);
     void makeMesh();
+    void setForceReIndex(bool);
+protected:
+    bool _forceReIndex;
 };
 
 // Optimize the triangle order in a mesh for best use of the GPU's
