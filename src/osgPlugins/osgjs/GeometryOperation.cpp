@@ -29,7 +29,7 @@
 #include <osgDB/Registry>
 
 
-static bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex = 65535, unsigned int* index = 0)
+bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex, unsigned int* index)
 {
     osg::DrawElements* de = p->getDrawElements();
     if (!de) {
@@ -47,7 +47,7 @@ static bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex = 65535, uns
     return false;
 }
 
-static bool needToSplit(osg::Geometry& geom, unsigned int maxIndex = 65535)
+bool needToSplit(osg::Geometry& geom, unsigned int maxIndex)
 {
     for ( unsigned int i = 0; i < geom.getPrimitiveSetList().size(); i++) {
         osg::PrimitiveSet* ps = geom.getPrimitiveSetList()[i];
@@ -519,7 +519,7 @@ public:
                 case osg::PrimitiveSet::TRIANGLES:
                     break;
                 default:
-                    osg::notify(osg::INFO) << "can't split Geometry " << geometry.getName() << " (" << &geometry << ") contains non polygons primitives, use GeometrySeparateSurfaceAndNonSurfaceVisitor to remove non polygons" << std::endl;
+                    osg::notify(osg::FATAL) << "can't split Geometry " << geometry.getName() << " (" << &geometry << ") contains non triangles primitives" << std::endl;
                     return false;
                     break;
                 }
@@ -841,6 +841,16 @@ static void mergeTrianglesStrip(osg::Geometry& geom)
     }
 }
 
+static void generateTriStrip(osg::Geometry* geom, int vertexCache, bool merge) 
+{
+    osgUtil::TriStripVisitor tristrip;
+    tristrip.setCacheSize(vertexCache);
+    tristrip.stripify(*geom);
+                            
+    // merge stritrip to one call
+    if (merge)
+        mergeTrianglesStrip(*geom);
+}
 
 typedef std::vector<osg::ref_ptr<osg::Geometry> > GeometryList;
 void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node) 
@@ -848,76 +858,61 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
     GeometryList listGeometry;
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i) {
         osg::ref_ptr<osg::Geometry> originalGeometry = dynamic_cast<osg::Geometry*>(node.getDrawable(i));
-        bool processed = false;
+
         if (originalGeometry) {
             ::convertToBindPerVertex(*originalGeometry);
             GeometryList localListGeometry;
 
-                // first separate polygons from other primitives (lines/points)
-                GeometrySeparateSurfaceAndNonSurfaceVisitor sepVisitor;
-                sepVisitor.separate(*originalGeometry);
+            // first separate polygons from other primitives (lines/points)
+            GeometrySeparateSurfaceAndNonSurfaceVisitor sepVisitor;
+            sepVisitor.separate(*originalGeometry);
 
-                osg::ref_ptr<osg::Geometry> triangles = sepVisitor._surfaces;
-                osg::ref_ptr<osg::Geometry> nonTriangles = sepVisitor._nonSurfaces;
+            osg::ref_ptr<osg::Geometry> triangles = sepVisitor._surfaces;
+            osg::ref_ptr<osg::Geometry> nonTriangles = sepVisitor._nonSurfaces;
 
-                // convert index triangles
-                if (triangles.valid()) {
+            // convert index triangles
+            if (triangles.valid()) {
 
-                    osgUtil::IndexMeshVisitor indexer;
-                    indexer.makeMesh(*triangles);
+                osgUtil::IndexMeshVisitor indexer;
+                indexer.setForceReIndex(true);
+                indexer.makeMesh(*triangles);
 
-                    if (!_useDrawArray) {
+                if (!_useDrawArray) {
 
-                        // now split if needed too much data per geometry
-                        GeometryIndexSplitVisitor splitter;
-                        if (splitter.split(*triangles)) {
-                            for (unsigned int j = 0; j < splitter._geometryList.size(); j++) {
-                                osg::Geometry* geom = splitter._geometryList[j];
-
-                                if (!_disableTriStrip) {
-                                    osgUtil::TriStripVisitor tristrip;
-                                    tristrip.setCacheSize(_triStripCacheSize);
-                                    tristrip.stripify(*geom);
-                            
-                                    // merge stritrip to one call
-                                    if (!_disableMergeTriStrip)
-                                        mergeTrianglesStrip(*geom);
-                                }
-
-                                // done
-                                localListGeometry.push_back(geom);
-                            }
+                    // now split if needed too much data per geometry
+                    GeometryIndexSplitVisitor splitter;
+                    if (splitter.split(*triangles)) {
+                        for (unsigned int j = 0; j < splitter._geometryList.size(); j++) {
+                            osg::Geometry* geom = splitter._geometryList[j];
+                            generateTriStrip(geom, _triStripCacheSize, !_disableMergeTriStrip);
+                            // done
+                            localListGeometry.push_back(geom);
                         }
                     } else {
-                        if (!_disableTriStrip) {
-                            osgUtil::TriStripVisitor tristrip;
-                            tristrip.setCacheSize(_triStripCacheSize);
-                            tristrip.stripify(*triangles);
-                            
-                            // merge stritrip to one call
-                            if (!_disableMergeTriStrip)
-                                mergeTrianglesStrip(*triangles);
-                        }
-                        triangles = convertToDrawArray(*triangles);
+                        generateTriStrip(triangles, _triStripCacheSize, !_disableMergeTriStrip);
+                        // done
                         localListGeometry.push_back(triangles);
                     }
-            
-                // draw array all non triangles
-                if (nonTriangles.valid()) {
-                    nonTriangles = convertToDrawArray(*nonTriangles);
-                    localListGeometry.push_back(nonTriangles);
+                } else {
+                    if (!_disableTriStrip) {
+                        generateTriStrip(triangles, _triStripCacheSize, !_disableMergeTriStrip);
+                    }
+                    triangles = convertToDrawArray(*triangles);
+                    localListGeometry.push_back(triangles);
                 }
+            }
+            
+            // draw array all non triangles
+            if (nonTriangles.valid()) {
+                nonTriangles = convertToDrawArray(*nonTriangles);
+                localListGeometry.push_back(nonTriangles);
             }
 
             if (!localListGeometry.empty()) {
-                processed = true;
                 for (unsigned int g = 0; g < localListGeometry.size(); g++) {
                     listGeometry.push_back(localListGeometry[g]);
                 }
             }
-        }
-        if (!processed) {
-            listGeometry.push_back(originalGeometry);
         }
     }
     node.removeDrawables(0,node.getNumDrawables());

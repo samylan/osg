@@ -21,6 +21,7 @@
 #include <osgAnimation/BasicAnimationManager>
 
 #include <sstream>
+#include <cassert>
 #include <map>
 #include "TangentSpace"
 #include "JSON_Objects"
@@ -48,6 +49,10 @@ struct WriteVisitor : public osg::NodeVisitor
         o->write(str);
     }
 
+    void error() {
+        throw "Error occur";
+    }
+
     JSONObject* getParent() {
         if (_parents.empty()) {
             _root = new JSONObject;
@@ -61,6 +66,8 @@ struct WriteVisitor : public osg::NodeVisitor
 
         osg::Geometry* geom = dynamic_cast<osg::Geometry*>(&drw);
         if (geom) {
+            if (needToSplit(geom))
+                error();
             osg::ref_ptr<JSONObject> json = new JSONNode;
 
             createJSONStateSet(drw, json);
@@ -73,47 +80,62 @@ struct WriteVisitor : public osg::NodeVisitor
                 json->getMaps()["Name"] = new JSONValue<std::string>(geom->getName());
 
             osg::ref_ptr<JSONObject> attributes = new JSONObject;
+
+            int nbVertexes = geom->getVertexArray()->getNumElements();
             
             if (geom->getVertexArray()) {
                 attributes->getMaps()["Vertex"] = new JSONBufferArray(geom->getVertexArray());
             }
             if (geom->getNormalArray()) {
                 attributes->getMaps()["Normal"] = new JSONBufferArray(geom->getNormalArray());
+                int nb = geom->getNormalArray()->getNumElements();
+                if (nbVertexes != nb) {
+                    osg::notify(osg::FATAL) << "Fatal nb normals " << nb << " != " << nbVertexes << std::endl;
+                }
+                error();
             }
             if (geom->getColorArray()) {
                 attributes->getMaps()["Color"] = new JSONBufferArray(geom->getColorArray());
+                int nb = geom->getColorArray()->getNumElements();
+                if (nbVertexes != nb) {
+                    osg::notify(osg::FATAL) << "Fatal nb colors " << nb << " != " << nbVertexes << std::endl;
+                }
+                error();
             }
             
-            if (geom->getTexCoordArray(0)) {
-                attributes->getMaps()["TexCoord0"] = new JSONBufferArray(geom->getTexCoordArray(0));
+            std::stringstream ss;
+            for ( int i = 0; i < 32; i++) {
+                ss.str("");
+                ss << "TexCoord" << i;
+                //osg::notify(osg::NOTICE) << ss.str() << std::endl;
+                if (geom->getTexCoordArray(i)) {
+                    attributes->getMaps()[ss.str()] = new JSONBufferArray(geom->getTexCoordArray(i));
+                    int nb = geom->getTexCoordArray(i)->getNumElements();
+                    if (nbVertexes != nb) {
+                        osg::notify(osg::FATAL) << "Fatal nb tex coord " << i << " " << nb << " != " << nbVertexes << std::endl;
+                    }
+                    error();
+                }
             }
-
-            if (geom->getTexCoordArray(1)) {
-                attributes->getMaps()["TexCoord1"] = new JSONBufferArray(geom->getTexCoordArray(1));
-            }
-
-            if (geom->getTexCoordArray(2)) {
-                attributes->getMaps()["TexCoord2"] = new JSONBufferArray(geom->getTexCoordArray(2));
-            }
-
-            if (geom->getTexCoordArray(3)) {
-                attributes->getMaps()["TexCoord3"] = new JSONBufferArray(geom->getTexCoordArray(3));
-            }
-
-            if (geom->getTexCoordArray(4)) {
-                attributes->getMaps()["TexCoord4"] = new JSONBufferArray(geom->getTexCoordArray(4));
-            }
-
             if (geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)) {
                 attributes->getMaps()["Tangent"] = new JSONBufferArray(geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX));
+                int nb = geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)->getNumElements();
+                if (nbVertexes != nb) {
+                    osg::notify(osg::FATAL) << "Fatal nb tangent " << nb << " != " << nbVertexes << std::endl;
+                }
+                error();
             }
 
             if (geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)) {
                 attributes->getMaps()["Bitangent"] = new JSONBufferArray(geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX));
+                int nb = geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)->getNumElements();
+                if (nbVertexes != nb) {
+                    osg::notify(osg::FATAL) << "Fatal nb bitangent " << nb << " != " << nbVertexes << std::endl;
+                }
+                error();
             }
 
             json->getMaps()["VertexAttributeList"] = attributes;
-
 
             if (!geom->getPrimitiveSetList().empty()) {
                 osg::ref_ptr<JSONArray> primitives = new JSONArray();
@@ -128,6 +150,7 @@ struct WriteVisitor : public osg::NodeVisitor
                         } else {
                             obj->getMaps()["DrawArrays"] = new JSONDrawArray(da);
                         }
+
                     } else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUIntPrimitiveType) {
                         osg::DrawElementsUInt& da = dynamic_cast<osg::DrawElementsUInt&>(*(geom->getPrimitiveSetList()[i]));
                         primitives->getArray().push_back(obj);
@@ -414,11 +437,15 @@ public:
     {
         if (fout)
         {
-
             OptionsStruct _options;
             _options = parseOptions(options);
 
             osg::ref_ptr<osg::Node> dup = osg::clone(&node);
+            {
+                FakeUpdateVisitor fakeUpdateVisitor;
+                dup->accept(fakeUpdateVisitor);
+            }
+
             {
                 if (_options.generateTangentSpace) {
                     TangentSpaceVisitor tgen(_options.tangentSpaceTextureUnit);
@@ -435,17 +462,18 @@ public:
 
             {
                 WriteVisitor visitor;
-                FakeUpdateVisitor fakeUpdateVisitor;
-                dup->accept(fakeUpdateVisitor);
-                dup->accept(visitor);
 
+                try {
 #if 0
-                osgDB::writeNodeFile(*dup, "/tmp/debug_osgjs.osg");
+                    osgDB::writeNodeFile(*dup, "/tmp/debug_osgjs.osg");
 #endif
-
-                if (visitor._root.valid()) {
-                    visitor.write(fout);
-                    return WriteResult::FILE_SAVED;
+                    dup->accept(visitor);
+                    if (visitor._root.valid()) {
+                        visitor.write(fout);
+                        return WriteResult::FILE_SAVED;
+                    }
+                } catch {
+                    osg::Notify(osg::FATAL) << "can't save osgjs file" << std::endl
                 }
             }
         }
