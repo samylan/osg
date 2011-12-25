@@ -879,7 +879,14 @@ void SlideShowConstructor::addImage(const std::string& filename, const PositionD
 {
     if (!_currentLayer) addLayer();
 
-    osg::Image* image = osgDB::readImageFile(filename, _options.get());
+    osg::ref_ptr<osgDB::Options> options = _options;
+    if (!imageData.options.empty())
+    {
+        options = _options->cloneOptions();
+        options->setOptionString(imageData.options);
+    }
+
+    osg::Image* image = osgDB::readImageFile(filename, options.get());
 
     if (image) recordOptionsFilePath(_options.get());
 
@@ -1016,12 +1023,25 @@ void SlideShowConstructor::addStereoImagePair(const std::string& filenameLeft, c
 {
     if (!_currentLayer) addLayer();
 
+    osg::ref_ptr<osgDB::Options> optionsLeft = _options;
+    if (!imageDataLeft.options.empty())
+    {
+        optionsLeft = _options->cloneOptions();
+        optionsLeft->setOptionString(imageDataLeft.options);
+    }
 
-    osg::ref_ptr<osg::Image> imageLeft = osgDB::readImageFile(filenameLeft, _options.get());
-    if (imageLeft.valid()) recordOptionsFilePath(_options.get());
+    osg::ref_ptr<osgDB::Options> optionsRight = _options;
+    if (!imageDataRight.options.empty())
+    {
+        optionsRight = _options->cloneOptions();
+        optionsRight->setOptionString(imageDataRight.options);
+    }
 
-    osg::ref_ptr<osg::Image> imageRight = (filenameRight==filenameLeft) ? imageLeft.get() : osgDB::readImageFile(filenameRight, _options.get());
-    if (imageRight.valid()) recordOptionsFilePath(_options.get());
+    osg::ref_ptr<osg::Image> imageLeft = osgDB::readImageFile(filenameLeft, optionsLeft.get());
+    if (imageLeft.valid()) recordOptionsFilePath(optionsLeft.get());
+
+    osg::ref_ptr<osg::Image> imageRight = (filenameRight==filenameLeft) ? imageLeft.get() : osgDB::readImageFile(filenameRight, optionsRight.get());
+    if (imageRight.valid()) recordOptionsFilePath(optionsRight.get());
 
     if (!imageLeft && !imageRight) return;
 
@@ -1209,7 +1229,7 @@ void SlideShowConstructor::addStereoImagePair(const std::string& filenameLeft, c
     _currentLayer->addChild(subgraph);
 }
 
-void SlideShowConstructor::addGraph(const std::string& contents,const std::string& options,const PositionData& positionData, const ImageData& imageData)
+void SlideShowConstructor::addGraph(const std::string& contents, const PositionData& positionData, const ImageData& imageData)
 {
     static int s_count=0;
 
@@ -1247,9 +1267,9 @@ void SlideShowConstructor::addGraph(const std::string& contents,const std::strin
         dotFileName = tmpDirectory+osgDB::getStrippedName(filename)+std::string(".dot");
 
         osg::ref_ptr<osgDB::Options> opts = _options.valid() ? _options->cloneOptions() : (new osgDB::Options);
-        if (!options.empty())
+        if (!imageData.options.empty())
         {
-            opts->setOptionString(options);
+            opts->setOptionString(imageData.options);
         }
         opts->setObjectCacheHint(osgDB::Options::CACHE_NONE);
 
@@ -1277,8 +1297,15 @@ void SlideShowConstructor::addGraph(const std::string& contents,const std::strin
 }
 
 
-void SlideShowConstructor::addVNC(const std::string& hostname, const PositionData& positionData, const ImageData& imageData)
+void SlideShowConstructor::addVNC(const std::string& hostname, const PositionData& positionData, const ImageData& imageData, const std::string& password)
 {
+    if (!password.empty())
+    {
+        OSG_NOTICE<<"Setting password"<<std::endl;
+        if (!osgDB::Registry::instance()->getAuthenticationMap()) osgDB::Registry::instance()->setAuthenticationMap(new osgDB::AuthenticationMap);
+        osgDB::Registry::instance()->getAuthenticationMap()->addAuthenticationDetails(hostname, new osgDB::AuthenticationDetails("", password));
+    }
+    
     addInteractiveImage(hostname+".vnc", positionData, imageData);
 }
 
@@ -1320,7 +1347,14 @@ osg::Image* SlideShowConstructor::addInteractiveImage(const std::string& filenam
 {
     if (!_currentLayer) addLayer();
 
-    osg::Image* image = osgDB::readImageFile(filename, _options.get());
+    osg::ref_ptr<osgDB::Options> options = _options;
+    if (!imageData.options.empty())
+    {
+        options = _options->cloneOptions();
+        options->setOptionString(imageData.options);
+    }
+
+    osg::Image* image = osgDB::readImageFile(filename, options.get());
     
     OSG_INFO<<"addInteractiveImage("<<filename<<") "<<image<<std::endl;
     
@@ -1484,6 +1518,13 @@ void SlideShowConstructor::addModel(const std::string& filename, const PositionD
 {
     OSG_INFO<<"SlideShowConstructor::addModel("<<filename<<")"<<std::endl;
 
+    osg::ref_ptr<osgDB::Options> options = _options;
+    if (!modelData.options.empty())
+    {
+        options = _options->cloneOptions();
+        options->setOptionString(modelData.options);
+    }
+
     osg::Node* subgraph = 0;
 
     if (filename=="sphere")
@@ -1502,8 +1543,8 @@ void SlideShowConstructor::addModel(const std::string& filename, const PositionD
     }
     else
     {
-        subgraph = osgDB::readNodeFile(filename, _options.get());
-        if (subgraph) recordOptionsFilePath(_options.get());
+        subgraph = osgDB::readNodeFile(filename, options.get());
+        if (subgraph) recordOptionsFilePath(options.get());
     }
     
     if (subgraph)
@@ -1529,18 +1570,19 @@ void SlideShowConstructor::addModel(osg::Node* subgraph, const PositionData& pos
             subgraph = specularHighlights;
         }
     }
+
     
     if (positionData.frame==SLIDE)
     {
         osg::Vec3 pos = convertSlideToModel(positionData.position);
      
         const osg::BoundingSphere& bs = subgraph->getBound();
-        float model_scale = positionData.scale.x()*_slideHeight*(1.0f-positionData.position.z())*0.7f/bs.radius();
+        float slide_scale = _slideHeight*(1.0f-positionData.position.z())*0.7f/bs.radius();
 
         osg::MatrixTransform* transform = new osg::MatrixTransform;
         transform->setDataVariance(defaultMatrixDataVariance);
         transform->setMatrix(osg::Matrix::translate(-bs.center())*
-                             osg::Matrix::scale(model_scale,model_scale,model_scale)*
+                             osg::Matrix::scale(positionData.scale.x()*slide_scale, positionData.scale.y()*slide_scale ,positionData.scale.z()*slide_scale)*
                              osg::Matrix::rotate(osg::DegreesToRadians(positionData.rotate[0]),positionData.rotate[1],positionData.rotate[2],positionData.rotate[3])*
                              osg::Matrix::translate(pos));
 
@@ -1553,7 +1595,7 @@ void SlideShowConstructor::addModel(osg::Node* subgraph, const PositionData& pos
     }
     else
     {
-        osg::Matrix matrix(osg::Matrix::scale(1.0f/positionData.scale.x(),1.0f/positionData.scale.x(),1.0f/positionData.scale.x())*
+        osg::Matrix matrix(osg::Matrix::scale(1.0f/positionData.scale.x(),1.0f/positionData.scale.y(),1.0f/positionData.scale.z())*
                            osg::Matrix::rotate(osg::DegreesToRadians(positionData.rotate[0]),positionData.rotate[1],positionData.rotate[2],positionData.rotate[3])*
                            osg::Matrix::translate(positionData.position));
 
@@ -1749,10 +1791,19 @@ bool DraggerVolumeTileCallback::receive(const osgManipulator::MotionCommand& com
     }
 }
 
-void SlideShowConstructor::addVolume(const std::string& filename, const PositionData& positionData, const VolumeData& volumeData)
+void SlideShowConstructor::addVolume(const std::string& filename, const PositionData& in_positionData, const VolumeData& volumeData)
 {
     // osg::Object::DataVariance defaultMatrixDataVariance = osg::Object::DYNAMIC; // STATIC
 
+    PositionData positionData(in_positionData);
+
+    osg::ref_ptr<osgDB::Options> options = _options;
+    if (!volumeData.options.empty())
+    {
+        options = _options->cloneOptions();
+        options->setOptionString(volumeData.options);
+    }
+    
     std::string foundFile = filename;
     osg::ref_ptr<osg::Image> image;
     osg::ref_ptr<osgVolume::Volume> volume;
@@ -1774,7 +1825,7 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
             itr != filenames.end();
             ++itr)
         {
-            osg::ref_ptr<osg::Image> loadedImage = osgDB::readImageFile(*itr);
+            osg::ref_ptr<osg::Image> loadedImage = osgDB::readImageFile(*itr, options.get());
             if (loadedImage.valid())
             {
                 images.push_back(loadedImage.get());
@@ -1794,7 +1845,7 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
 
         if (fileType == osgDB::DIRECTORY)
         {
-            image = osgDB::readImageFile(foundFile+".dicom", _options.get());
+            image = osgDB::readImageFile(foundFile+".dicom", options.get());
         }
         else if (fileType == osgDB::REGULAR_FILE)
         {
@@ -1807,18 +1858,42 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
             }
             else
             {
-                image = osgDB::readImageFile( foundFile, _options.get() );
+                image = osgDB::readImageFile( foundFile, options.get() );
             }
         }
         else
         {
             // not found image, so fallback to plguins/callbacks to find the model.
-            image = osgDB::readImageFile( filename, _options.get() );
-            if (image) recordOptionsFilePath(_options.get() );
+            image = osgDB::readImageFile( filename, options.get() );
+            if (image) recordOptionsFilePath(options.get() );
         }
     }
     
     if (!image && !volume) return;
+
+    if (positionData.scale.x()<0.0)
+    {
+        image->flipHorizontal();
+        positionData.scale.x() = fabs(positionData.scale.x());
+
+        OSG_INFO<<"addVolume(..) image->flipHorizontal();"<<std::endl;
+    }
+
+    if (positionData.scale.y()<0.0)
+    {
+        image->flipVertical();
+        positionData.scale.y() = fabs(positionData.scale.y());
+
+        OSG_INFO<<"addVolume(..) image->flipVertical();"<<std::endl;
+    }
+
+    if (positionData.scale.z()<0.0)
+    {
+        image->flipDepth();
+        positionData.scale.z() = fabs(positionData.scale.z());
+
+        OSG_INFO<<"addVolume(..) image->flipDepth();"<<std::endl;
+    }
 
     if (volume.valid())
     {

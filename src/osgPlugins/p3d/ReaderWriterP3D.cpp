@@ -798,6 +798,12 @@ bool ReaderWriterP3DXML::getProperties(osgDB::XmlNode*cur, osgPresentation::Slid
         OSG_NOTIFY(_notifyLevel)<<"read effect \""<<value.effect<<"\""<<std::endl;
     }
 
+    if (getProperty(cur, "options", value.options))
+    {
+        propertiesRead = true;
+        OSG_NOTIFY(_notifyLevel)<<"read options \""<<value.options<<"\""<<std::endl;
+    }
+
     return propertiesRead;
 }
 
@@ -811,6 +817,12 @@ bool ReaderWriterP3DXML::getProperties(osgDB::XmlNode*cur, osgPresentation::Slid
     {
         propertiesRead = true;
         OSG_NOTIFY(_notifyLevel)<<"read page \""<<value.page<<"\""<<std::endl;
+    }
+
+    if (getProperty(cur, "options", value.options))
+    {
+        propertiesRead = true;
+        OSG_NOTIFY(_notifyLevel)<<"read options \""<<value.options<<"\""<<std::endl;
     }
 
     osg::Vec4 bgColour;
@@ -1018,6 +1030,8 @@ void ReaderWriterP3DXML::parseVolume(osgPresentation::SlideShowConstructor& cons
         volumeData.transferFunction = readTransferFunctionFile(transferFunctionFile, 1.0/255.0);
     }
 
+    if (getProperty(cur, "options", volumeData.options)) {}
+    
     // check for draggers required
     std::string dragger;
     if (getProperty(cur, "dragger", dragger))
@@ -1148,7 +1162,8 @@ bool ReaderWriterP3DXML::getKeyPositionInner(osgDB::XmlNode*cur, osgPresentation
     }
     else
     {
-        OSG_NOTICE<<"Warning: unreconginized key sequence '"<<key<<"'"<<std::endl;
+        OSG_NOTICE<<"Warning: invalid key used in <key>"<<key<<"</key>, ignoring tag."<<std::endl;
+        return false;
     }
 
     keyPosition.set(keyValue,x,y);
@@ -1300,7 +1315,7 @@ void ReaderWriterP3DXML::parseLayer(osgPresentation::SlideShowConstructor& const
             std::string options;
             getProperty(cur, "options", options);
 
-            constructor.addGraph(cur->getTrimmedContents(), options,
+            constructor.addGraph(cur->getTrimmedContents(), 
                                  positionRead ? positionData : constructor.getImagePositionData(),
                                  imageData);
         }
@@ -1312,9 +1327,14 @@ void ReaderWriterP3DXML::parseLayer(osgPresentation::SlideShowConstructor& const
             osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
             getProperties(cur,imageData);
 
+            std::string password;
+            getProperty(cur, "password", password);
+
             constructor.addVNC(cur->getTrimmedContents(),
                                     positionRead ? positionData : constructor.getImagePositionData(),
-                                    imageData);
+                                    imageData,
+                                    password
+                              );
         }
         else if (cur->name == "browser")
         {

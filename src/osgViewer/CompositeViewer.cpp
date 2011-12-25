@@ -256,6 +256,10 @@ bool CompositeViewer::checkNeedToDoFrame()
             // set so that the updates show up
             if (view->getDatabasePager()->requiresUpdateSceneGraph() ||
                 view->getDatabasePager()->getRequestsInProgress()) return true;
+
+            // if there update callbacks then we need to do frame.
+            if (view->getCamera()->getUpdateCallback()) return true;
+            if (view->getSceneData()!=0 && view->getSceneData()->getNumChildrenRequiringUpdateTraversal()>0) return true;
         }
     }
 
@@ -515,7 +519,7 @@ void CompositeViewer::realize()
 
     if (_views.empty())
     {
-        OSG_NOTICE<<"CompositeViewer::realize() - not views to realize."<<std::endl;
+        OSG_NOTICE<<"CompositeViewer::realize() - No views to realize."<<std::endl;
         _done = true;
         return;
     }
@@ -641,6 +645,19 @@ void CompositeViewer::advance(double simulationTime)
         ++vitr)
     {
         View* view = vitr->get();
+
+        osgGA::GUIEventAdapter* eventState = view->getEventQueue()->getCurrentEventState();
+        if (view->getCamera()->getViewport())
+        {
+            osg::Viewport* viewport = view->getCamera()->getViewport();
+            eventState->setInputRange( viewport->x(), viewport->y(), viewport->x() + viewport->width(), viewport->y() + viewport->height());
+        }
+        else
+        {
+            eventState->setInputRange(-1.0, -1.0, 1.0, 1.0);
+        }
+
+
         view->getEventQueue()->frame( getFrameStamp()->getReferenceTime() );
     }
 
