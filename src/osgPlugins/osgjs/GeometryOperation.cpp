@@ -1024,13 +1024,21 @@ osg::Geometry* GeometryWireframeVisitor::applyGeometry(osg::Geometry& geometry) 
     return createWireframeGeometry(geometry);
 }
 
+void GeometryWireframeVisitor::apply(osg::Node& node) {
+    node.setStateSet(0);
+    traverse(node);
+}
+
 void GeometryWireframeVisitor::apply(osg::Geode& geode) {
+    geode.setStateSet(0);
     GeometryList geomList;
     for (unsigned int i = 0; i < geode.getNumDrawables(); i++) {
         if (geode.getDrawable(i) && geode.getDrawable(i)->asGeometry()) {
             osg::Geometry* wireframe = applyGeometry(*geode.getDrawable(i)->asGeometry());
-            if (wireframe)
+            if (wireframe) {
+                wireframe->setStateSet(0);
                 geomList.push_back(wireframe);
+            }
         }
     }
     geode.removeDrawables(0, geode.getNumDrawables());

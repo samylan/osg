@@ -25,6 +25,7 @@ public:
     bool hasPolygonSurface(const osg::Geometry& geometry);
     osg::Geometry* applyGeometry(osg::Geometry& geometry);
     void apply(osg::Geode& geode);
+    void apply(osg::Node& node);
 };
 
 class OpenGLESGeometryOptimizerVisitor : public osg::NodeVisitor
