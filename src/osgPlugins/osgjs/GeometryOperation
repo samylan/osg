@@ -16,22 +16,37 @@
 bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex = 65535, unsigned int* index = 0);
 bool needToSplit(osg::Geometry& geom, unsigned int maxIndex = 65535);
 
+class GeometryWireframeVisitor : public osg::NodeVisitor
+{
+public:
+    typedef std::vector<osg::ref_ptr<osg::Geometry> > GeometryList;
+
+    GeometryWireframeVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    bool hasPolygonSurface(const osg::Geometry& geometry);
+    osg::Geometry* applyGeometry(osg::Geometry& geometry);
+    void apply(osg::Geode& geode);
+};
+
 class OpenGLESGeometryOptimizerVisitor : public osg::NodeVisitor
 {
 public:
 
-    OpenGLESGeometryOptimizerVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) , _disableTriStrip(false), _triStripCacheSize(16), _disableMergeTriStrip(false) {}
+    OpenGLESGeometryOptimizerVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) , _disableTriStrip(false), _triStripCacheSize(16), _disableMergeTriStrip(false), _enableWireframe(false) {}
+
     void apply(osg::Geode& node);
+    void applyWireframe(osg::Geode& node);
 
     void setUseDrawArray(bool s) { _useDrawArray = s; }
     void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
     void setDisableTriStrip(bool s) { _disableTriStrip = s; }
     void setDisableMergeTriStrip(bool s) { _disableMergeTriStrip = s; }
+    void setEnableWireframe(bool s) { _enableWireframe = s; }
 
 protected:
     bool _disableTriStrip;
     unsigned int _triStripCacheSize;
     bool _disableMergeTriStrip;
     bool _useDrawArray;
+    bool _enableWireframe;
     
 };

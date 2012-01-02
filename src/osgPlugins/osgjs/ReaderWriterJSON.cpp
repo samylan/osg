@@ -29,6 +29,9 @@
 #include "GeometryOperation"
 #include "Animation"
 
+#define WRITER_VERSION 2
+
+
 using namespace osg;
 
 struct WriteVisitor : public osg::NodeVisitor
@@ -43,7 +46,7 @@ struct WriteVisitor : public osg::NodeVisitor
     WriteVisitor(): osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
     void write(std::ostream& str) {
         osg::ref_ptr<JSONObject> o = new JSONObject();
-        o->getMaps()["Version"] = new JSONValue<int>(1);
+        o->getMaps()["Version"] = new JSONValue<int>(WRITER_VERSION);
         o->getMaps()["Generator"] = new JSONValue<std::string>("OpenSceneGraph " + std::string(osgGetVersion()) );
         o->getMaps()["osg.Node"] = _root.get();
         o->write(str);
@@ -404,6 +407,28 @@ struct FakeUpdateVisitor : public osgUtil::UpdateVisitor
 class ReaderWriterJSON : public osgDB::ReaderWriter
 {
 public:
+
+     struct OptionsStruct {
+         bool generateTangentSpace;
+         int tangentSpaceTextureUnit;
+         bool disableTriStrip;
+         bool disableMergeTriStrip;
+         int triStripCacheSize;
+         bool useDrawArray;
+         bool enableWireframe;
+
+         OptionsStruct() {
+             generateTangentSpace = false;
+             tangentSpaceTextureUnit = 0;
+             disableTriStrip = false;
+             disableMergeTriStrip = false;
+             triStripCacheSize = 16;
+             useDrawArray = false;
+             enableWireframe = false;
+         }
+    };
+
+
     ReaderWriterJSON()
     {
         supportsExtension("osgjs","OpenSceneGraph Javascript implementation format");
@@ -413,6 +438,7 @@ public:
         supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
         supportsOption("disableTriStrip","disable generation of tristrip");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
+        supportsOption("enableWireframe","create a wireframe geometry for each triangles geometry");
     }
         
     virtual const char* className() const { return "OSGJS json Writer"; }
@@ -423,80 +449,68 @@ public:
         std::string ext = osgDB::getFileExtension(fileName);
         if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
 
-        std::ofstream fout(fileName.c_str());
-        if (fout)
         {
-            WriteResult res = writeNode(node, fout, options);
-            fout.close();
-            return res;
+            std::ofstream fout(fileName.c_str());
+            if (fout)
+            {
+                WriteResult res = writeNode(node, fout, options);
+                fout.close();
+                return res;
+            }
         }
         return WriteResult("Unable to open file for output");
     }
 
     virtual WriteResult writeNode(const Node& node, std::ostream& fout, const osgDB::ReaderWriter::Options* options) const
     {
-        if (fout)
-        {
-            OptionsStruct _options;
-            _options = parseOptions(options);
+        if (!fout) {
+            return WriteResult("Unable to write to output stream");
+        }
 
-            osg::ref_ptr<osg::Node> dup = osg::clone(&node);
-            {
-                FakeUpdateVisitor fakeUpdateVisitor;
-                dup->accept(fakeUpdateVisitor);
+        OptionsStruct _options;
+        _options = parseOptions(options);
+        return writeNodeModel(node, fout, _options);
+    }
+
+    virtual WriteResult writeNodeModel(const Node& node, std::ostream& fout, const OptionsStruct& options) const
+    {
+        // process regular model
+        osg::ref_ptr<osg::Node> model = osg::clone(&node);
+        FakeUpdateVisitor fakeUpdateVisitor;
+        model->accept(fakeUpdateVisitor);
+
+        GeometryWireframeVisitor wireframer;
+        if (options.enableWireframe) {
+            model->accept(wireframer);
+        }
+            
+        // generate model tangent space
+        if (options.generateTangentSpace && options.enableWireframe == false) {
+            TangentSpaceVisitor tgen(options.tangentSpaceTextureUnit);
+            model->accept(tgen);
+        }
+
+        OpenGLESGeometryOptimizerVisitor visitor;
+        visitor.setUseDrawArray(options.useDrawArray);
+        visitor.setTripStripCacheSize(options.triStripCacheSize);
+        visitor.setDisableTriStrip(options.disableTriStrip);
+        visitor.setDisableMergeTriStrip(options.disableMergeTriStrip);
+        model->accept(visitor);
+
+        WriteVisitor writer;
+        try {
+            //osgDB::writeNodeFile(*dup, "/tmp/debug_osgjs.osg");
+            model->accept(writer);
+            if (writer._root.valid()) {
+                writer.write(fout);
+                return WriteResult::FILE_SAVED;
             }
-
-            {
-                if (_options.generateTangentSpace) {
-                    TangentSpaceVisitor tgen(_options.tangentSpaceTextureUnit);
-                    dup->accept(tgen);
-                }
-
-                OpenGLESGeometryOptimizerVisitor visitor;
-                visitor.setUseDrawArray(_options.useDrawArray);
-                visitor.setTripStripCacheSize(_options.triStripCacheSize);
-                visitor.setDisableTriStrip(_options.disableTriStrip);
-                visitor.setDisableMergeTriStrip(_options.disableMergeTriStrip);
-                dup->accept(visitor);
-            }
-
-            {
-                WriteVisitor visitor;
-
-                try {
-#if 0
-                    osgDB::writeNodeFile(*dup, "/tmp/debug_osgjs.osg");
-#endif
-                    dup->accept(visitor);
-                    if (visitor._root.valid()) {
-                        visitor.write(fout);
-                        return WriteResult::FILE_SAVED;
-                    }
-                } catch (...){
-                    osg::notify(osg::FATAL) << "can't save osgjs file" << std::endl;
-                }
-            }
+        } catch (...){
+            osg::notify(osg::FATAL) << "can't save osgjs file" << std::endl;
+            return WriteResult("Unable to write to output stream");
         }
         return WriteResult("Unable to write to output stream");
     }
-
-     struct OptionsStruct {
-         bool generateTangentSpace;
-         int tangentSpaceTextureUnit;
-         bool disableTriStrip;
-         bool disableMergeTriStrip;
-         int triStripCacheSize;
-         bool useDrawArray;
-
-         OptionsStruct() {
-             generateTangentSpace = false;
-             tangentSpaceTextureUnit = 0;
-             disableTriStrip = false;
-             disableMergeTriStrip = false;
-             triStripCacheSize = 16;
-             useDrawArray = false;
-         }
-    };
 
     ReaderWriterJSON::OptionsStruct parseOptions(const osgDB::ReaderWriter::Options* options) const
     {
@@ -527,6 +541,10 @@ public:
                 if (pre_equals == "useDrawArray")
                 {
                     localOptions.useDrawArray = true;
+                }
+                if (pre_equals == "enableWireframe")
+                {
+                    localOptions.enableWireframe = true;
                 }
                 if (pre_equals == "disableMergeTriStrip")
                 {
