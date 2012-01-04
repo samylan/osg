@@ -322,6 +322,35 @@ struct WriteVisitor : public osg::NodeVisitor
         popStateSet(node);
     }
 
+    void apply(osg::LightSource& node) {
+        pushStateSet(node);
+
+        if (_maps.find(&node) == _maps.end()) {
+            osg::ref_ptr<JSONObject> json = new JSONNode;
+
+            applyCallback(node, json);
+            createJSONStateSet(node, json);
+
+            JSONObject* parent = getParent();
+            if (parent)
+                parent->addChild("osg.LightSource", json);
+
+            initJsonObjectFromNode(node, *json);
+
+            if (node.getLight()) {
+                JSONObject* obj = new JSONObject;
+                obj->getMaps()["osg.Light"] = createLight(node.getLight());
+                json->getMaps()["Light"] = obj;
+            }
+
+            _parents.push_back(json);
+            traverse(node);
+            _parents.pop_back();
+        }
+
+        popStateSet(node);
+    }
+
     void apply(osg::Projection& node) {
         pushStateSet(node);
 
@@ -499,7 +528,7 @@ public:
 
         WriteVisitor writer;
         try {
-            //osgDB::writeNodeFile(*dup, "/tmp/debug_osgjs.osg");
+            osgDB::writeNodeFile(*model, "/tmp/debug_osgjs.osg");
             model->accept(writer);
             if (writer._root.valid()) {
                 writer.write(fout);

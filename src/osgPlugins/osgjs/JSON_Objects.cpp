@@ -328,6 +328,28 @@ JSONObject* createMaterial(osg::Material* material)
     return jsonMaterial.release();
 }
 
+
+JSONObject* createLight(osg::Light* light)
+{
+    osg::ref_ptr<JSONObject> jsonLight = new JSONLight;
+    if (!light->getName().empty())
+        jsonLight->getMaps()["Name"] = new JSONValue<std::string>(light->getName());
+
+    jsonLight->getMaps()["LightNum"] = new JSONValue<int>(light->getLightNum());
+    jsonLight->getMaps()["Ambient"] = new JSONVec4Array(light->getAmbient());
+    jsonLight->getMaps()["Diffuse"] = new JSONVec4Array(light->getDiffuse());
+    jsonLight->getMaps()["Specular"] = new JSONVec4Array(light->getSpecular());
+    jsonLight->getMaps()["Position"] = new JSONVec4Array(light->getPosition());
+    jsonLight->getMaps()["Direction"] = new JSONVec3Array(light->getDirection());
+
+    jsonLight->getMaps()["ConstantAttenuation"] = new JSONValue<float>(light->getConstantAttenuation());
+    jsonLight->getMaps()["LinearAttenuation"] = new JSONValue<float>(light->getLinearAttenuation());
+    jsonLight->getMaps()["QuadraticAttenuation"] = new JSONValue<float>(light->getQuadraticAttenuation());
+    jsonLight->getMaps()["SpotExponent"] = new JSONValue<float>(light->getSpotExponent());
+    jsonLight->getMaps()["SpotCutoff"] = new JSONValue<float>(light->getSpotCutoff());
+    return jsonLight.release();
+}
+
 static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
     switch (mode) {
     case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");

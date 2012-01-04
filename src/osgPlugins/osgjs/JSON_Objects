@@ -9,7 +9,9 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <osg/Array>
+#include <osg/Light>
 #include <osg/Notify>
 #include <osg/PrimitiveSet>
 
@@ -50,6 +52,7 @@ struct JSONObject : public JSONObjectBase
 
 };
 
+JSONObject* createLight(osg::Light* light);
 
 struct JSONNode : public JSONObject
 {
@@ -58,6 +61,7 @@ struct JSONNode : public JSONObject
 
 typedef JSONObject JSONStateSet;
 typedef JSONObject JSONMaterial;
+typedef JSONObject JSONLight;
 
 
 struct JSONArray : public JSONObject
@@ -118,6 +122,8 @@ struct JSONValue<std::string> : public JSONObject
     std::string _value;
     JSONValue(const std::string& v) {
         _value = v;
+        // replace invalid \ by /
+        std::replace(_value.begin(), _value.end(), '\\','/');
     }
     void write(std::ostream& str) {
         str << '"' << _value  << '"';
