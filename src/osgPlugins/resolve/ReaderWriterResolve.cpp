@@ -39,12 +39,24 @@ public:
                         // special case for dds, we dont support it so try to load png / jpg instead
                         std::string extImage = osgDB::getLowerCaseFileExtension(fileName);
                         if (extImage == "dds" || extImage == "tga") {
-                            if (osgDB::fileExists(fileName+".jpg")) { 
+                            bool foundAlternateFile = false;
+
+                            if (!osgDB::findDataFile(fileName+".jpg").empty()) {
                                 fileName += ".jpg";
-                            } else if (osgDB::fileExists(fileName+".png")) {
+                                foundAlternateFile = true;
+                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, try to use " << fileName << ".jpg instead" << std::endl;
+
+                            } else if (!osgDB::findDataFile(fileName+".png").empty()) {
                                 fileName += ".png";
+                                foundAlternateFile = true;
+                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, try to use " << fileName << ".jpg instead" << std::endl;
+
                             }
-                            osg::notify(osg::NOTICE) << "dds found try to use " << fileName << " instead" << std::endl;
+                            if (foundAlternateFile) {
+                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, will use " << fileName << " instead" << std::endl;
+                            } else {
+                                osg::notify(osg::WARN) << "found " << extImage << " texture, and no valid alternate image" << std::endl;
+                            }
                         }
 
 

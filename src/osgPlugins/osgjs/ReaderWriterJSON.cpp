@@ -528,7 +528,7 @@ public:
 
         WriteVisitor writer;
         try {
-            osgDB::writeNodeFile(*model, "/tmp/debug_osgjs.osg");
+            //osgDB::writeNodeFile(*model, "/tmp/debug_osgjs.osg");
             model->accept(writer);
             if (writer._root.valid()) {
                 writer.write(fout);
