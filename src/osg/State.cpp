@@ -109,7 +109,7 @@ State::State():
         }
     }
 
-    _abortRenderingPtr = false;    
+    _abortRenderingPtr = NULL;    
 
     _checkGLErrors = ONCE_PER_FRAME;
 
@@ -689,7 +689,7 @@ bool State::getLastAppliedTextureMode(unsigned int unit,StateAttribute::GLMode m
 
 const StateAttribute* State::getLastAppliedTextureAttribute(unsigned int unit,StateAttribute::Type type, unsigned int member) const
 {
-    if (unit>=_textureAttributeMapList.size()) return false;
+    if (unit>=_textureAttributeMapList.size()) return NULL;
     return getLastAppliedAttribute(_textureAttributeMapList[unit],type,member);
 }
 
@@ -923,7 +923,7 @@ void State::initializeExtensionProcs()
     {
         const GLubyte* renderer = glGetString(GL_RENDERER);
         std::string rendererString = renderer ? (const char*)renderer : "";
-        if (rendererString.find("Radeon")!=std::string::npos || rendererString.find("RADEON")!=std::string::npos)
+        if (rendererString.find("Radeon")!=std::string::npos || rendererString.find("RADEON")!=std::string::npos || rendererString.find("FirePro")!=std::string::npos)
         {
             // AMD/ATI drivers are producing an invalid enumerate error on the
             // glGetQueryiv(GL_TIMESTAMP, GL_QUERY_COUNTER_BITS_ARB, &bits);

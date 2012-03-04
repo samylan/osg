@@ -122,6 +122,7 @@ const char* invalidNames[] =
     "LineStipple",
     "Logos",
     "LongIDRecord",
+    "InputIterator",
     "Make",
     "Makefile",
     "Material",
@@ -247,7 +248,8 @@ const char* invalidNames[] =
     "UpdateSkeleton",
     "Vec3",
     "Plugin",
-    "Get"
+    "Get",
+    "LightSource"
 };
 
 
@@ -286,6 +288,7 @@ TypoCorrection typoCorrections[] =
     {"Fabian",         "Fabien"},
     {"Fautre",         "Fautré"},
     {"Frashid",        "Farshid"},
+    {"Farshild",       "Farshid"},
     {"Fred",           "Frederic"},
     {"Fredrick",       "Frederic"},
     {"Fredric",        "Frederic"},
@@ -311,6 +314,7 @@ TypoCorrection typoCorrections[] =
     {"Happalahti",     "Haapalahti"},
     {"Hertlien",       "Hertlein"},
     {"Hatwig",         "Hartwig"},
+    {"Hauknes",        "Haukness"},
     {"Hi",             "He"},
     {"Hooper",         "Hopper"},
     {"Inverson",       "Iverson"},
@@ -380,6 +384,7 @@ TypoCorrection typoCorrections[] =
     {"Oritz",          "Ortiz"},
     {"Osfeld",         "Osfield"},
     {"Osfied",         "Osfield"},
+    {"Paulk",          "Paul"},
     {"Pail",           "Paul"},
     {"Perciva",        "Peciva"},
     {"Pecvia",         "Peciva"},
@@ -440,7 +445,8 @@ TypoCorrection typoCorrections[] =
     {"Jahannes","Johannes"},
     {"Eskland","Ekstrand"},
     {"Baeuerele","Baeuerle"},
-    {"Bauerle","Baeuerle"}
+    {"Bauerle","Baeuerle"},
+    {"Baeurele","Baeuerle"}
 };
 
 
@@ -570,6 +576,8 @@ NameCorrection nameCorrections[] =
      "Romano",         "José Magacho da Silva"},
     {"Leandro",        "Motta",
      "Leandro",        "Motta Barros"},
+    {"Leandro",        "Motto",
+     "Leandro",        "Motta Barros"},
     {"A",              "Botorabi",
      "Ali",            "Botorabi"},
     {"Waltice",        "",
@@ -585,6 +593,8 @@ NameCorrection nameCorrections[] =
     {"Frauciel",       "Luc",
      "Luc",            "Frauciel"},
     {"Alberto",        "Lucas",
+     "Alberto",        "Luaces"},
+    {"Alberto",        "Luacus",
      "Alberto",        "Luaces"},
     {"Tyge",           "",
      "Tyge",           "Løvset"},

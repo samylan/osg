@@ -22,7 +22,7 @@ public:
     void setStream( std::ostream* ostream ) { _out = ostream; }
     std::ostream* getStream() { return _out; }
     const std::ostream* getStream() const { return _out; }
-    
+
     virtual bool isBinary() const = 0;
     
     virtual void writeBool( bool b ) = 0;
@@ -69,7 +69,7 @@ protected:
 class OSGDB_EXPORT InputIterator : public osg::Referenced
 {
 public:
-    InputIterator() : _in(0), _inputStream(0), _failed(false) {}
+    InputIterator() : _in(0), _inputStream(0), _byteSwap(0), _failed(false) {}
     virtual ~InputIterator() {}
     
     void setStream( std::istream* istream ) { _in = istream; }
@@ -79,7 +79,10 @@ public:
     void setInputStream( InputStream* inputStream) { _inputStream = inputStream; }
     InputStream* getInputStream() { return _inputStream; }
     const InputStream* getInputStream() const { return _inputStream; }
-    
+
+    void setByteSwap(int byteSwap) { _byteSwap = byteSwap; }
+    int getByteSwap() const { return _byteSwap; }
+
     void checkStream() const { if (_in->rdstate()&_in->failbit) _failed = true; }
     bool isFailed() const { return _failed; }
     
@@ -112,10 +115,13 @@ public:
 
     void throwException( const std::string& msg );
 
+    void readComponentArray( char* s, unsigned int numElements, unsigned int numComponentsPerElements, unsigned int componentSizeInBytes);
+
 protected:
     std::istream*       _in;
     osgDB::InputStream* _inputStream;
-    mutable bool _failed;
+    int                 _byteSwap;
+    mutable bool        _failed;
 };
 
 }

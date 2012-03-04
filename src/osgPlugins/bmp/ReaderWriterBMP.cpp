@@ -345,7 +345,7 @@ static unsigned char* bmp_load(std::istream& fin,
     else
     {
         bytesPerPixel = 1;
-        bytesPerRow = (unsigned int) (dib.width * (dib.bitsPerPixel / 8.0f));
+        bytesPerRow = (unsigned int) ceilf(dib.width * (dib.bitsPerPixel / 8.0f));
     }
     const unsigned int bytesPerRowAlign = (unsigned int) ceilf(bytesPerRow / 4.0f) * 4;
     //printf("bytesPerPixel=%u bytesPerRow=%u bytesPerRowAlign=%u\n", bytesPerPixel, bytesPerRow, bytesPerRowAlign);
@@ -527,7 +527,7 @@ static bool bmp_save(const osg::Image& img, std::ostream& fout)
     std::vector<unsigned char> rowBuffer(bytesPerRowAlign);
     for (int y = 0; y < img.t(); ++y)
     {
-        const unsigned char* imgp = img.data() + img.s() * y * channelsPerPixel;
+        const unsigned char* imgp = img.data(0, y);
         for (int x = 0; x < img.s(); ++x)
         {
             // RGB -> BGR

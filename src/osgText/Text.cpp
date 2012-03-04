@@ -600,9 +600,9 @@ void Text::computePositions(unsigned int contextID) const
     case CENTER_BASE_LINE:  _offset.set((_textBB.xMax()+_textBB.xMin())*0.5f,0.0f,0.0f); break;
     case RIGHT_BASE_LINE:  _offset.set(_textBB.xMax(),0.0f,0.0f); break;
     
-    case LEFT_BOTTOM_BASE_LINE:  _offset.set(0.0f,-_characterHeight*(_lineCount-1),0.0f); break;
-    case CENTER_BOTTOM_BASE_LINE:  _offset.set((_textBB.xMax()+_textBB.xMin())*0.5f,-_characterHeight*(_lineCount-1),0.0f); break;
-    case RIGHT_BOTTOM_BASE_LINE:  _offset.set(_textBB.xMax(),-_characterHeight*(_lineCount-1),0.0f); break;
+    case LEFT_BOTTOM_BASE_LINE:  _offset.set(0.0f,-_characterHeight*(1.0 + _lineSpacing)*(_lineCount-1),0.0f); break;
+    case CENTER_BOTTOM_BASE_LINE:  _offset.set((_textBB.xMax()+_textBB.xMin())*0.5f,-_characterHeight*(1.0 + _lineSpacing)*(_lineCount-1),0.0f); break;
+    case RIGHT_BOTTOM_BASE_LINE:  _offset.set(_textBB.xMax(),-_characterHeight*(1.0 + _lineSpacing)*(_lineCount-1),0.0f); break;
     }
     
     AutoTransformCache& atc = _autoTransformCache[contextID];
@@ -1211,12 +1211,8 @@ void Text::drawImplementation(osg::State& state, const osg::Vec4& colorMultiplie
     unsigned int contextID = state.getContextID();
 
     state.applyMode(GL_BLEND,true);
-#if 1
-    state.applyTextureMode(0,GL_TEXTURE_2D,osg::StateAttribute::ON);
-#else
-    state.applyTextureMode(0,GL_TEXTURE_2D,osg::StateAttribute::OFF);
-#endif
 #if defined(OSG_GL_FIXED_FUNCTION_AVAILABLE)
+    state.applyTextureMode(0,GL_TEXTURE_2D,osg::StateAttribute::ON);
     state.applyTextureAttribute(0,getActiveFont()->getTexEnv());
 #endif
     if (_characterSizeMode!=OBJECT_COORDS || _autoRotateToScreen)
@@ -1350,12 +1346,8 @@ void Text::drawImplementation(osg::State& state, const osg::Vec4& colorMultiplie
         }
     }    
 
-#if 1
-    state.applyTextureMode(0,GL_TEXTURE_2D,osg::StateAttribute::ON);
-#else
-    state.applyTextureMode(0,GL_TEXTURE_2D,osg::StateAttribute::OFF);
-#endif
 #if defined(OSG_GL_FIXED_FUNCTION_AVAILABLE)
+    state.applyTextureMode(0,GL_TEXTURE_2D,osg::StateAttribute::ON);
     state.applyTextureAttribute(0,getActiveFont()->getTexEnv());
 #endif
 

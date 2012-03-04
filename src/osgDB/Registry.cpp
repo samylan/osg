@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <set>
+#include <memory>
 
 #include <stdlib.h>
 
@@ -251,6 +252,7 @@ Registry::Registry()
 
     // add default osga archive extension
     _archiveExtList.push_back("osga");
+    _archiveExtList.push_back("zip");
     
     initFilePathLists();
 
@@ -277,9 +279,9 @@ Registry::Registry()
     addFileExtensionAlias("osgb", "osg");
     addFileExtensionAlias("osgx", "osg");
 
-    addFileExtensionAlias("osgShadow",  "shadow");
-    addFileExtensionAlias("osgTerrain", "terrain");
-    addFileExtensionAlias("osgViewer",  "view");
+    addFileExtensionAlias("shadow",  "osgshadow");
+    addFileExtensionAlias("terrain", "osgterrain");
+    addFileExtensionAlias("view",  "osgviewer");
 
     addFileExtensionAlias("sgi",  "rgb");
     addFileExtensionAlias("rgba", "rgb");
@@ -899,6 +901,8 @@ struct Registry::ReadObjectFunctor : public Registry::ReadFunctor
     virtual ReaderWriter::ReadResult doRead(ReaderWriter& rw) const { return rw.readObject(_filename, _options); }    
     virtual bool isValid(ReaderWriter::ReadResult& readResult) const { return readResult.validObject(); }
     virtual bool isValid(osg::Object* object) const { return object!=0;  }
+
+    virtual ReadFunctor* cloneType(const std::string& filename, const Options* options) const { return new ReadObjectFunctor(filename, options); }
 };
 
 struct Registry::ReadImageFunctor : public Registry::ReadFunctor
@@ -908,6 +912,8 @@ struct Registry::ReadImageFunctor : public Registry::ReadFunctor
     virtual ReaderWriter::ReadResult doRead(ReaderWriter& rw)const  { return rw.readImage(_filename, _options); }    
     virtual bool isValid(ReaderWriter::ReadResult& readResult) const { return readResult.validImage(); }
     virtual bool isValid(osg::Object* object) const { return dynamic_cast<osg::Image*>(object)!=0;  }
+
+    virtual ReadFunctor* cloneType(const std::string& filename, const Options* options) const { return new ReadImageFunctor(filename, options); }
 };
 
 struct Registry::ReadHeightFieldFunctor : public Registry::ReadFunctor
@@ -917,6 +923,8 @@ struct Registry::ReadHeightFieldFunctor : public Registry::ReadFunctor
     virtual ReaderWriter::ReadResult doRead(ReaderWriter& rw) const { return rw.readHeightField(_filename, _options); }    
     virtual bool isValid(ReaderWriter::ReadResult& readResult) const { return readResult.validHeightField(); }
     virtual bool isValid(osg::Object* object) const { return dynamic_cast<osg::HeightField*>(object)!=0;  }
+
+    virtual ReadFunctor* cloneType(const std::string& filename, const Options* options) const { return new ReadHeightFieldFunctor(filename, options); }
 };
 
 struct Registry::ReadNodeFunctor : public Registry::ReadFunctor
@@ -927,6 +935,7 @@ struct Registry::ReadNodeFunctor : public Registry::ReadFunctor
     virtual bool isValid(ReaderWriter::ReadResult& readResult) const { return readResult.validNode(); }
     virtual bool isValid(osg::Object* object) const { return dynamic_cast<osg::Node*>(object)!=0;  }
 
+    virtual ReadFunctor* cloneType(const std::string& filename, const Options* options) const { return new ReadNodeFunctor(filename, options); }
 };
 
 struct Registry::ReadArchiveFunctor : public Registry::ReadFunctor
@@ -943,6 +952,7 @@ struct Registry::ReadArchiveFunctor : public Registry::ReadFunctor
     virtual bool isValid(ReaderWriter::ReadResult& readResult) const { return readResult.validArchive(); }
     virtual bool isValid(osg::Object* object) const { return dynamic_cast<osgDB::Archive*>(object)!=0;  }
 
+    virtual ReadFunctor* cloneType(const std::string& filename, const Options* options) const { return new ReadArchiveFunctor(filename, _status, _indexBlockSizeHint, options); }
 };
 
 struct Registry::ReadShaderFunctor : public Registry::ReadFunctor
@@ -952,6 +962,8 @@ struct Registry::ReadShaderFunctor : public Registry::ReadFunctor
     virtual ReaderWriter::ReadResult doRead(ReaderWriter& rw)const  { return rw.readShader(_filename, _options); }    
     virtual bool isValid(ReaderWriter::ReadResult& readResult) const { return readResult.validShader(); }
     virtual bool isValid(osg::Object* object) const { return dynamic_cast<osg::Shader*>(object)!=0;  }
+
+    virtual ReadFunctor* cloneType(const std::string& filename, const Options* options) const { return new ReadShaderFunctor(filename, options); }
 };
 
 void Registry::addArchiveExtension(const std::string ext)
@@ -973,27 +985,50 @@ std::string Registry::findDataFileImplementation(const std::string& filename, co
     // if data file contains a server address then we can't find it in local directories so return empty string.
     if (containsServerAddress(filename)) return std::string();
 
-    if(fileExists(filename))
+    bool absolutePath = osgDB::isAbsolutePath(filename);
+
+    if (absolutePath && fileExists(filename))
     {
         OSG_DEBUG << "FindFileInPath(" << filename << "): returning " << filename << std::endl;
         return filename;
     }
 
     std::string fileFound;
+    bool pathsContainsCurrentWorkingDirectory = false;
 
     if (options && !options->getDatabasePathList().empty())
     {
         fileFound = findFileInPath(filename, options->getDatabasePathList(), caseSensitivity);
         if (!fileFound.empty()) return fileFound;
+
+        if (osgDB::containsCurrentWorkingDirectoryReference(options->getDatabasePathList()))
+        {
+            pathsContainsCurrentWorkingDirectory = true;
+        }
+
     }
 
-    const FilePathList& filepath = Registry::instance()->getDataFilePathList();
-    if (!filepath.empty())
+    const FilePathList& filepaths = Registry::instance()->getDataFilePathList();
+    if (!filepaths.empty())
     {
-        fileFound = findFileInPath(filename, filepath,caseSensitivity);
+        fileFound = findFileInPath(filename, filepaths, caseSensitivity);
         if (!fileFound.empty()) return fileFound;
+
+        if (!pathsContainsCurrentWorkingDirectory && osgDB::containsCurrentWorkingDirectoryReference(filepaths))
+        {
+            pathsContainsCurrentWorkingDirectory = true;
+        }        
     }
 
+    if (!absolutePath && !pathsContainsCurrentWorkingDirectory)
+    {
+        // check current working directory
+        if (fileExists(filename))
+        {
+            return filename;
+        }
+    }
+    
 
     // if a directory is included in the filename, get just the (simple) filename itself and try that
     std::string simpleFileName = getSimpleFileName(filename);
@@ -1012,9 +1047,9 @@ std::string Registry::findDataFileImplementation(const std::string& filename, co
             if (!fileFound.empty()) return fileFound;
         }
 
-        if (!filepath.empty())
+        if (!filepaths.empty())
         {
-            fileFound = findFileInPath(simpleFileName, filepath,caseSensitivity);
+            fileFound = findFileInPath(simpleFileName, filepaths,caseSensitivity);
             if (!fileFound.empty()) return fileFound;
         }
 
@@ -1088,7 +1123,16 @@ ReaderWriter::ReadResult Registry::read(const ReadFunctor& readFunctor)
 
             options->setDatabasePath(archiveName);
 
-            return archive->readObject(fileName,options.get());
+            std::auto_ptr<ReadFunctor> rf(readFunctor.cloneType(fileName, options.get()));
+            
+            result = rf->doRead(*archive);
+
+            if (rf->isValid(result))
+            {
+                OSG_INFO<<"Read object from archive"<<std::endl;
+                return result;
+            }
+            OSG_INFO<<"Failed to read object from archive"<<std::endl;
         }
     }
     
@@ -1626,31 +1670,19 @@ void Registry::removeExpiredObjectsInCache(const osg::FrameStamp& frameStamp)
 
     OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
 
-    typedef std::vector<std::string> ObjectsToRemove;
-    ObjectsToRemove objectsToRemove;
-
-    // first collect all the expired entries in the ObjectToRemove list.
-    for(ObjectCache::iterator oitr=_objectCache.begin();
-        oitr!=_objectCache.end();
-        ++oitr)
+    // Remove expired entries from object cache
+    ObjectCache::iterator oitr = _objectCache.begin();
+    while(oitr != _objectCache.end())
     {
         if (oitr->second.second<=expiryTime)
         {
-            // record the filename of the entry to use as key for deleting
-            // afterwards/
-            objectsToRemove.push_back(oitr->first);
+            _objectCache.erase(oitr++);
+        }
+        else
+        {
+            ++oitr;
         }
     }
-    
-    // remove the entries from the _objectCaache.
-    for(ObjectsToRemove::iterator ritr=objectsToRemove.begin();
-        ritr!=objectsToRemove.end();
-        ++ritr)
-    {
-        // std::cout<<"Removing from Registry object cache '"<<*ritr<<"'"<<std::endl;
-        _objectCache.erase(*ritr);
-    }
-        
 }
 
 void Registry::removeFromObjectCache(const std::string& fileName)

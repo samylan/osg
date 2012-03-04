@@ -373,6 +373,11 @@ bool GraphicsWindowX11::checkAndSendEventFullScreenIfNeeded(Display* display, in
     wsi->getScreenResolution(*_traits, screenWidth, screenHeight);
     bool isFullScreen = x == 0 && y == 0 && width == (int)screenWidth && height == (int)screenHeight && !windowDecoration;
 
+    if (isFullScreen) {
+        resized(x, y, width, height);
+        getEventQueue()->windowResize(x, y, width, height, getEventQueue()->getTime());
+    }
+
     Atom netWMStateAtom = XInternAtom(display, "_NET_WM_STATE", True);
     Atom netWMStateFullscreenAtom = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", True);
 
@@ -1255,7 +1260,7 @@ void GraphicsWindowX11::checkEvents()
                 OSG_INFO<<"ConfigureNotify x="<<ev.xconfigure.x<<" y="<<ev.xconfigure.y<<" width="<<ev.xconfigure.width<<", height="<<ev.xconfigure.height<<std::endl;
 
                 if (windowX != ev.xconfigure.x ||
-                    windowX != ev.xconfigure.y ||
+                    windowY != ev.xconfigure.y ||
                     windowWidth != ev.xconfigure.width ||
                     windowHeight != ev.xconfigure.height)
                 {
