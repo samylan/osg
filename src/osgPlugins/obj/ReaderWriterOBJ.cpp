@@ -696,25 +696,6 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
         }
     }
 
-    // cedric pinson 2010
-    // reduce draw call if a list I find a list draw triangle fan with a size of 3
-    // instead generate one primitive call of TRIANGLES that group all
-    osg::ref_ptr<osg::DrawElementsUInt> triangles = new osg::DrawElementsUInt(GL_TRIANGLES);
-    for (osg::Geometry::PrimitiveSetList::iterator it = geometry->getPrimitiveSetList().begin(); it != geometry->getPrimitiveSetList().end();) {
-        osg::DrawArrays* da =  dynamic_cast<osg::DrawArrays*>((*it).get());
-        if (da && da->getMode() == osg::PrimitiveSet::TRIANGLE_FAN && da->getCount() == 3) {
-            triangles->addElement(da->getFirst());
-            triangles->addElement(da->getFirst()+1);
-            triangles->addElement(da->getFirst()+2);
-            it = geometry->getPrimitiveSetList().erase(it);
-        } else {
-            it++;
-        }
-    }
-    // if ok replace fan
-    if (triangles->getNumIndices() > 0) {
-        geometry->getPrimitiveSetList().push_back(triangles.get());
-    }
     return geometry;
 }
 
@@ -736,7 +717,7 @@ osg::Node* ReaderWriterOBJ::convertModelToSceneGraph(obj::Model& model, ObjOptio
     {
     
         const obj::ElementState& es = itr->first;
-        obj::Model::ElementList& el = itr->second;
+        obj::Model::ElementList el = itr->second;
 
         osg::Geometry* geometry = convertElementListToGeometry(model,el,localOptions);
 
