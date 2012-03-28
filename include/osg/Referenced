@@ -28,7 +28,6 @@ namespace osg {
 
 // forward declare, declared after Referenced below.
 class DeleteHandler;
-class ConstructorDestructorHandler;
 class Observer;
 class ObserverSet;
 
@@ -45,9 +44,10 @@ class OSG_EXPORT Referenced
 
     public:
 
-        Referenced(); 
-        
-        explicit Referenced(bool threadSafeRefUnref); 
+
+        Referenced();
+
+        explicit Referenced(bool threadSafeRefUnref);
 
         Referenced(const Referenced&);
 
@@ -132,6 +132,7 @@ class OSG_EXPORT Referenced
         /** Get a DeleteHandler.*/
         static DeleteHandler* getDeleteHandler();
 
+
     protected:
 
         virtual ~Referenced();
@@ -140,7 +141,6 @@ class OSG_EXPORT Referenced
 
         void deleteUsingDeleteHandler() const;
 
-        bool _logged;
 #if defined(_OSG_REFERENCED_USE_ATOMIC_OPERATIONS)
         mutable OpenThreads::AtomicPtr  _observerSet;
 
