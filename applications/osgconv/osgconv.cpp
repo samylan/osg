@@ -851,6 +851,7 @@ int main( int argc, char **argv )
         {
             osgUtil::Simplifier simple;
             simple.setSmoothing( smooth );
+            simple.setDoTriStrip( false );
             osg::notify( osg::ALWAYS ) << " smoothing: " << smooth << std::endl;
             simple.setSampleRatio( simplifyPercent );
             root->accept( simple );
