@@ -395,6 +395,15 @@ JSONObject* createJSONStateSet(osg::StateSet* stateset)
         jsonStateSet->getMaps()["Name"] = new JSONValue<std::string>(stateset->getName());
     }
 
+    if (stateset->getRenderingHint() == osg::StateSet::TRANSPARENT_BIN) {
+        jsonStateSet->getMaps()["RenderingHint"] = new JSONValue<std::string>("TRANSPARENT_BIN");
+    }
+
+    bool blendEnabled = false;
+    if (stateset->getMode(GL_BLEND) == osg::StateAttribute::ON) {
+        blendEnabled = true;
+    }
+
     osg::ref_ptr<JSONArray> textureAttributeList = new JSONArray;
     int lastTextureIndex = -1;
     for (int i = 0; i < 32; ++i) {
@@ -431,7 +440,12 @@ JSONObject* createJSONStateSet(osg::StateSet* stateset)
         JSONObject* obj = new JSONObject;
         obj->getMaps()["osg.BlendFunc"] = createBlendFunc(blendFunc);
         attributeList->getArray().push_back(obj);
+    } else if (blendEnabled == true) {
+        JSONObject* obj = new JSONObject;
+        obj->getMaps()["osg.BlendFunc"] = createBlendFunc(new osg::BlendFunc());
+        attributeList->getArray().push_back(obj);
     }
+
 
     if (!attributeList->getArray().empty()) {
         jsonStateSet->getMaps()["AttributeList"] = attributeList;
