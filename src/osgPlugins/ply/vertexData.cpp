@@ -179,7 +179,7 @@ void VertexData::readVertices( PlyFile* file, const int nVertices,
         if( fields & RGBA )
             _colors->push_back( osg::Vec4( (unsigned int) vertex.red / 255.0,
                                            (unsigned int) vertex.green / 255.0 ,
-                                           (unsigned int) vertex.blue / 255.0, 
+                                           (unsigned int) vertex.blue / 255.0,
                                            (unsigned int) vertex.alpha / 255.0) );
         else if( fields & RGB )
             _colors->push_back( osg::Vec4( (unsigned int) vertex.red / 255.0,
