@@ -670,9 +670,13 @@ public:
         }
         if (_nonSurfaces->getPrimitiveSetList().empty()) {
             _nonSurfaces = 0;
+        } else {
+            _nonSurfaces->duplicateSharedArrays();
         }
         if (_surfaces->getPrimitiveSetList().empty()) {
             _surfaces = 0;
+        } else {
+            _surfaces->duplicateSharedArrays();
         }
     }
 public:
