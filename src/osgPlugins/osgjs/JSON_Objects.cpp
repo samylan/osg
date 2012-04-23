@@ -6,7 +6,9 @@
 #include <osgDB/WriteFile>
 #include <osg/Material>
 #include <osg/BlendFunc>
+#include <osg/BlendColor>
 #include <osg/Texture>
+#include <osg/CullFace>
 #include <osg/Texture2D>
 #include <osg/Texture1D>
 #include <osg/Image>
@@ -386,6 +388,33 @@ JSONObject* createBlendFunc(osg::BlendFunc* sa)
     return json.release();
 }
 
+JSONObject* createBlendColor(osg::BlendColor* sa)
+{
+    osg::ref_ptr<JSONObject> json = new JSONObject;
+    if (!sa->getName().empty())
+        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
+
+    json->getMaps()["ConstantColor"] = new JSONVec4Array(sa->getConstantColor());
+    return json.release();
+}
+
+JSONObject* createCullFace(osg::CullFace* sa)
+{
+    osg::ref_ptr<JSONObject> json = new JSONObject;
+    if (!sa->getName().empty())
+        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
+
+    osg::ref_ptr<JSONValue<std::string> > mode = new JSONValue<std::string>("BACK");
+    if (sa->getMode() == osg::CullFace::FRONT) {
+        mode = new JSONValue<std::string>("BACK");
+    }
+    if (sa->getMode() == osg::CullFace::FRONT_AND_BACK) {
+        mode = new JSONValue<std::string>("FRONT_AND_BACK");
+    }
+    json->getMaps()["Mode"] = mode;
+    return json.release();
+}
+
 
 JSONObject* createJSONStateSet(osg::StateSet* stateset)
 {
@@ -446,6 +475,34 @@ JSONObject* createJSONStateSet(osg::StateSet* stateset)
         attributeList->getArray().push_back(obj);
     }
 
+    osg::CullFace* cullFace = dynamic_cast<osg::CullFace*>(stateset->getAttribute(osg::StateAttribute::CULLFACE));
+    osg::StateAttribute::GLModeValue cullMode = stateset->getMode(GL_CULL_FACE);
+    if (cullFace || cullMode != osg::StateAttribute::INHERIT) {
+        JSONObject* obj = new JSONObject;
+        JSONObject* cf = 0;
+        if (cullMode == osg::StateAttribute::OFF) {
+            osg::ref_ptr<osg::CullFace> defaultCull = new osg::CullFace();
+            cf = createCullFace(defaultCull.get());
+            cf->getMaps()["Mode"] = new JSONValue<std::string>("DISABLE");
+            obj->getMaps()["osg.CullFace"] = cf;
+            attributeList->getArray().push_back(obj);
+        } else {
+            if (!cullFace) {
+                cullFace = new osg::CullFace();
+            }
+            cf = createCullFace(cullFace);
+        }
+        obj->getMaps()["osg.CullFace"] = cf;
+        attributeList->getArray().push_back(obj);
+    }
+
+    osg::BlendColor* blendColor = dynamic_cast<osg::BlendColor*>(stateset->getAttribute(osg::StateAttribute::BLENDCOLOR));
+    if (blendColor) {
+        JSONObject* obj = new JSONObject;
+        obj->getMaps()["osg.BlendColor"] = createBlendColor(blendColor);
+        attributeList->getArray().push_back(obj);
+    }
+    
 
     if (!attributeList->getArray().empty()) {
         jsonStateSet->getMaps()["AttributeList"] = attributeList;
