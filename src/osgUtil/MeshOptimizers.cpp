@@ -418,11 +418,11 @@ void IndexMeshVisitor::makeMesh()
         makeMesh(*(*itr));
     }
 }
-    void IndexMeshVisitor::setForceReIndex(bool force)
-    {
-        _forceReIndex = force;
-        osg::notify(osg::INFO) << "All polygon type will be re indexed and convert as triangles" << std::endl;
-    }
+void IndexMeshVisitor::setForceReIndex(bool force)
+{
+    _forceReIndex = force;
+    osg::notify(osg::INFO) << "All polygon type will be re indexed and convert as triangles" << std::endl;
+}
 
 namespace
 {
