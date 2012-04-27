@@ -1,5 +1,6 @@
 /* -*-c++-*- */
-
+#ifndef TANGENT_SPACE_VISITOR_H
+#define TANGENT_SPACE_VISITOR_H
 #include <osgUtil/TangentSpaceGenerator>
 
 #define TANGENT_ATTRIBUTE_INDEX 20
@@ -9,6 +10,8 @@ struct TangentSpaceVisitor : osg::NodeVisitor
 {
 public:
     int _textureUnit;
+    typedef std::map<osg::Geometry*, bool> GeometryProcessed;
+    GeometryProcessed _geometryProcessed;
 
 public:
     TangentSpaceVisitor(int textureUnit = 0) : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN){
@@ -23,7 +26,13 @@ public:
 
     void apply(osg::Drawable& drw) {
         osg::Geometry* geom = dynamic_cast<osg::Geometry*>(&drw);
+
+        // already processed
+        if (_geometryProcessed.find(geom) != _geometryProcessed.end()) {
+            return;
+        }
         if (geom) {
+
             osg::ref_ptr<osgUtil::TangentSpaceGenerator> generator = new osgUtil::TangentSpaceGenerator;
             generator->generate(geom, _textureUnit);
             if (generator->getNormalArray()) {
@@ -35,7 +44,9 @@ public:
             if (generator->getBinormalArray()) {
                 geom->setVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX, generator->getBinormalArray());
             }
+            _geometryProcessed[geom] = true;
         }
     }
 };
 
+#endif

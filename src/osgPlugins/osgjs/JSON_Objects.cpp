@@ -15,6 +15,8 @@
 #include <sstream>
 
 int JSONObjectBase::level = 0;
+unsigned int JSONObject::uniqueID = 0;
+
 std::string JSONObjectBase::indent()
 {
     std::string str;
@@ -28,12 +30,30 @@ std::string JSONObjectBase::indent()
 void JSONNode::write(std::ostream& str)
 {
     std::vector<std::string> order;
+    order.push_back("UniqueID");
     order.push_back("Name");
     order.push_back("TargetName");
     order.push_back("Matrix");
     order.push_back("UpdateCallbacks");
     order.push_back("StateSet");
     writeOrder(str, order);
+}
+
+JSONObject::JSONObject(const unsigned int id)
+{
+    _uniqueID = id;
+    _maps["UniqueID"] = new JSONValue<unsigned int>(id);
+}
+
+JSONObject::JSONObject() 
+{
+    _uniqueID = -1;
+}
+
+void JSONObject::addUniqueID() 
+{
+    _uniqueID = JSONObject::uniqueID++;
+    _maps["UniqueID"] = new JSONValue<unsigned int>(_uniqueID);
 }
 
 void JSONObject::addChild(const std::string& type, JSONObject* child)
@@ -84,6 +104,7 @@ void JSONObject::writeOrder(std::ostream& str, const std::vector<std::string>& o
 void JSONObject::write(std::ostream& str)
 {
     OrderList defaultOrder;
+    defaultOrder.push_back("UniqueID");
     defaultOrder.push_back("Name");
     defaultOrder.push_back("TargetName");
     writeOrder(str, defaultOrder);
@@ -170,354 +191,8 @@ void JSONArray::write(std::ostream& str)
     str << " ]";
 }
 
-void JSONBufferArray::write(std::ostream& str)
-{
-    str << "{\n";
-    JSONObjectBase::level++;
-    for (JSONMap::iterator it = _maps.begin(); it != _maps.end(); ++it) {
-        std::string key = it->first;
-        if (key.empty())
-            continue;
-        JSONObject* obj = it->second.get();
-        if (!obj)
-            continue;
-
-        str << JSONObjectBase::indent() << '"' << key << '"' << ": ";
-        obj->write(str);
-        JSONMap::iterator itend = it;
-        itend++;
-        if (itend != _maps.end()) {
-            str << ", ";
-            str << "\n";
-        }
-
-    }
-    JSONObjectBase::level--;
-    str << std::endl << JSONObjectBase::indent() << "}";
-}
-
-// use to convert draw array quads to draw elements triangles
-JSONDrawElements<osg::DrawElementsUShort>* createJSONDrawElements(const osg::DrawArrays& drawArray)
-{
-
-    if (drawArray.getMode() != GL_QUADS) {
-        osg::notify(osg::WARN) << "" << std::endl;
-        return 0;
-    }
-
-    osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
-    for (int i = 0; i < drawArray.getCount()/4; ++i) {
-        int base = drawArray.getFirst() + i*4;
-        de->push_back(base + 0);
-        de->push_back(base + 1);
-        de->push_back(base + 3);
-
-        de->push_back(base + 1);
-        de->push_back(base + 2);
-        de->push_back(base + 3);
-    }
-    return new JSONDrawElements<osg::DrawElementsUShort>(*de);
-}
 
 
-JSONObject* createImage(osg::Image* image)
-{
-    if (!image) {
-        osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
-        return new JSONValue<std::string>("/unknown.png");
-    } else {
-        if (!image->getFileName().empty()) {
-            int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
-            int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
-            bool needToResize = false;
-            if (new_s != image->s()) needToResize = true;
-            if (new_t != image->t()) needToResize = true;
-            
-            if (needToResize) {
-                // resize and rewrite image file
-                image->ensureValidSizeForTexturing(2048);
-                osgDB::writeImageFile(*image, image->getFileName());
-            }
-            return new JSONValue<std::string>(image->getFileName());
-        }
-    }
-    return 0;
-}
-
-
-static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
-{
-    switch(mode) {
-    case GL_LINEAR:
-        return new JSONValue<std::string>("LINEAR");
-    case GL_LINEAR_MIPMAP_LINEAR:
-        return new JSONValue<std::string>("LINEAR_MIPMAP_LINEAR");
-    case GL_LINEAR_MIPMAP_NEAREST:
-        return new JSONValue<std::string>("LINEAR_MIPMAP_NEAREST");
-    case GL_NEAREST:
-        return new JSONValue<std::string>("NEAREST");
-    case GL_NEAREST_MIPMAP_LINEAR:
-        return new JSONValue<std::string>("NEAREST_MIPMAP_LINEAR");
-    case GL_NEAREST_MIPMAP_NEAREST:
-        return new JSONValue<std::string>("NEAREST_MIPMAP_NEAREST");
-    default:
-        return 0;
-    }
-    return 0;
-}
-
-static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
-{
-    switch(mode) {
-    case GL_CLAMP:
-        return new JSONValue<std::string>("CLAMP");
-    case GL_CLAMP_TO_EDGE:
-        return new JSONValue<std::string>("CLAMP_TO_EDGE");
-    case GL_CLAMP_TO_BORDER_ARB:
-        return new JSONValue<std::string>("CLAMP_TO_BORDER");
-    case GL_REPEAT:
-        return new JSONValue<std::string>("REPEAT");
-    case GL_MIRRORED_REPEAT_IBM:
-        return new JSONValue<std::string>("MIRROR");
-    default:
-        return 0;
-    }
-    return 0;
-}
-
-JSONObject* createTexture(osg::Texture* texture)
-{
-    if (!texture) {
-        return 0;
-    }
-
-    osg::ref_ptr<JSONObject> jsonTexture = new JSONObject;
-    jsonTexture->getMaps()["MagFilter"] = getJSONFilterMode(texture->getFilter(osg::Texture::MAG_FILTER));
-    jsonTexture->getMaps()["MinFilter"] = getJSONFilterMode(texture->getFilter(osg::Texture::MIN_FILTER));
-
-    jsonTexture->getMaps()["WrapS"] = getJSONWrapMode(texture->getWrap(osg::Texture::WRAP_S));
-    jsonTexture->getMaps()["WrapT"] = getJSONWrapMode(texture->getWrap(osg::Texture::WRAP_T));
-
-    osg::Texture2D* t2d = dynamic_cast<osg::Texture2D*>(texture);
-    if (t2d) {
-        JSONObject* image = createImage(t2d->getImage());
-        if (image)
-            jsonTexture->getMaps()["File"] = image;
-        return jsonTexture.release();
-    }
-    osg::Texture1D* t1d = dynamic_cast<osg::Texture1D*>(texture);
-    if (t1d) {
-        JSONObject* image = createImage(t1d->getImage());
-        if (image)
-            jsonTexture->getMaps()["File"] = image;
-
-        return jsonTexture.release();
-    }
-    return 0;
-}
-
-JSONObject* createMaterial(osg::Material* material)
-{
-    osg::ref_ptr<JSONObject> jsonMaterial = new JSONMaterial;
-    if (!material->getName().empty())
-        jsonMaterial->getMaps()["Name"] = new JSONValue<std::string>(material->getName());
-    jsonMaterial->getMaps()["Ambient"] = new JSONVec4Array(material->getAmbient(osg::Material::FRONT));
-    jsonMaterial->getMaps()["Diffuse"] = new JSONVec4Array(material->getDiffuse(osg::Material::FRONT));
-    jsonMaterial->getMaps()["Specular"] = new JSONVec4Array(material->getSpecular(osg::Material::FRONT));
-    jsonMaterial->getMaps()["Emission"] = new JSONVec4Array(material->getEmission(osg::Material::FRONT));
-    jsonMaterial->getMaps()["Shininess"] = new JSONValue<float>(material->getShininess(osg::Material::FRONT));
-
-    return jsonMaterial.release();
-}
-
-
-JSONObject* createLight(osg::Light* light)
-{
-    osg::ref_ptr<JSONObject> jsonLight = new JSONLight;
-    if (!light->getName().empty())
-        jsonLight->getMaps()["Name"] = new JSONValue<std::string>(light->getName());
-
-    jsonLight->getMaps()["LightNum"] = new JSONValue<int>(light->getLightNum());
-    jsonLight->getMaps()["Ambient"] = new JSONVec4Array(light->getAmbient());
-    jsonLight->getMaps()["Diffuse"] = new JSONVec4Array(light->getDiffuse());
-    jsonLight->getMaps()["Specular"] = new JSONVec4Array(light->getSpecular());
-    jsonLight->getMaps()["Position"] = new JSONVec4Array(light->getPosition());
-    jsonLight->getMaps()["Direction"] = new JSONVec3Array(light->getDirection());
-
-    jsonLight->getMaps()["ConstantAttenuation"] = new JSONValue<float>(light->getConstantAttenuation());
-    jsonLight->getMaps()["LinearAttenuation"] = new JSONValue<float>(light->getLinearAttenuation());
-    jsonLight->getMaps()["QuadraticAttenuation"] = new JSONValue<float>(light->getQuadraticAttenuation());
-    jsonLight->getMaps()["SpotExponent"] = new JSONValue<float>(light->getSpotExponent());
-    jsonLight->getMaps()["SpotCutoff"] = new JSONValue<float>(light->getSpotCutoff());
-    return jsonLight.release();
-}
-
-static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
-    switch (mode) {
-    case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
-    case osg::BlendFunc::DST_COLOR: return new JSONValue<std::string>("DST_COLOR");
-    case osg::BlendFunc::ONE: return new JSONValue<std::string>("ONE");                      
-    case osg::BlendFunc::ONE_MINUS_DST_ALPHA: return new JSONValue<std::string>("ONE_MINUS_DST_ALPHA");      
-    case osg::BlendFunc::ONE_MINUS_DST_COLOR: return new JSONValue<std::string>("ONE_MINUS_DST_COLOR");      
-    case osg::BlendFunc::ONE_MINUS_SRC_ALPHA: return new JSONValue<std::string>("ONE_MINUS_SRC_ALPHA");      
-    case osg::BlendFunc::ONE_MINUS_SRC_COLOR: return new JSONValue<std::string>("ONE_MINUS_SRC_COLOR");      
-    case osg::BlendFunc::SRC_ALPHA: return new JSONValue<std::string>("SRC_ALPHA");                
-    case osg::BlendFunc::SRC_ALPHA_SATURATE: return new JSONValue<std::string>("SRC_ALPHA_SATURATE");       
-    case osg::BlendFunc::SRC_COLOR: return new JSONValue<std::string>("SRC_COLOR");                
-    case osg::BlendFunc::CONSTANT_COLOR: return new JSONValue<std::string>("CONSTANT_COLOR");           
-    case osg::BlendFunc::ONE_MINUS_CONSTANT_COLOR: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_COLOR"); 
-    case osg::BlendFunc::CONSTANT_ALPHA: return new JSONValue<std::string>("CONSTANT_ALPHA");           
-    case osg::BlendFunc::ONE_MINUS_CONSTANT_ALPHA: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_ALPHA"); 
-    case osg::BlendFunc::ZERO: return new JSONValue<std::string>("ZERO");                     
-    default:
-        return new JSONValue<std::string>("ONE");
-    }
-    return new JSONValue<std::string>("ONE");
-}
-
-JSONObject* createBlendFunc(osg::BlendFunc* sa)
-{
-    osg::ref_ptr<JSONObject> json = new JSONObject;
-    if (!sa->getName().empty())
-        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
-
-    json->getMaps()["SourceRGB"] = getBlendFuncMode(sa->getSource());
-    json->getMaps()["DestinationRGB"] = getBlendFuncMode(sa->getDestination());
-    json->getMaps()["SourceAlpha"] = getBlendFuncMode(sa->getSourceAlpha());
-    json->getMaps()["DestinationAlpha"] = getBlendFuncMode(sa->getDestinationAlpha());
-    return json.release();
-}
-
-JSONObject* createBlendColor(osg::BlendColor* sa)
-{
-    osg::ref_ptr<JSONObject> json = new JSONObject;
-    if (!sa->getName().empty())
-        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
-
-    json->getMaps()["ConstantColor"] = new JSONVec4Array(sa->getConstantColor());
-    return json.release();
-}
-
-JSONObject* createCullFace(osg::CullFace* sa)
-{
-    osg::ref_ptr<JSONObject> json = new JSONObject;
-    if (!sa->getName().empty())
-        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
-
-    osg::ref_ptr<JSONValue<std::string> > mode = new JSONValue<std::string>("BACK");
-    if (sa->getMode() == osg::CullFace::FRONT) {
-        mode = new JSONValue<std::string>("BACK");
-    }
-    if (sa->getMode() == osg::CullFace::FRONT_AND_BACK) {
-        mode = new JSONValue<std::string>("FRONT_AND_BACK");
-    }
-    json->getMaps()["Mode"] = mode;
-    return json.release();
-}
-
-
-JSONObject* createJSONStateSet(osg::StateSet* stateset)
-{
-    osg::ref_ptr<JSONObject> jsonStateSet = new JSONStateSet;
-
-    if (!stateset->getName().empty()) {
-        jsonStateSet->getMaps()["Name"] = new JSONValue<std::string>(stateset->getName());
-    }
-
-    if (stateset->getRenderingHint() == osg::StateSet::TRANSPARENT_BIN) {
-        jsonStateSet->getMaps()["RenderingHint"] = new JSONValue<std::string>("TRANSPARENT_BIN");
-    }
-
-    bool blendEnabled = false;
-    if (stateset->getMode(GL_BLEND) == osg::StateAttribute::ON) {
-        blendEnabled = true;
-    }
-
-    osg::ref_ptr<JSONArray> textureAttributeList = new JSONArray;
-    int lastTextureIndex = -1;
-    for (int i = 0; i < 32; ++i) {
-        osg::Texture* texture = dynamic_cast<osg::Texture*>(stateset->getTextureAttribute(i,osg::StateAttribute::TEXTURE));
-
-        JSONArray* textureUnit = new JSONArray;
-        JSONObject* jsonTexture = createTexture(texture);
-        textureAttributeList->getArray().push_back(textureUnit);
-
-        if (jsonTexture) {
-            JSONObject* textureObject = new JSONObject;
-            textureObject->getMaps()["osg.Texture"] = jsonTexture;
-            textureUnit->getArray().push_back(textureObject);
-            lastTextureIndex = i;
-        }
-    }
-    if (lastTextureIndex > -1) {
-        textureAttributeList->getArray().resize(lastTextureIndex+1);
-        jsonStateSet->getMaps()["TextureAttributeList"] = textureAttributeList;
-    }
-
-
-    osg::ref_ptr<JSONArray> attributeList = new JSONArray;
-
-    osg::Material* material = dynamic_cast<osg::Material*>(stateset->getAttribute(osg::StateAttribute::MATERIAL));
-    if (material) {
-        JSONObject* obj = new JSONObject;
-        obj->getMaps()["osg.Material"] = createMaterial(material);
-        attributeList->getArray().push_back(obj);
-    }
-
-    osg::BlendFunc* blendFunc = dynamic_cast<osg::BlendFunc*>(stateset->getAttribute(osg::StateAttribute::BLENDFUNC));
-    if (blendFunc) {
-        JSONObject* obj = new JSONObject;
-        obj->getMaps()["osg.BlendFunc"] = createBlendFunc(blendFunc);
-        attributeList->getArray().push_back(obj);
-    } else if (blendEnabled == true) {
-        JSONObject* obj = new JSONObject;
-        obj->getMaps()["osg.BlendFunc"] = createBlendFunc(new osg::BlendFunc());
-        attributeList->getArray().push_back(obj);
-    }
-
-    osg::CullFace* cullFace = dynamic_cast<osg::CullFace*>(stateset->getAttribute(osg::StateAttribute::CULLFACE));
-    osg::StateAttribute::GLModeValue cullMode = stateset->getMode(GL_CULL_FACE);
-    if (cullFace || cullMode != osg::StateAttribute::INHERIT) {
-        JSONObject* obj = new JSONObject;
-        JSONObject* cf = 0;
-        if (cullMode == osg::StateAttribute::OFF) {
-            osg::ref_ptr<osg::CullFace> defaultCull = new osg::CullFace();
-            cf = createCullFace(defaultCull.get());
-            cf->getMaps()["Mode"] = new JSONValue<std::string>("DISABLE");
-            obj->getMaps()["osg.CullFace"] = cf;
-            attributeList->getArray().push_back(obj);
-        } else {
-            if (!cullFace) {
-                cullFace = new osg::CullFace();
-            }
-            cf = createCullFace(cullFace);
-        }
-        obj->getMaps()["osg.CullFace"] = cf;
-        attributeList->getArray().push_back(obj);
-    }
-
-    osg::BlendColor* blendColor = dynamic_cast<osg::BlendColor*>(stateset->getAttribute(osg::StateAttribute::BLENDCOLOR));
-    if (blendColor) {
-        JSONObject* obj = new JSONObject;
-        obj->getMaps()["osg.BlendColor"] = createBlendColor(blendColor);
-        attributeList->getArray().push_back(obj);
-    }
-    
-
-    if (!attributeList->getArray().empty()) {
-        jsonStateSet->getMaps()["AttributeList"] = attributeList;
-    }
-
-
-    osg::StateSet::ModeList modeList = stateset->getModeList();
-    for (unsigned int i = 0; i < modeList.size(); ++i) {
-        // add modes
-    }
-
-    if (jsonStateSet->getMaps().empty())
-        return 0;
-    return jsonStateSet.release();
-}
 
 
 

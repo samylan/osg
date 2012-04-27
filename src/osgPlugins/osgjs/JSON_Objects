@@ -38,6 +38,8 @@ struct JSONObjectBase : public osg::Referenced
     virtual void write(std::ostream& str) {}
 };
 
+template <class T> class JSONValue;
+
 class JSONArray;
 struct JSONObject : public JSONObjectBase
 {
@@ -49,7 +51,18 @@ struct JSONObject : public JSONObjectBase
     virtual void write(std::ostream& str);
     void addChild(const std::string& type, JSONObject* child);
     virtual JSONArray* asArray() { return 0; }
+    template<class T> JSONValue<T>* asValue() {
+        return dynamic_cast<JSONValue<T> * > ( this); 
+    }
 
+    JSONObject(const unsigned int id);
+    JSONObject();
+    void addUniqueID();
+    unsigned int getUniqueID() const { return _uniqueID; }
+    JSONObject* getShadowObject() { return new JSONObject(_uniqueID); }
+
+    unsigned int _uniqueID;
+    static unsigned int uniqueID;
 };
 
 JSONObject* createLight(osg::Light* light);
@@ -114,6 +127,7 @@ struct JSONValue : public JSONObject
     virtual void write(std::ostream& str) {
         str << _value ;
     }
+
 };
 
 template <>
@@ -223,8 +237,6 @@ struct JSONBufferArray : public JSONObject
         getMaps()["ItemSize"] = new JSONValue<int>(array->getDataSize());
         getMaps()["Type"] = new JSONValue<std::string>("ARRAY_BUFFER"); //0x8892);
     }
-
-    void write(std::ostream& str);
 };
 
 
@@ -274,11 +286,5 @@ struct JSONDrawElements : public JSONObject
     }
 
 };
-
-// use to convert draw array quads to draw elements triangles
-JSONDrawElements<osg::DrawElementsUShort>* createJSONDrawElements(const osg::DrawArrays& drawArray);
-
-
-JSONObject* createJSONStateSet(osg::StateSet* stateset);
 
 #endif

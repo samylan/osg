@@ -9,9 +9,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
 */
+#ifndef GEOMETRY_OPERATION_H
+#define GEOMETRY_OPERATION_H
 
 #include <osg/NodeVisitor>
 #include <osg/Geometry>
+#include <osg/Geode>
+#include <map>
 
 bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex = 65535, unsigned int* index = 0);
 bool needToSplit(osg::Geometry& geom, unsigned int maxIndex = 65535);
@@ -43,6 +47,9 @@ public:
     void setDisableMergeTriStrip(bool s) { _disableMergeTriStrip = s; }
     void setEnableWireframe(bool s) { _enableWireframe = s; }
 
+    typedef std::map<osg::ref_ptr<osg::Geode> , bool> GeodeProcessed;
+    GeodeProcessed _geodeProcessed;
+
 protected:
     bool _disableTriStrip;
     unsigned int _triStripCacheSize;
@@ -51,3 +58,4 @@ protected:
     bool _enableWireframe;
     
 };
+#endif

@@ -897,6 +897,10 @@ static osg::Geometry* createWireframeGeometry(osg::Geometry& geom) {
 typedef std::vector<osg::ref_ptr<osg::Geometry> > GeometryList;
 void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
 {
+    // already processed
+    if (_geodeProcessed.find(&node) != _geodeProcessed.end())
+        return;
+
     GeometryList listGeometry;
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i) {
         osg::ref_ptr<osg::Geometry> originalGeometry = dynamic_cast<osg::Geometry*>(node.getDrawable(i));
@@ -926,12 +930,16 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
                     if (splitter.split(*triangles)) {
                         for (unsigned int j = 0; j < splitter._geometryList.size(); j++) {
                             osg::Geometry* geom = splitter._geometryList[j];
-                            generateTriStrip(geom, _triStripCacheSize, !_disableMergeTriStrip);
+                            if (!_disableTriStrip) {
+                                generateTriStrip(geom, _triStripCacheSize, !_disableMergeTriStrip);
+                            }
                             // done
                             localListGeometry.push_back(geom);
                         }
                     } else {
-                        generateTriStrip(triangles, _triStripCacheSize, !_disableMergeTriStrip);
+                        if (!_disableTriStrip) {
+                            generateTriStrip(triangles, _triStripCacheSize, !_disableMergeTriStrip);
+                        }
                         // done
                         localListGeometry.push_back(triangles);
                     }
@@ -960,6 +968,8 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
     node.removeDrawables(0,node.getNumDrawables());
     for (unsigned int d = 0; d < listGeometry.size(); d++)
         node.addDrawable(listGeometry[d].get());
+
+    _geodeProcessed[&node] = true;
 }
 
 
