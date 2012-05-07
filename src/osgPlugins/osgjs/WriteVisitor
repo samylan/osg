@@ -25,7 +25,9 @@
 #include "Animation"
 #include "WriteVisitor"
 
-#define WRITER_VERSION 3
+#define WRITER_VERSION 4
+
+void translateObject(JSONObject* json, osg::Object* osg);
 
 struct WriteVisitor : public osg::NodeVisitor
 {
@@ -77,8 +79,7 @@ struct WriteVisitor : public osg::NodeVisitor
     }
 
     void initJsonObjectFromNode(osg::Node& node, JSONObject& json) {
-        if (!node.getName().empty())
-            json.getMaps()["Name"] = new JSONValue<std::string>(node.getName());
+        translateObject(&json, &node);
     }
 
     void createJSONStateSet(JSONObject* json, osg::StateSet* ss) {

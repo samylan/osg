@@ -1,5 +1,7 @@
 #include "WriteVisitor"
 #include <osgDB/WriteFile>
+#include <osg/UserDataContainer>
+#include <osg/ValueObject>
 #include <osg/Texture2D>
 #include <osg/Texture1D>
 #include <osg/Material>
@@ -71,6 +73,26 @@ JSONObject* createImage(osg::Image* image)
         }
     }
     return 0;
+}
+
+void translateObject(JSONObject* json, osg::Object* osg)
+{
+    if (!osg->getName().empty()) {
+        json->getMaps()["Name"] = new JSONValue<std::string>(osg->getName());
+    }
+    if (osg->getUserDataContainer()) {
+        JSONObject* jsonUDC = new JSONObject();
+        jsonUDC->addUniqueID();
+        for (unsigned int i = 0; i < osg->getUserDataContainer()->getNumUserObjects(); i++) {
+            osg::Object* o = osg->getUserDataContainer()->getUserObject(i);
+            typedef osg::TemplateValueObject<std::string> ValueObject;
+            ValueObject* uv = dynamic_cast<ValueObject* >(o);
+            if (uv) {
+                jsonUDC->getMaps()[uv->getName()] = new JSONValue<std::string>(uv->getValue());
+            }
+        }
+        json->getMaps()["UserDataContainer"] = jsonUDC;
+    }
 }
 
 static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
@@ -207,8 +229,7 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
     if (geom->getStateSet())
         createJSONStateSet(json, geom->getStateSet());
 
-    if (!geom->getName().empty())
-        json->getMaps()["Name"] = new JSONValue<std::string>(geom->getName());
+    translateObject(json.get(), geom);
 
     osg::ref_ptr<JSONObject> attributes = new JSONObject;
 
@@ -320,8 +341,7 @@ JSONObject* WriteVisitor::createJSONBlendFunc(osg::BlendFunc* sa)
     json->addUniqueID();
     _maps[sa] = json;
 
-    if (!sa->getName().empty())
-        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
+    translateObject(json.get(), sa);
 
     json->getMaps()["SourceRGB"] = getBlendFuncMode(sa->getSource());
     json->getMaps()["DestinationRGB"] = getBlendFuncMode(sa->getDestination());
@@ -339,8 +359,7 @@ JSONObject* WriteVisitor::createJSONBlendColor(osg::BlendColor* sa)
     json->addUniqueID();
     _maps[sa] = json;
 
-    if (!sa->getName().empty())
-        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
+    translateObject(json.get(), sa);
 
     json->getMaps()["ConstantColor"] = new JSONVec4Array(sa->getConstantColor());
     return json.release();
@@ -355,8 +374,7 @@ JSONObject* WriteVisitor::createJSONCullFace(osg::CullFace* sa)
     json->addUniqueID();
     _maps[sa] = json;
 
-    if (!sa->getName().empty())
-        json->getMaps()["Name"] = new JSONValue<std::string>(sa->getName());
+    translateObject(json.get(), sa);
 
     osg::ref_ptr<JSONValue<std::string> > mode = new JSONValue<std::string>("BACK");
     if (sa->getMode() == osg::CullFace::FRONT) {
@@ -381,8 +399,8 @@ JSONObject* WriteVisitor::createJSONMaterial(osg::Material* material)
     jsonMaterial->addUniqueID();
     _maps[material] = jsonMaterial;
 
-    if (!material->getName().empty())
-        jsonMaterial->getMaps()["Name"] = new JSONValue<std::string>(material->getName());
+    translateObject(jsonMaterial.get(), material);
+
     jsonMaterial->getMaps()["Ambient"] = new JSONVec4Array(material->getAmbient(osg::Material::FRONT));
     jsonMaterial->getMaps()["Diffuse"] = new JSONVec4Array(material->getDiffuse(osg::Material::FRONT));
     jsonMaterial->getMaps()["Specular"] = new JSONVec4Array(material->getSpecular(osg::Material::FRONT));
@@ -402,8 +420,7 @@ JSONObject* WriteVisitor::createJSONLight(osg::Light* light)
     jsonLight->addUniqueID();
     _maps[light] = jsonLight;
 
-    if (!light->getName().empty())
-        jsonLight->getMaps()["Name"] = new JSONValue<std::string>(light->getName());
+    translateObject(jsonLight.get(), light);
 
     jsonLight->getMaps()["LightNum"] = new JSONValue<int>(light->getLightNum());
     jsonLight->getMaps()["Ambient"] = new JSONVec4Array(light->getAmbient());
@@ -429,6 +446,7 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
     if (_maps.find(texture) != _maps.end()) {
         return _maps[texture]->getShadowObject();
     }
+
     osg::ref_ptr<JSONObject> jsonTexture = new JSONObject;
     jsonTexture->addUniqueID();
     _maps[texture] = jsonTexture;
@@ -441,6 +459,7 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
 
     osg::Texture2D* t2d = dynamic_cast<osg::Texture2D*>(texture);
     if (t2d) {
+        translateObject(jsonTexture,t2d);
         JSONObject* image = createImage(t2d->getImage());
         if (image)
             jsonTexture->getMaps()["File"] = image;
@@ -448,6 +467,7 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
     }
     osg::Texture1D* t1d = dynamic_cast<osg::Texture1D*>(texture);
     if (t1d) {
+        translateObject(jsonTexture,t1d);
         JSONObject* image = createImage(t1d->getImage());
         if (image)
             jsonTexture->getMaps()["File"] = image;
@@ -468,9 +488,7 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
     _maps[stateset] = jsonStateSet;
     jsonStateSet->addUniqueID();
 
-    if (!stateset->getName().empty()) {
-        jsonStateSet->getMaps()["Name"] = new JSONValue<std::string>(stateset->getName());
-    }
+    translateObject(jsonStateSet.get(), stateset);
 
     if (stateset->getRenderingHint() == osg::StateSet::TRANSPARENT_BIN) {
         jsonStateSet->getMaps()["RenderingHint"] = new JSONValue<std::string>("TRANSPARENT_BIN");
