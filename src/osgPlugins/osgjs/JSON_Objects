@@ -131,6 +131,21 @@ struct JSONValue : public JSONObject
 };
 
 template <>
+struct JSONValue<double> : public JSONObject
+{
+    double _value;
+    JSONValue(const double& v) {
+        _value = v;
+    }
+    void write(std::ostream& str) {
+        if (osg::isNaN(_value)) {
+            _value = 0.0;
+        }
+        str << '"' << _value  << '"';
+    }
+};
+
+template <>
 struct JSONValue<std::string> : public JSONObject
 {
     std::string _value;

@@ -83,12 +83,21 @@ void translateObject(JSONObject* json, osg::Object* osg)
     if (osg->getUserDataContainer()) {
         JSONObject* jsonUDC = new JSONObject();
         jsonUDC->addUniqueID();
+
+        if (!osg->getUserDataContainer()->getName().empty()) {
+            jsonUDC->getMaps()["Name"] = new JSONValue<std::string>(osg->getUserDataContainer()->getName());
+        }
+        JSONArray* jsonUDCArray = new JSONArray();
+        jsonUDC->getMaps()["Values"] = jsonUDCArray;
         for (unsigned int i = 0; i < osg->getUserDataContainer()->getNumUserObjects(); i++) {
             osg::Object* o = osg->getUserDataContainer()->getUserObject(i);
             typedef osg::TemplateValueObject<std::string> ValueObject;
             ValueObject* uv = dynamic_cast<ValueObject* >(o);
             if (uv) {
-                jsonUDC->getMaps()[uv->getName()] = new JSONValue<std::string>(uv->getValue());
+                JSONObject* jsonEntry = new JSONObject();
+                jsonEntry->getMaps()["Name"] = new JSONValue<std::string>(uv->getName());
+                jsonEntry->getMaps()["Value"] = new JSONValue<std::string>(uv->getValue());
+                jsonUDCArray->getArray().push_back(jsonEntry);
             }
         }
         json->getMaps()["UserDataContainer"] = jsonUDC;
