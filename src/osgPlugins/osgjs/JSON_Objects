@@ -141,7 +141,7 @@ struct JSONValue<double> : public JSONObject
         if (osg::isNaN(_value)) {
             _value = 0.0;
         }
-        str << '"' << _value  << '"';
+        str << _value;
     }
 };
 

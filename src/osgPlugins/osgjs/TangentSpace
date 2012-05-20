@@ -6,6 +6,9 @@
 #define TANGENT_ATTRIBUTE_INDEX 20
 #define BITANGENT_ATTRIBUTE_INDEX 21
 
+// we will store only tangent and rebuilt tangent2 in the vertex shader
+// http://www.terathon.com/code/tangent.html
+
 struct TangentSpaceVisitor : osg::NodeVisitor
 {
 public:
@@ -36,13 +39,35 @@ public:
             osg::ref_ptr<osgUtil::TangentSpaceGenerator> generator = new osgUtil::TangentSpaceGenerator;
             generator->generate(geom, _textureUnit);
             if (generator->getNormalArray()) {
-                geom->setNormalArray(generator->getNormalArray());
+                osg::Vec3Array* vec3Normals = new osg::Vec3Array();
+                osg::Vec4Array* vec4Normals = generator->getNormalArray();
+                for (unsigned int i = 0; i < vec4Normals->size(); i++) {
+                    osg::Vec3 n = osg::Vec3( (*vec4Normals)[i][0],(*vec4Normals)[i][1],(*vec4Normals)[i][2]);
+                    vec3Normals->push_back(n);
+                }
+                geom->setNormalArray(vec3Normals);
             }
             if (generator->getTangentArray()) {
-                geom->setVertexAttribArray(TANGENT_ATTRIBUTE_INDEX, generator->getTangentArray());
-            }
-            if (generator->getBinormalArray()) {
-                geom->setVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX, generator->getBinormalArray());
+                osg::Vec4Array* normal = generator->getNormalArray();
+                osg::Vec4Array* tangent = generator->getTangentArray();
+                osg::Vec4Array* tangent2 = generator->getBinormalArray();
+                osg::Vec4Array* finalTangent = dynamic_cast<osg::Vec4Array*>(generator->getTangentArray()->clone(osg::CopyOp::DEEP_COPY_ALL));
+                for (unsigned int i = 0; i < tangent->size(); i++) {
+
+                    osg::Vec3 n = osg::Vec3((*normal)[i][0],(*normal)[i][1],(*normal)[i][2]);
+                    osg::Vec3 t = osg::Vec3((*tangent)[i][0],(*tangent)[i][1],(*tangent)[i][2]);
+                    osg::Vec3 t2 = osg::Vec3((*tangent2)[i][0],(*tangent2)[i][1],(*tangent2)[i][2]);
+
+                    // Gram-Schmidt orthogonalize
+                    osg::Vec3 t3 = (t - n * (n * t));
+                    t3.normalize();
+                    (*finalTangent)[i] = osg::Vec4(t3, 0.0);
+
+                    // Calculate handedness
+                    (*finalTangent)[i][3] = (((n ^ t)* t2) < 0.0) ? -1.0 : 1.0;
+                    // The bitangent vector B is then given by B = (N × T) · Tw
+                }
+                geom->setVertexAttribArray(TANGENT_ATTRIBUTE_INDEX, finalTangent);
             }
             _geometryProcessed[geom] = true;
         }
