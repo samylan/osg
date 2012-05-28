@@ -72,8 +72,8 @@ public:
     ReaderWriterJSON()
     {
         supportsExtension("osgjs","OpenSceneGraph Javascript implementation format");
-        supportsOption("buildTangentSpace","Build tangent space to each geometry");
-        supportsOption("buildTangentSpaceTexUnit=<unit>","Specify on wich texture unit normal map is");
+        supportsOption("generateTangentSpace","Build tangent space to each geometry");
+        supportsOption("tangentSpaceTextureUnit=<unit>","Specify on wich texture unit normal map is");
         supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
         supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
         supportsOption("disableTriStrip","disable generation of tristrip");

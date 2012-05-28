@@ -29,7 +29,8 @@ public:
 
     void apply(osg::Drawable& drw) {
         osg::Geometry* geom = dynamic_cast<osg::Geometry*>(&drw);
-
+        if (!geom->getTexCoordArray(_textureUnit))
+            return;
         // already processed
         if (_geometryProcessed.find(geom) != _geometryProcessed.end()) {
             return;
