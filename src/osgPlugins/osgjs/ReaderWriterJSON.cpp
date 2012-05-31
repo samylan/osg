@@ -125,18 +125,18 @@ public:
             model->accept(wireframer);
         }
             
+        // generate model tangent space
+        if (options.generateTangentSpace && options.enableWireframe == false) {
+            TangentSpaceVisitor tgen(options.tangentSpaceTextureUnit);
+            model->accept(tgen);
+        }
+
         OpenGLESGeometryOptimizerVisitor visitor;
         visitor.setUseDrawArray(options.useDrawArray);
         visitor.setTripStripCacheSize(options.triStripCacheSize);
         visitor.setDisableTriStrip(options.disableTriStrip);
         visitor.setDisableMergeTriStrip(options.disableMergeTriStrip);
         model->accept(visitor);
-
-        // generate model tangent space
-        if (options.generateTangentSpace && options.enableWireframe == false) {
-            TangentSpaceVisitor tgen(options.tangentSpaceTextureUnit);
-            model->accept(tgen);
-        }
 
         WriteVisitor writer;
         try {

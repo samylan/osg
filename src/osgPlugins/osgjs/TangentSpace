@@ -39,15 +39,20 @@ public:
 
             osg::ref_ptr<osgUtil::TangentSpaceGenerator> generator = new osgUtil::TangentSpaceGenerator;
             generator->generate(geom, _textureUnit);
-            if (generator->getNormalArray()) {
-                osg::Vec3Array* vec3Normals = new osg::Vec3Array();
-                osg::Vec4Array* vec4Normals = generator->getNormalArray();
-                for (unsigned int i = 0; i < vec4Normals->size(); i++) {
-                    osg::Vec3 n = osg::Vec3( (*vec4Normals)[i][0],(*vec4Normals)[i][1],(*vec4Normals)[i][2]);
-                    vec3Normals->push_back(n);
+
+            // keep original normal array
+            if (!geom->getNormalArray()) {
+                if (generator->getNormalArray()) {
+                    osg::Vec3Array* vec3Normals = new osg::Vec3Array();
+                    osg::Vec4Array* vec4Normals = generator->getNormalArray();
+                    for (unsigned int i = 0; i < vec4Normals->size(); i++) {
+                        osg::Vec3 n = osg::Vec3( (*vec4Normals)[i][0],(*vec4Normals)[i][1],(*vec4Normals)[i][2]);
+                        vec3Normals->push_back(n);
+                    }
+                    geom->setNormalArray(vec3Normals);
                 }
-                geom->setNormalArray(vec3Normals);
             }
+
             if (generator->getTangentArray()) {
                 osg::Vec4Array* normal = generator->getNormalArray();
                 osg::Vec4Array* tangent = generator->getTangentArray();
@@ -69,6 +74,7 @@ public:
                     // The bitangent vector B is then given by B = (N × T) · Tw
                 }
                 geom->setVertexAttribArray(TANGENT_ATTRIBUTE_INDEX, finalTangent);
+                geom->setVertexAttribBinding(TANGENT_ATTRIBUTE_INDEX, osg::Geometry::BIND_PER_VERTEX);
             }
             _geometryProcessed[geom] = true;
         }

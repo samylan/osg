@@ -361,18 +361,28 @@ struct ArrayList {
     ArrayList() {}
     ArrayList(osg::Geometry& geometry) {
         _vertexes = geometry.getVertexArray();
-        _normals = geometry.getNormalArray();
-        _colors = geometry.getColorArray();
-        _secondaryColors = geometry.getSecondaryColorArray();
-        _fogCoords = geometry.getFogCoordArray();
+        unsigned int nbvertexes = _vertexes->getNumElements();
+        if (geometry.getNormalArray() && nbvertexes == geometry.getNormalArray()->getNumElements())
+            _normals = geometry.getNormalArray();
+
+        if (geometry.getColorArray() && nbvertexes == geometry.getColorArray()->getNumElements())
+            _colors = geometry.getColorArray();
+
+        if (geometry.getSecondaryColorArray() && nbvertexes == geometry.getSecondaryColorArray()->getNumElements())
+            _secondaryColors = geometry.getSecondaryColorArray();
+
+        if (geometry.getFogCoordArray() && nbvertexes == geometry.getFogCoordArray()->getNumElements())
+            _fogCoords = geometry.getFogCoordArray();
 
         _texCoordArrays.resize(geometry.getNumTexCoordArrays());
         for(unsigned int i=0;i<geometry.getNumTexCoordArrays();++i)
-            _texCoordArrays[i] = geometry.getTexCoordArray(i);
+            if (geometry.getTexCoordArray(i) && nbvertexes == geometry.getTexCoordArray(i)->getNumElements())
+                _texCoordArrays[i] = geometry.getTexCoordArray(i);
 
         _attributesArrays.resize(geometry.getNumVertexAttribArrays());
         for(unsigned int i=0;i<geometry.getNumVertexAttribArrays();++i)
-            _attributesArrays[i] = geometry.getVertexAttribArrayList()[i].array;
+            if (geometry.getVertexAttribArrayList()[i].array && nbvertexes == geometry.getVertexAttribArrayList()[i].array->getNumElements())
+                _attributesArrays[i] = geometry.getVertexAttribArrayList()[i].array;
     }
 
     void setNumElements(unsigned int nbElements) {
@@ -921,6 +931,7 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
 
                 osgUtil::IndexMeshVisitor indexer;
                 indexer.setForceReIndex(true);
+
                 indexer.makeMesh(*triangles);
 
                 if (!_useDrawArray) {

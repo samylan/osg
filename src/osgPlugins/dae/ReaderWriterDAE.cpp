@@ -234,7 +234,7 @@ std::string ReaderWriterDAE::ConvertFilePathToColladaCompatibleURI(const std::st
     // Uncomment lines if you find issues with some other special characters.
 
     //replace(path, '%', "%25");        // % at first
-    //replace(path, ' ', "%20");
+    //replace(path, ' ', " ");
     replace(path, '#', "%23");
     //replace(path, '<', "%3C");
     //replace(path, '>', "%3E");
