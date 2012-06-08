@@ -409,7 +409,7 @@ bool Model::readMTL(std::istream& fin)
                 {
                     float alpha=1.0f;
                     unsigned int fieldsRead = sscanf(line+3,"%f", &alpha);
-
+                    alpha = 1.0 - alpha;
                     if (fieldsRead==1)
                     {
                         material->ambient[3] = alpha;
