@@ -45,7 +45,12 @@
 #include <osgUtil/SmoothingVisitor>
 #include <osgUtil/Tessellator>
 
+#include <sstream>
+
+#include <osg/UserDataContainer>
+#include <osg/ValueObject>
 #include "obj.h"
+
 #include "OBJWriterNodeVisitor.h"
 
 #include <map>
@@ -157,7 +162,7 @@ protected:
 
     ObjOptionsStruct parseOptions(const Options* options) const;
 
-
+    void saveMaterialToStateSetMetaData(obj::Material& material, osg::StateSet& stateSet) const;
 };
 
 inline osg::Vec3 ReaderWriterOBJ::transformVertex(const osg::Vec3& vec, const bool rotate) const
@@ -238,12 +243,14 @@ static void load_material_texture(    obj::Model &model,
                 stateset->setTextureAttributeAndModes( texture_unit,texgen,osg::StateAttribute::ON );
             }
 
+#if 0
             if  ( image->isImageTranslucent())
             {
                 OSG_INFO<<"Found transparent image"<<std::endl;
                 stateset->setMode(GL_BLEND, osg::StateAttribute::ON);
                 stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
             }
+#endif
         }
     }
 
@@ -268,6 +275,137 @@ static void load_material_texture(    obj::Model &model,
     }
 }
 
+void ReaderWriterOBJ::saveMaterialToStateSetMetaData(obj::Material& material, osg::StateSet& stateset) const
+{
+    std::string s = "wavefront";
+    stateset.setUserValue("source", s);
+
+    // ambient
+    {
+        std::stringstream ss;
+        ss << "[ " << material.ambient[0] << ", " << material.ambient[1] << ", " << material.ambient[2] << "]";
+        stateset.setUserValue("ka", ss.str());
+    }
+
+    // diffuse
+    {
+        std::stringstream ss;
+        ss << "[ " << material.diffuse[0] << ", " << material.diffuse[1] << ", " << material.diffuse[2] << "]";
+        stateset.setUserValue("kd", ss.str());
+    }
+
+    // specular
+    {
+        std::stringstream ss;
+        ss << "[ " << material.specular[0] << ", " << material.specular[1] << ", " << material.specular[2] << "]";
+        stateset.setUserValue("ks", ss.str());
+    }
+
+    // specular exponent
+    {
+        std::stringstream ss;
+        ss << material.Ns;
+        stateset.setUserValue("ns", ss.str());
+    }
+
+    // sharpness
+    {
+        std::stringstream ss;
+        ss << material.sharpness;
+        stateset.setUserValue("sharpness", ss.str());
+    }
+
+    // emissive
+    {
+        std::stringstream ss;
+        ss << "[ " << material.emissive[0] << ", " << material.emissive[1] << ", " << material.emissive[2] << "]";
+        stateset.setUserValue("emissive", ss.str());
+    }
+    
+    // transluency
+    {
+        std::stringstream ss;
+        ss << (1.0-material.ambient[3]);
+        stateset.setUserValue("tr", ss.str());
+    }
+
+
+    // texture
+    int unit = 0;
+    for(int i=0;i<(int) obj::Material::Map::UNKNOWN;i++) // for each type
+    {
+        obj::Material::Map::TextureMapType type = (obj::Material::Map::TextureMapType) i;
+        // see if this texture type (e.g. DIFFUSE) is one of those in the material
+        int index = -1;
+        for(unsigned int j=0;j<material.maps.size();j++)
+        {
+            if(material.maps[j].type == type)
+            {
+                index = (int) j;
+                break;
+            }
+        }
+        if(index>=0)
+        {
+            if (material.maps[index].type == obj::Material::Map::DIFFUSE) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("map_kd", ss.str());
+            } else if (material.maps[index].type == obj::Material::Map::AMBIENT) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("map_ka", ss.str());
+            } else if (material.maps[index].type == obj::Material::Map::SPECULAR) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("map_ks", ss.str());
+            } else if (material.maps[index].type == obj::Material::Map::SPECULAR) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("map_ns", ss.str());
+            } else if (material.maps[index].type == obj::Material::Map::BUMP) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("bump", ss.str());
+            } else if (material.maps[index].type == obj::Material::Map::REFLECTION) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("refl", ss.str());
+            }
+            unit++;
+        }
+    }
+
+#if 0
+    for (unsigned int i = 0; i < material.maps.size(); i++) {
+        if (material.maps[i].type == obj::Material::Map::DIFFUSE) {
+            std::stringstream ss;
+            ss << material.maps[i].type;
+            stateset.setUserValue("map_kd", ss.str());
+        } else if (material.maps[i].type == obj::Material::Map::AMBIENT) {
+            std::stringstream ss;
+            ss << material.maps[i].type;
+            stateset.setUserValue("map_ka", ss.str());
+        } else if (material.maps[i].type == obj::Material::Map::SPECULAR) {
+            std::stringstream ss;
+            ss << material.maps[i].type;
+            stateset.setUserValue("map_ks", ss.str());
+        } else if (material.maps[i].type == obj::Material::Map::SPECULAR) {
+            std::stringstream ss;
+            ss << material.maps[i].type;
+            stateset.setUserValue("map_ns", ss.str());
+        } else if (material.maps[i].type == obj::Material::Map::BUMP) {
+            std::stringstream ss;
+            ss << material.maps[i].type;
+            stateset.setUserValue("bump", ss.str());
+        } else if (material.maps[i].type == obj::Material::Map::REFLECTION) {
+            std::stringstream ss;
+            ss << material.maps[i].type;
+            stateset.setUserValue("refl", ss.str());
+        }
+    }
+#endif
+}
 
 void ReaderWriterOBJ::buildMaterialToStateSetMap(obj::Model& model, MaterialToStateSetMap& materialToStateSetMap, ObjOptionsStruct& localOptions, const Options* options) const
 {
@@ -318,6 +456,7 @@ void ReaderWriterOBJ::buildMaterialToStateSetMap(obj::Model& model, MaterialToSt
 
         osg::ref_ptr< osg::StateSet > stateset = new osg::StateSet;
 
+        saveMaterialToStateSetMetaData(material, *stateset);
         bool isTransparent = false;
 
         // handle material colors
