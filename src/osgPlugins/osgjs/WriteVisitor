@@ -25,7 +25,7 @@
 #include "Animation"
 #include "WriteVisitor"
 
-#define WRITER_VERSION 4
+#define WRITER_VERSION 5
 
 void translateObject(JSONObject* json, osg::Object* osg);
 
@@ -37,6 +37,8 @@ struct WriteVisitor : public osg::NodeVisitor
     std::vector<osg::ref_ptr<JSONObject> > _parents;
     osg::ref_ptr<JSONObject> _root;
     StateSetStack _stateset;
+    std::string _baseName;
+    bool _useExternalBinaryArray;
 
     WriteVisitor(): osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
     void write(std::ostream& str) {
@@ -300,6 +302,8 @@ struct WriteVisitor : public osg::NodeVisitor
         traverse(node);
         _parents.pop_back();
     }
+    void setBaseName(const std::string& basename) { _baseName = basename;}
+    void useExternalBinaryArray(bool use) { _useExternalBinaryArray = use;}
 
 };
 #endif

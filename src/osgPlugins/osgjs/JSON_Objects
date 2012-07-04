@@ -15,6 +15,9 @@
 #include <osg/Notify>
 #include <osg/PrimitiveSet>
 
+#include <sstream>
+#include <fstream>
+#include <iostream>
 
 struct Vec5
 {
@@ -180,75 +183,216 @@ struct JSONMatrix : public JSONArray
 };
 
 
+
 struct JSONVertexArray : public JSONArray
 {
-    void write(std::ostream& str)
+    osg::ref_ptr<const osg::Array> _arrayData;
+    std::string _baseName;
+    bool _externalBinaryArray;
+
+    void setBaseName(const std::string& basename) { _baseName = basename; }
+    void useExternalBinaryArray(bool t) { _externalBinaryArray = t; }
+    unsigned int writeData(const osg::Array* array, const std::string& filename) 
     {
-        str << "[ ";
-        for (unsigned int i = 0; i < _array.size(); i++) {
-            _array[i]->write(str);
-            if (i != _array.size() -1)
-                str << ", ";
-        }
-        str <<  " ]";
+        std::ofstream myfile;
+        myfile.open(filename.c_str(), std::ios::binary );
+        const char* b = static_cast<const char*>(array->getDataPointer());
+        myfile.write(b, array->getTotalDataSize());
+        unsigned int fsize = myfile.tellp(); 
+        myfile.close();
+        return fsize;
     }
 
-    JSONVertexArray() {}
-    JSONVertexArray(const osg::Array* array) {
+    template <class T> void writeInlineArray(std::ostream& str, unsigned int size, const T* array) {
+        str << JSONObjectBase::indent() << "\"Elements\": [ " << array[0];
+        for (unsigned int i = 1; i < size; i++) {
+            T v = array[i];
+            str << ", " <<v;
+        }
+        str << " ],";
+    }
+
+    template <class T> void writeInlineArrayReal(std::ostream& str, unsigned int size, const T* array) {
+        str << JSONObjectBase::indent() << "\"Elements\": [ " << array[0];
+        for (unsigned int i = 1; i < size; i++) {
+            float v = array[i];
+            if (osg::isNaN(v))
+                v = 0;
+            str << ", " <<v;
+        }
+        str << " ]," << std::endl;
+    }
+
+    void write(std::ostream& str)
+    {
+        addUniqueID();
+
+        std::stringstream url;
+        url << _baseName << "_" << _uniqueID << ".bin";
+
+        std::string type;
+        
+        osg::ref_ptr<const osg::Array> array = _arrayData;
+
         switch (array->getType()) {
+        case osg::Array::FloatArrayType:
         case osg::Array::Vec2ArrayType:
-        {
-            const osg::Vec2Array* a = dynamic_cast<const osg::Vec2Array*>(array);
-            for (unsigned int i = 0; i < a->getNumElements(); ++i) {
-                _array.push_back(new JSONValue<double>((*a)[i][0]));
-                _array.push_back(new JSONValue<double>((*a)[i][1]));
-            }
-            break;
-        }
         case osg::Array::Vec3ArrayType:
-        {
-            const osg::Vec3Array* a = dynamic_cast<const osg::Vec3Array*>(array);
-            for (unsigned int i = 0; i < a->getNumElements(); ++i) {
-                _array.push_back(new JSONValue<double>((*a)[i][0]));
-                _array.push_back(new JSONValue<double>((*a)[i][1]));
-                _array.push_back(new JSONValue<double>((*a)[i][2]));
-            }
-            break;
-        }
         case osg::Array::Vec4ArrayType:
-        {
-            const osg::Vec4Array* a = dynamic_cast<const osg::Vec4Array*>(array);
-            for (unsigned int i = 0; i < a->getNumElements(); ++i) {
-                _array.push_back(new JSONValue<double>((*a)[i][0]));
-                _array.push_back(new JSONValue<double>((*a)[i][1]));
-                _array.push_back(new JSONValue<double>((*a)[i][2]));
-                _array.push_back(new JSONValue<double>((*a)[i][3]));
-            }
+            type = "Float32Array";
             break;
-        }
         case osg::Array::Vec4ubArrayType:
         {
-            const osg::Vec4ubArray* a = dynamic_cast<const osg::Vec4ubArray*>(array);
-            for (unsigned int i = 0; i < a->getNumElements(); ++i) {
-                _array.push_back(new JSONValue<double>((*a)[i][0]/255.0));
-                _array.push_back(new JSONValue<double>((*a)[i][1]/255.0));
-                _array.push_back(new JSONValue<double>((*a)[i][2]/255.0));
-                _array.push_back(new JSONValue<double>((*a)[i][3]/255.0));
-            }
-            break;
+            osg::ref_ptr<osg::Vec4Array> converted = new osg::Vec4Array;
+            converted->reserve(array->getNumElements());
+            
+            const osg::Vec4ubArray* a = dynamic_cast<const osg::Vec4ubArray*>(array.get());
+             for (unsigned int i = 0; i < a->getNumElements(); ++i) {
+                 converted->push_back(osg::Vec4( (*a)[i][0]/255.0,
+                                                 (*a)[i][1]/255.0,
+                                                 (*a)[i][2]/255.0,
+                                                 (*a)[i][3]/255.0));
+             }
+             array = converted;
+             type = "Float32Array";
         }
+        break;
+        case osg::Array::UShortArrayType:
+            type = "Uint16Array";
+            break;
         default:
             osg::notify(osg::WARN) << "Array of type " << array->getType() << " not supported" << std::endl;
             break;
         }
+
+        str << "{ " << std::endl;
+        JSONObjectBase::level++;
+        str << JSONObjectBase::indent() << "\"" << type << "\"" << ": { " << std::endl;
+        JSONObjectBase::level++;
+        if (_externalBinaryArray) {
+            str << JSONObjectBase::indent() << "\"File\": \"" << url.str() << "\","<< std::endl;
+        } else {
+            if (array->getNumElements() == 0) {
+                str << JSONObjectBase::indent() << "\"Elements\": [ ],";
+
+            } else {
+
+                switch (array->getType()) {
+                case osg::Array::FloatArrayType:
+                case osg::Array::Vec2ArrayType:
+                case osg::Array::Vec3ArrayType:
+                case osg::Array::Vec4ArrayType:
+                {
+                    const float* a = static_cast<const float*>(array->getDataPointer());
+                    unsigned int size = array->getNumElements() * array->getDataSize();
+                    writeInlineArrayReal<float>(str, size, a);
+                }
+                break;
+                case osg::Array::DoubleArrayType:
+                case osg::Array::Vec2dArrayType:
+                case osg::Array::Vec3dArrayType:
+                case osg::Array::Vec4dArrayType:
+                {
+                    const double* a = static_cast<const double*>(array->getDataPointer());
+                    unsigned int size = array->getNumElements() * array->getDataSize();
+                    writeInlineArrayReal<double>(str, size, a);
+                }
+                break;
+                case osg::Array::ByteArrayType:
+                case osg::Array::Vec2bArrayType:
+                case osg::Array::Vec3bArrayType:
+                case osg::Array::Vec4bArrayType:
+                {
+                    const char* a = static_cast<const char*>(array->getDataPointer());
+                    unsigned int size = array->getNumElements() * array->getDataSize();
+                    writeInlineArray<char>(str, size, a);
+                }
+                break;
+                case osg::Array::UByteArrayType:
+                case osg::Array::Vec4ubArrayType:
+                {
+                    const unsigned char* a = static_cast<const unsigned char*>(array->getDataPointer());
+                    unsigned int size = array->getNumElements() * array->getDataSize();
+                    writeInlineArray<unsigned char>(str, size, a);
+                }
+                break;
+                case osg::Array::UShortArrayType:
+                {
+                    const unsigned short* a = static_cast<const unsigned short*>(array->getDataPointer());
+                    unsigned int size = array->getNumElements() * array->getDataSize();
+                    writeInlineArray<unsigned short>(str, size, a);
+                }
+                break;
+                case osg::Array::ShortArrayType:
+                case osg::Array::Vec2sArrayType:
+                case osg::Array::Vec3sArrayType:
+                case osg::Array::Vec4sArrayType:
+                {
+                    const short* a = static_cast<const short*>(array->getDataPointer());
+                    unsigned int size = array->getNumElements() * array->getDataSize();
+                    writeInlineArray<short>(str, size, a);
+                }
+                break;
+                case osg::Array::IntArrayType:
+                {
+                    const int* a = static_cast<const int*>(array->getDataPointer());
+                    unsigned int size = array->getNumElements() * array->getDataSize();
+                    writeInlineArray<int>(str, size, a);
+                }
+                break;
+                case osg::Array::UIntArrayType:
+                {
+                    const unsigned int* a = static_cast<const unsigned int*>(array->getDataPointer());
+                    unsigned int size = array->getNumElements() * array->getDataSize();
+                    writeInlineArray<unsigned int>(str, size, a);
+                }
+                break;
+
+                }
+            }
+        }
+        str << JSONObjectBase::indent() << "\"Size\": " << array->getNumElements() << std::endl;
+        JSONObjectBase::level--;
+        str << JSONObjectBase::indent() << "}" << std::endl;
+        JSONObjectBase::level--;
+
+        if (_externalBinaryArray) {
+            unsigned int size = writeData(array.get(), url.str());
+            std::stringstream b;
+            osg::notify(osg::NOTICE) << "TypedArray " << type << " " << url.str() << " ";
+            if (size/1024.0 < 1.0) {
+                osg::notify(osg::NOTICE) << size << " bytes" << std::endl;
+            } else if (size/(1024.0*1024.0) < 1.0) { 
+                osg::notify(osg::NOTICE) << size/1024.0 << " kb" << std::endl;
+            } else {
+                osg::notify(osg::NOTICE) << size/(1024.0*1024.0) << " mb" << std::endl;
+            }
+        }
+        str << JSONObjectBase::indent() << "}";
+
+    }
+
+
+    JSONVertexArray() {
+        _externalBinaryArray = false;
+    }
+    JSONVertexArray(const osg::Array* array) {
+        _arrayData = array;
+        _externalBinaryArray = false;
     }
 };
 
 struct JSONBufferArray : public JSONObject
 {
     JSONBufferArray() {}
-    JSONBufferArray(const osg::Array* array) {
-        getMaps()["Elements"] = new JSONVertexArray(array);
+    JSONBufferArray(const osg::Array* array, 
+                    const std::string& basename,
+                    bool useExternalBinaryArray)
+        {
+        JSONVertexArray* b = new JSONVertexArray(array);
+        b->setBaseName(basename);
+        b->useExternalBinaryArray(useExternalBinaryArray);
+        getMaps()["Array"] = b;
         getMaps()["ItemSize"] = new JSONValue<int>(array->getDataSize());
         getMaps()["Type"] = new JSONValue<std::string>("ARRAY_BUFFER"); //0x8892);
     }
@@ -271,33 +415,37 @@ struct JSONDrawArrayLengths : public JSONObject
 template <class T>
 struct JSONDrawElements : public JSONObject
 {
+    JSONDrawElements(T& array, 
+                     const std::string& baseName,
+                     bool useExternalBinaryArray) {
 
-    JSONDrawElements(T& array) {
-        JSONVertexArray* arr = new JSONVertexArray();
-        for (unsigned int i = 0; i < array.getNumIndices(); ++i)
-            arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i)));
-        JSONBufferArray* buf = new JSONBufferArray();
-        buf->getMaps()["ItemSize"] = new JSONValue<unsigned int>(1);
-        buf->getMaps()["Type"] = new JSONValue<std::string>("ELEMENT_ARRAY_BUFFER");
-        buf->getMaps()["Elements"] = arr;
-
-        getMaps()["Indices"] = buf;
+        osg::ref_ptr<osg::UShortArray> idxArray;
         if (array.getMode() == GL_QUADS) {
             int size = array.getNumIndices();
-            arr->getArray().clear();
+            idxArray = new osg::UShortArray(size);
+            unsigned int idx = 0;
             for (int i = 0; i < size/4; ++i) {
-                arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i*4 + 0)));
-                arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i*4 + 1)));
-                arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i*4 + 3)));
+                (*idxArray)[idx++] = array.index(i*4 + 0);
+                (*idxArray)[idx++] = array.index(i*4 + 1);
+                (*idxArray)[idx++] = array.index(i*4 + 3);
 
-                arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i*4 + 1)));
-                arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i*4 + 2)));
-                arr->getArray().push_back(new JSONValue<unsigned int>(array.index(i*4 + 3)));
+                (*idxArray)[idx++] = array.index(i*4 + 1);
+                (*idxArray)[idx++] = array.index(i*4 + 2);
+                (*idxArray)[idx++] = array.index(i*4 + 3);
             }
             getMaps()["Mode"] = getDrawMode(osg::PrimitiveSet::TRIANGLES);
-        } else
+        } else {
+            idxArray = new osg::UShortArray(array.size());
+            int size = array.getNumIndices();
+            for (int i = 0; i < size; ++i) {
+                (*idxArray)[i] = array[i];
+            }
             getMaps()["Mode"] = getDrawMode(array.getMode());
+        }
 
+        JSONBufferArray* buf = new JSONBufferArray(idxArray.get(), baseName, useExternalBinaryArray);
+        buf->getMaps()["Type"] = new JSONValue<std::string>("ELEMENT_ARRAY_BUFFER");
+        getMaps()["Indices"] = buf;
     }
 
 };
