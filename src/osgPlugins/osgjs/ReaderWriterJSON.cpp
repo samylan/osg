@@ -56,6 +56,7 @@ public:
          int triStripCacheSize;
          bool useDrawArray;
          bool enableWireframe;
+         bool useExternalBinaryArray;
 
          OptionsStruct() {
              generateTangentSpace = false;
@@ -65,6 +66,7 @@ public:
              triStripCacheSize = 16;
              useDrawArray = false;
              enableWireframe = false;
+             useExternalBinaryArray = false;
          }
     };
 
@@ -93,7 +95,9 @@ public:
             std::ofstream fout(fileName.c_str());
             if (fout)
             {
-                WriteResult res = writeNode(node, fout, options);
+                OptionsStruct _options;
+                _options = parseOptions(options);
+                WriteResult res = writeNodeModel(node, fout, osgDB::getNameLessExtension(fileName), _options);
                 fout.close();
                 return res;
             }
@@ -109,10 +113,10 @@ public:
 
         OptionsStruct _options;
         _options = parseOptions(options);
-        return writeNodeModel(node, fout, _options);
+        return writeNodeModel(node, fout, "stream", _options);
     }
 
-    virtual WriteResult writeNodeModel(const Node& node, std::ostream& fout, const OptionsStruct& options) const
+    virtual WriteResult writeNodeModel(const Node& node, std::ostream& fout, const std::string& basename, const OptionsStruct& options) const
     {
         // process regular model
         osg::ref_ptr<osg::Node> model = osg::clone(&node);
@@ -141,6 +145,8 @@ public:
         WriteVisitor writer;
         try {
             //osgDB::writeNodeFile(*model, "/tmp/debug_osgjs.osg");
+            writer.setBaseName(basename);
+            writer.useExternalBinaryArray(options.useExternalBinaryArray);
             model->accept(writer);
             if (writer._root.valid()) {
                 writer.write(fout);
@@ -198,7 +204,11 @@ public:
                 if (pre_equals == "generateTangentSpace")
                 {
                     localOptions.generateTangentSpace = true;
-                }                
+                }
+                if (pre_equals == "useExternalBinaryArray") 
+                {
+                    localOptions.useExternalBinaryArray = true;
+                }
 
                 if (post_equals.length()>0)
                 {    
