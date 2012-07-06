@@ -552,7 +552,7 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
         attributeList->getArray().push_back(obj);
     }
 
-    osg::CullFace* cullFace = dynamic_cast<osg::CullFace*>(stateset->getAttribute(osg::StateAttribute::CULLFACE));
+    osg::ref_ptr<osg::CullFace> cullFace = dynamic_cast<osg::CullFace*>(stateset->getAttribute(osg::StateAttribute::CULLFACE));
     osg::StateAttribute::GLModeValue cullMode = stateset->getMode(GL_CULL_FACE);
     if (cullFace || cullMode != osg::StateAttribute::INHERIT) {
         JSONObject* obj = new JSONObject;
