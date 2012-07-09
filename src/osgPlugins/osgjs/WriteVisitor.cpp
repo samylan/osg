@@ -602,7 +602,8 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
         attributeList->getArray().push_back(obj);
     } else if (blendEnabled == true) {
         JSONObject* obj = new JSONObject;
-        obj->getMaps()["osg.BlendFunc"] = createJSONBlendFunc(new osg::BlendFunc());
+        osg::ref_ptr<osg::BlendFunc> defaultBlend = new osg::BlendFunc();
+        obj->getMaps()["osg.BlendFunc"] = createJSONBlendFunc(defaultBlend.get());
         attributeList->getArray().push_back(obj);
     }
 
