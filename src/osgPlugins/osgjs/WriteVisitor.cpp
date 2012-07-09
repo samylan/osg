@@ -6,6 +6,7 @@
 #include <osg/Texture1D>
 #include <osg/Material>
 #include <osg/BlendFunc>
+#include <osgSim/ShapeAttribute>
 
 static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
     switch (mode) {
@@ -80,7 +81,48 @@ void translateObject(JSONObject* json, osg::Object* osg)
     if (!osg->getName().empty()) {
         json->getMaps()["Name"] = new JSONValue<std::string>(osg->getName());
     }
-    if (osg->getUserDataContainer()) {
+
+    osgSim::ShapeAttributeList* osgSim_userdata = dynamic_cast<osgSim::ShapeAttributeList* >(osg->getUserData());
+    if (osgSim_userdata) {
+        JSONObject* jsonUDC = new JSONObject();
+        jsonUDC->addUniqueID();
+
+        JSONArray* jsonUDCArray = new JSONArray();
+        jsonUDC->getMaps()["Values"] = jsonUDCArray;
+        for (unsigned int i = 0; i < osgSim_userdata->size(); i++) {
+            const osgSim::ShapeAttribute& attr = (*osgSim_userdata)[i];
+            JSONObject* jsonEntry = new JSONObject();
+            jsonEntry->getMaps()["Name"] = new JSONValue<std::string>(attr.getName());
+            osg::ref_ptr<JSONValue<std::string> > value;
+            switch(attr.getType()) {
+            case osgSim::ShapeAttribute::INTEGER:
+            {
+                std::stringstream ss;
+                ss << attr.getInt();
+                value = new JSONValue<std::string>(ss.str());
+            }
+            break;
+            case osgSim::ShapeAttribute::DOUBLE:
+            {
+                std::stringstream ss;
+                ss << attr.getDouble();
+                value = new JSONValue<std::string>(ss.str());
+            }
+            break;
+            case osgSim::ShapeAttribute::STRING:
+            {
+                std::stringstream ss;
+                ss << attr.getString();
+                value = new JSONValue<std::string>(ss.str());
+            }
+            break;
+            }
+            jsonEntry->getMaps()["Value"] = value;
+            jsonUDCArray->getArray().push_back(jsonEntry);
+        }
+        json->getMaps()["UserDataContainer"] = jsonUDC;
+
+    } else if (osg->getUserDataContainer()) {
         JSONObject* jsonUDC = new JSONObject();
         jsonUDC->addUniqueID();
 
@@ -92,13 +134,25 @@ void translateObject(JSONObject* json, osg::Object* osg)
         for (unsigned int i = 0; i < osg->getUserDataContainer()->getNumUserObjects(); i++) {
             osg::Object* o = osg->getUserDataContainer()->getUserObject(i);
             typedef osg::TemplateValueObject<std::string> ValueObject;
-            ValueObject* uv = dynamic_cast<ValueObject* >(o);
-            if (uv) {
-                JSONObject* jsonEntry = new JSONObject();
-                jsonEntry->getMaps()["Name"] = new JSONValue<std::string>(uv->getName());
-                jsonEntry->getMaps()["Value"] = new JSONValue<std::string>(uv->getValue());
-                jsonUDCArray->getArray().push_back(jsonEntry);
+            {
+                ValueObject* uv = dynamic_cast<ValueObject* >(o);
+                if (uv) {
+                    JSONObject* jsonEntry = new JSONObject();
+                    jsonEntry->getMaps()["Name"] = new JSONValue<std::string>(uv->getName());
+                    jsonEntry->getMaps()["Value"] = new JSONValue<std::string>(uv->getValue());
+                    jsonUDCArray->getArray().push_back(jsonEntry);
+                }
             }
+
+            {
+                osgSim::ShapeAttributeList* uv = dynamic_cast<osgSim::ShapeAttributeList* >(o);
+                osg::notify(osg::NOTICE) << o->getName() << std::endl;        
+                osg::notify(osg::NOTICE) << o->className() << std::endl;        
+                if (uv) {
+                    osg::notify(osg::NOTICE) << "osgSim::ShapeAttributeList" << std::endl;
+                }
+            }
+            
         }
         json->getMaps()["UserDataContainer"] = jsonUDC;
     }
