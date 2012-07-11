@@ -84,7 +84,7 @@ static Material::Map parseTextureMap( const std::string& ss, Material::Map::Text
         {
             // blend multiplier
             float mult;
-            if (sscanf(s.c_str(), "%*s %f%n", &mult, &n) != 2)
+            if (sscanf(s.c_str(), "%*s %f%n", &mult, &n) != 1)
             {
                 break;
             }

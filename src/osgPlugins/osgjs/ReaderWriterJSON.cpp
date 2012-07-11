@@ -81,6 +81,7 @@ public:
         supportsOption("disableTriStrip","disable generation of tristrip");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("enableWireframe","create a wireframe geometry for each triangles geometry");
+        supportsOption("useExternalBinaryArray","create binary files for vertex arrays");
     }
         
     virtual const char* className() const { return "OSGJS json Writer"; }
