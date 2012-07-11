@@ -886,10 +886,17 @@ osg::Node* ReaderWriterOBJ::convertModelToSceneGraph(obj::Model& model, ObjOptio
             }
 
             // if no normals present add them.
-            if (localOptions.generateFacetNormals==false && (!geometry->getNormalArray() || geometry->getNormalArray()->getNumElements()==0))
-            {
-                osgUtil::SmoothingVisitor sv;
-                sv.smooth(*geometry);
+            if (localOptions.generateFacetNormals==false && 
+                (!geometry->getNormalArray() || geometry->getNormalArray()->getNumElements()==0)) {
+                if (es.smoothingGroup != 0) {
+                    osg::notify(osg::NOTICE) << "autogenerate normal for smoothing group " << es.smoothingGroup << std::endl;
+                    osgUtil::SmoothingVisitor sv;
+                    sv.smooth(*geometry);
+                } else {
+                    osgUtil::SmoothingVisitor sv;
+                    sv.setCreaseAngle(0.0);
+                    sv.smooth(*geometry);
+                }
             }
 
 
