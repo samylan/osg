@@ -913,7 +913,12 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
 
     GeometryList listGeometry;
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i) {
-        osg::ref_ptr<osg::Geometry> originalGeometry = dynamic_cast<osg::Geometry*>(node.getDrawable(i));
+        osg::ref_ptr<osg::Geometry> geom0 = dynamic_cast<osg::Geometry*>(node.getDrawable(i));
+        osg::ref_ptr<osg::Geometry> originalGeometry;
+        if (geom0) {
+            originalGeometry = dynamic_cast<osg::Geometry*>(geom0->clone(osg::CopyOp::SHALLOW_COPY));
+            geom0->copyToAndOptimize(*originalGeometry);
+        }
 
         if (originalGeometry) {
             ::convertToBindPerVertex(*originalGeometry);
@@ -927,7 +932,7 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
             osg::ref_ptr<osg::Geometry> nonTriangles = sepVisitor._nonSurfaces;
 
             // convert index triangles
-            if (triangles.valid()) {
+            if (triangles.valid() && triangles->getVertexArray()->getNumElements() > 0) {
 
                 osgUtil::IndexMeshVisitor indexer;
                 indexer.setForceReIndex(true);
@@ -1041,12 +1046,16 @@ osg::Geometry* GeometryWireframeVisitor::applyGeometry(osg::Geometry& geometry) 
 
     geometry.setPrimitiveSetList(newlist);
 
+    osg::ref_ptr<osg::Geometry> optimzedGeometry;
+    optimzedGeometry = dynamic_cast<osg::Geometry*>(geometry.clone(osg::CopyOp::SHALLOW_COPY));
+    geometry.copyToAndOptimize(*optimzedGeometry);
+
     // reindex primitives to creates triangles only
     osgUtil::IndexMeshVisitor indexer;
     indexer.setForceReIndex(true);
-    indexer.makeMesh(geometry);
+    indexer.makeMesh(*optimzedGeometry);
 
-    return createWireframeGeometry(geometry);
+    return createWireframeGeometry(*optimzedGeometry);
 }
 
 void GeometryWireframeVisitor::apply(osg::Node& node) {

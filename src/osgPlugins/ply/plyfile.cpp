@@ -45,6 +45,7 @@ WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <string>
 
 #include <osg/Math>
 #include <osgDB/FileUtils>
@@ -958,7 +959,7 @@ PlyFile *ply_open_for_reading(
       strcat (name, ".ply");
 
   /* open the file for reading */
-
+  std::string fname = std::string(name);
   fp = osgDB::fopen (name, "rb");
   free(name);
   if (fp == NULL)
@@ -970,7 +971,7 @@ PlyFile *ply_open_for_reading(
 
   if(!plyfile)
   {
-    std::cout<<"Ply File Error : Could not read file"<<std::endl;
+      std::cout<<"Ply File Error : Could not read file " << fname <<std::endl;
     return NULL;
   }
 
@@ -1937,16 +1938,16 @@ char **get_words(FILE *fp, int *nwords, char **orig_line)
   str[BIG_STRING-1] = '\0';
 
   for (ptr = str, ptr2 = str_copy; *ptr != '\0'; ptr++, ptr2++) {
-    *ptr2 = *ptr;
-    if (*ptr == '\t') {
-      *ptr = ' ';
-      *ptr2 = ' ';
-    }
-    else if (*ptr == '\n') {
-      *ptr = ' ';
-      *ptr2 = '\0';
-      break;
-    }
+      *ptr2 = *ptr;
+      if (*ptr == '\t' || *ptr == '\r' ) {
+          *ptr = ' ';
+          *ptr2 = ' ';
+      }
+      else if (*ptr == '\n') {
+          *ptr = ' ';
+          *ptr2 = '\0';
+          break;
+      }
   }
 
   /* find the words in the line */

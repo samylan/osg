@@ -1279,7 +1279,7 @@ void BufferObject::resizeGLObjectBuffers(unsigned int maxSize)
 
 void BufferObject::releaseGLObjects(State* state) const
 {
-    OSG_INFO<<"BufferObject::releaseGLObjects("<<state<<")"<<std::endl;
+    OSG_DEBUG<<"BufferObject::releaseGLObjects("<<state<<")"<<std::endl;
     if (state)
     {
         unsigned int contextID = state->getContextID();
@@ -1435,7 +1435,7 @@ void BufferData::resizeGLObjectBuffers(unsigned int maxSize)
 
 void BufferData::releaseGLObjects(State* state) const
 {
-    OSG_INFO<<"BufferData::releaseGLObjects("<<state<<")"<<std::endl;
+    OSG_DEBUG<<"BufferData::releaseGLObjects("<<state<<")"<<std::endl;
     if (_bufferObject.valid())
     {
         _bufferObject->releaseGLObjects(state);
