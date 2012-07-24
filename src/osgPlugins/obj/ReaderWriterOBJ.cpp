@@ -351,7 +351,11 @@ void ReaderWriterOBJ::saveMaterialToStateSetMetaData(obj::Material& material, os
                 std::stringstream ss;
                 ss << unit;
                 stateset.setUserValue("map_kd", ss.str());
-            } else if (material.maps[index].type == obj::Material::Map::AMBIENT) {
+            } else if (material.maps[index].type == obj::Material::Map::OPACITY) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("map_d", ss.str());
+            } else if (material.maps[index].type == obj::Material::Map::SPECULAR){
                 std::stringstream ss;
                 ss << unit;
                 stateset.setUserValue("map_ka", ss.str());

@@ -57,6 +57,7 @@ public:
          bool useDrawArray;
          bool enableWireframe;
          bool useExternalBinaryArray;
+         bool mergeAllBinaryFiles;
 
          OptionsStruct() {
              generateTangentSpace = false;
@@ -67,6 +68,7 @@ public:
              useDrawArray = false;
              enableWireframe = false;
              useExternalBinaryArray = false;
+             mergeAllBinaryFiles = false;
          }
     };
 
@@ -82,6 +84,7 @@ public:
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("enableWireframe","create a wireframe geometry for each triangles geometry");
         supportsOption("useExternalBinaryArray","create binary files for vertex arrays");
+        supportsOption("mergeAllBinaryFiles","merge all binary files into one to avoid multi request on a server");
     }
         
     virtual const char* className() const { return "OSGJS json Writer"; }
@@ -148,6 +151,7 @@ public:
             //osgDB::writeNodeFile(*model, "/tmp/debug_osgjs.osg");
             writer.setBaseName(basename);
             writer.useExternalBinaryArray(options.useExternalBinaryArray);
+            writer.mergeAllBinaryFiles(options.mergeAllBinaryFiles);
             model->accept(writer);
             if (writer._root.valid()) {
                 writer.write(fout);
@@ -209,6 +213,10 @@ public:
                 if (pre_equals == "useExternalBinaryArray") 
                 {
                     localOptions.useExternalBinaryArray = true;
+                }
+                if (pre_equals == "mergeAllBinaryFiles") 
+                {
+                    localOptions.mergeAllBinaryFiles = true;
                 }
 
                 if (post_equals.length()>0)

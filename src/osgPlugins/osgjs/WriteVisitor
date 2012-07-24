@@ -25,7 +25,7 @@
 #include "Animation"
 #include "WriteVisitor"
 
-#define WRITER_VERSION 5
+#define WRITER_VERSION 6
 
 void translateObject(JSONObject* json, osg::Object* osg);
 
@@ -33,20 +33,41 @@ struct WriteVisitor : public osg::NodeVisitor
 {
     typedef std::vector<osg::ref_ptr<osg::StateSet> > StateSetStack;
 
+    std::ofstream _mergeBinaryFile;
+    
     std::map<osg::ref_ptr<osg::Object>, osg::ref_ptr<JSONObject> > _maps;
     std::vector<osg::ref_ptr<JSONObject> > _parents;
     osg::ref_ptr<JSONObject> _root;
     StateSetStack _stateset;
     std::string _baseName;
     bool _useExternalBinaryArray;
+    bool _mergeAllBinaryFiles;
 
-    WriteVisitor(): osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    WriteVisitor(): osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {
+        _mergeAllBinaryFiles = false;
+        _useExternalBinaryArray = false;
+    }
+    std::string getBinaryFilename() {
+        return std::string(_baseName) +".bin";
+    }
     void write(std::ostream& str) {
         osg::ref_ptr<JSONObject> o = new JSONObject();
         o->getMaps()["Version"] = new JSONValue<int>(WRITER_VERSION);
         o->getMaps()["Generator"] = new JSONValue<std::string>("OpenSceneGraph " + std::string(osgGetVersion()) );
         o->getMaps()["osg.Node"] = _root.get();
-        o->write(str);
+        o->write(str, *this);
+        if (_mergeAllBinaryFiles) {
+            _mergeBinaryFile.close();
+            unsigned int size = _mergeBinaryFile.tellp();
+            osg::notify(osg::NOTICE) << "Use a merged binary file ";
+            if (size/1024.0 < 1.0) {
+                osg::notify(osg::NOTICE) << size << " bytes" << std::endl;
+            } else if (size/(1024.0*1024.0) < 1.0) { 
+                osg::notify(osg::NOTICE) << size/1024.0 << " kb" << std::endl;
+            } else {
+                osg::notify(osg::NOTICE) << size/(1024.0*1024.0) << " mb" << std::endl;
+            }
+        }
     }
 
     void error() {
@@ -304,6 +325,7 @@ struct WriteVisitor : public osg::NodeVisitor
     }
     void setBaseName(const std::string& basename) { _baseName = basename;}
     void useExternalBinaryArray(bool use) { _useExternalBinaryArray = use;}
+    void mergeAllBinaryFiles(bool use) { _mergeAllBinaryFiles = use;}
 
 };
 #endif

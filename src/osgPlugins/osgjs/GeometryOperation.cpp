@@ -915,7 +915,7 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i) {
         osg::ref_ptr<osg::Geometry> geom0 = dynamic_cast<osg::Geometry*>(node.getDrawable(i));
         osg::ref_ptr<osg::Geometry> originalGeometry;
-        if (geom0) {
+        if (geom0 && geom0->getVertexArray() != 0) {
             originalGeometry = dynamic_cast<osg::Geometry*>(geom0->clone(osg::CopyOp::SHALLOW_COPY));
             geom0->copyToAndOptimize(*originalGeometry);
         }

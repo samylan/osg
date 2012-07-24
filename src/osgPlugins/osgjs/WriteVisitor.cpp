@@ -184,9 +184,7 @@ JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array)
     if (_maps.find(array) != _maps.end())
         return _maps[array]->getShadowObject();
 
-    osg::ref_ptr<JSONBufferArray> json = new JSONBufferArray(array, 
-                                                             _baseName,
-                                                             _useExternalBinaryArray);
+    osg::ref_ptr<JSONBufferArray> json = new JSONBufferArray(array);
     json->addUniqueID();
     _maps[array] = json;
     return json;
@@ -201,7 +199,7 @@ JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de)
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
 
-    JSONDrawElements<osg::DrawElementsUInt>* json = new JSONDrawElements<osg::DrawElementsUInt>(*de, _baseName, _useExternalBinaryArray);
+    JSONDrawElements<osg::DrawElementsUInt>* json = new JSONDrawElements<osg::DrawElementsUInt>(*de);
     json->addUniqueID();
     _maps[de] = json;
     return json;
@@ -212,7 +210,7 @@ JSONObject* WriteVisitor::createJSONDrawElementsUShort(osg::DrawElementsUShort* 
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
 
-    JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de, _baseName, _useExternalBinaryArray);
+    JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de);
     json->addUniqueID();
     _maps[de] = json;
     return json;
@@ -223,7 +221,7 @@ JSONObject* WriteVisitor::createJSONDrawElementsUByte(osg::DrawElementsUByte* de
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
 
-    JSONDrawElements<osg::DrawElementsUByte>* json = new JSONDrawElements<osg::DrawElementsUByte>(*de, _baseName,_useExternalBinaryArray);
+    JSONDrawElements<osg::DrawElementsUByte>* json = new JSONDrawElements<osg::DrawElementsUByte>(*de);
     json->addUniqueID();
     _maps[de] = json;
     return json;
@@ -252,7 +250,7 @@ JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray)
         de->push_back(base + 2);
         de->push_back(base + 3);
     }
-    JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de, _baseName, _useExternalBinaryArray);
+    JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de);
     json->addUniqueID();
     _maps[drawArray] = json;
     return json; 
