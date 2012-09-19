@@ -1,4 +1,4 @@
-//    copyright: 'Cedric Pinson cedric.pinson@plopbyte.net'
+//    copyright: 'Cedric Pinson cedric@plopbyte.com'
 #include <osg/Image>
 #include <osg/Notify>
 #include <osg/Geode>
@@ -29,6 +29,7 @@
 #include "GeometryOperation"
 #include "Animation"
 #include "WriteVisitor"
+//#include "StatsVisitor"
 
 
 
@@ -139,12 +140,19 @@ public:
             model->accept(tgen);
         }
 
+//        StatsVisitor sceneStats;
+//        model->accept(sceneStats);
+//        sceneStats.dump();
+
         OpenGLESGeometryOptimizerVisitor visitor;
         visitor.setUseDrawArray(options.useDrawArray);
         visitor.setTripStripCacheSize(options.triStripCacheSize);
         visitor.setDisableTriStrip(options.disableTriStrip);
         visitor.setDisableMergeTriStrip(options.disableMergeTriStrip);
         model->accept(visitor);
+
+        osg::notify(osg::NOTICE) << "SceneNbTriangles:" << visitor._sceneNbTriangles << std::endl;
+        osg::notify(osg::NOTICE) << "SceneNbVertexes:" << visitor._sceneNbVertexes << std::endl;
 
         WriteVisitor writer;
         try {
@@ -157,7 +165,7 @@ public:
                 writer.write(fout);
                 return WriteResult::FILE_SAVED;
             }
-        } catch (...){
+        } catch (...) {
             osg::notify(osg::FATAL) << "can't save osgjs file" << std::endl;
             return WriteResult("Unable to write to output stream");
         }

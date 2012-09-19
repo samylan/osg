@@ -36,7 +36,11 @@ class OpenGLESGeometryOptimizerVisitor : public osg::NodeVisitor
 {
 public:
 
-    OpenGLESGeometryOptimizerVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) , _disableTriStrip(false), _triStripCacheSize(16), _disableMergeTriStrip(false), _enableWireframe(false) {}
+    OpenGLESGeometryOptimizerVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) , _disableTriStrip(false), _triStripCacheSize(16), _disableMergeTriStrip(false), _enableWireframe(false) {
+        
+        _sceneNbTriangles = 0;
+        _sceneNbVertexes = 0;
+    }
 
     void apply(osg::Geode& node);
     void applyWireframe(osg::Geode& node);
@@ -47,8 +51,43 @@ public:
     void setDisableMergeTriStrip(bool s) { _disableMergeTriStrip = s; }
     void setEnableWireframe(bool s) { _enableWireframe = s; }
 
-    typedef std::map<osg::ref_ptr<osg::Geode> , bool> GeodeProcessed;
+    void computeStats(osg::Geode& node);
+
+    struct GeomStats {
+        GeomStats() {
+            _nbTriangles = 0;
+            _nbVertexes = 0;
+        }
+        unsigned int _nbTriangles;
+        unsigned int _nbVertexes;
+        void computeStats(const osg::Geometry& geom) {
+
+            // compute nb triangles and vertexes
+            for (unsigned int tr = 0; tr < geom.getPrimitiveSetList().size(); tr++) {
+                osg::PrimitiveSet* primitive = geom.getPrimitiveSetList()[tr];
+                if (primitive && 
+                    primitive->getMode() != osg::PrimitiveSet::LINES_ADJACENCY &&
+                    primitive->getMode() != osg::PrimitiveSet::LINE_STRIP_ADJACENCY &&
+                    primitive->getMode() != osg::PrimitiveSet::PATCHES &&
+                    primitive->getMode() != osg::PrimitiveSet::LINE_STRIP &&
+                    primitive->getMode() != osg::PrimitiveSet::LINE_LOOP &&
+                    primitive->getMode() != osg::PrimitiveSet::LINES &&
+                    primitive->getMode() != osg::PrimitiveSet::POINTS) {
+
+                    _nbTriangles += geom.getPrimitiveSetList()[tr]->getNumPrimitives();
+                }
+            }
+            _nbVertexes += geom.getVertexArray()->getNumElements();
+        };
+    };
+    typedef std::map<osg::ref_ptr<osg::Geode> , GeomStats> GeodeProcessed;
+    typedef std::map<osg::ref_ptr<osg::Geometry> , GeomStats> GeometryProcessed;
     GeodeProcessed _geodeProcessed;
+    GeometryProcessed _geometryProcessed;
+
+    // stats
+    unsigned int _sceneNbTriangles;
+    unsigned int _sceneNbVertexes;
 
 protected:
     bool _disableTriStrip;
@@ -56,6 +95,7 @@ protected:
     bool _disableMergeTriStrip;
     bool _useDrawArray;
     bool _enableWireframe;
+
     
 };
 #endif

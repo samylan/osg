@@ -904,12 +904,25 @@ static osg::Geometry* createWireframeGeometry(osg::Geometry& geom) {
     return wireframe.release();
 }
 
+
+void OpenGLESGeometryOptimizerVisitor::computeStats(osg::Geode& node)
+{
+    _sceneNbTriangles += _geodeProcessed[&node]._nbTriangles;
+    _sceneNbVertexes += _geodeProcessed[&node]._nbVertexes;
+}
+
+
+
 typedef std::vector<osg::ref_ptr<osg::Geometry> > GeometryList;
 void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
 {
     // already processed
-    if (_geodeProcessed.find(&node) != _geodeProcessed.end())
+    if (_geodeProcessed.find(&node) != _geodeProcessed.end()) {
+        computeStats(node);
         return;
+    }
+
+    OpenGLESGeometryOptimizerVisitor::GeomStats stats;
 
     GeometryList listGeometry;
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i) {
@@ -936,8 +949,9 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
 
                 osgUtil::IndexMeshVisitor indexer;
                 indexer.setForceReIndex(true);
-
                 indexer.makeMesh(*triangles);
+
+                stats.computeStats(*triangles);
 
                 if (!_useDrawArray) {
 
@@ -985,7 +999,8 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
     for (unsigned int d = 0; d < listGeometry.size(); d++)
         node.addDrawable(listGeometry[d].get());
 
-    _geodeProcessed[&node] = true;
+    _geodeProcessed[&node] = stats;
+    computeStats(node);
 }
 
 
