@@ -151,8 +151,10 @@ public:
         visitor.setDisableMergeTriStrip(options.disableMergeTriStrip);
         model->accept(visitor);
 
-        osg::notify(osg::NOTICE) << "SceneNbTriangles:" << visitor._sceneNbTriangles << std::endl;
-        osg::notify(osg::NOTICE) << "SceneNbVertexes:" << visitor._sceneNbVertexes << std::endl;
+        if (!options.enableWireframe) {
+            osg::notify(osg::NOTICE) << "SceneNbTriangles:" << visitor._sceneNbTriangles << std::endl;
+            osg::notify(osg::NOTICE) << "SceneNbVertexes:" << visitor._sceneNbVertexes << std::endl;
+        }
 
         WriteVisitor writer;
         try {
