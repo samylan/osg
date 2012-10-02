@@ -6,7 +6,7 @@
 ********************************************************/
 
 #include "Surface.h"
-
+#include <osg/ValueObject>
 #include <osg/Material>
 #include <osg/CullFace>
 #include <osg/Texture2D>
@@ -18,6 +18,7 @@
 #include <osgFX/SpecularHighlights>
 
 #include <osgDB/ReadFile>
+#include <sstream>
 
 using namespace lwosg;
 
@@ -166,9 +167,19 @@ void Surface::generate_stateset(unsigned int max_tex_units, bool force_arb_compr
             stateset_->setAttributeAndModes(cf.get());
         }
 
+        std::string s = "lightwave";
+        stateset_->setUserValue("source", s);
+
         std::map< std::string, unsigned int > unitmap;
         unitmap[ "COLR" ] = 0;
         unitmap[ "TRAN" ] = 1;
+        unitmap[ "SPEC" ] = 2;
+
+        std::map<std::string, std::string> metamap_name;
+        metamap_name[ "COLR" ] = std::string("diffuse");
+        metamap_name[ "TRAN" ] = std::string("transparency");
+        metamap_name[ "SPEC" ] = std::string("specular");
+
         unsigned int unit = 0;
         for (Block_map::const_iterator i=blocks_.begin(); i!=blocks_.end(); ++i) {
 
@@ -181,7 +192,8 @@ void Surface::generate_stateset(unsigned int max_tex_units, bool force_arb_compr
             {
                 std::string channel = block.get_channel();
                 if ( ( channel == "COLR" ) ||
-                     ( channel == "TRAN" ) )
+                     ( channel == "TRAN" ) ||
+                     ( channel == "SPEC" ) )
                 {
                     unit = unitmap[ channel ];
                     if (block.get_image_map().clip)
@@ -263,7 +275,11 @@ void Surface::generate_stateset(unsigned int max_tex_units, bool force_arb_compr
                             };
 
                             stateset_->setTextureAttributeAndModes(unit, tec.get());
+                            std::stringstream ss;
+                            ss << unit;
+                            stateset_->setUserValue(metamap_name[channel] , ss.str());
                             ++unit;
+
                         }
                     }
                 }
@@ -271,6 +287,9 @@ void Surface::generate_stateset(unsigned int max_tex_units, bool force_arb_compr
                 {
                     OSG_WARN << "Warning: lwosg::Surface: texture channels of type '" << block.get_channel() << "' are not supported, this block will be ignored" << std::endl;
                 }
+            } else {
+
+                OSG_WARN << "Warning: lwosg::Surface: surface type '" << block.get_channel() << "' are not supported, this block will be ignored" << std::endl;
             }
         }
     }

@@ -27,7 +27,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
-
+#include "GeometryProcess"
 
 bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex, unsigned int* index)
 {
@@ -718,6 +718,8 @@ static void convertToBindPerVertex(osg::Geometry& srcGeom)
         ConvertToBindPerVertex()(srcGeom.getFogCoordArray(), srcGeom.getFogCoordBinding(), srcGeom.getPrimitiveSetList(), size);
         srcGeom.setFogCoordBinding(osg::Geometry::BIND_PER_VERTEX);
     }
+
+
 }
 
 static osg::Geometry* convertToDrawArray(osg::Geometry& geom)
@@ -934,6 +936,7 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
         }
 
         if (originalGeometry) {
+
             ::convertToBindPerVertex(*originalGeometry);
             GeometryList localListGeometry;
 
@@ -947,9 +950,14 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
             // convert index triangles
             if (triangles.valid() && triangles->getVertexArray()->getNumElements() > 0) {
 
+#if 0
                 osgUtil::IndexMeshVisitor indexer;
                 indexer.setForceReIndex(true);
                 indexer.makeMesh(*triangles);
+#else
+                IndexShape indexer;
+                indexer.makeMesh(*triangles);
+#endif
 
                 stats.computeStats(*triangles);
 
@@ -1035,6 +1043,10 @@ osg::Geometry* GeometryWireframeVisitor::applyGeometry(osg::Geometry& geometry) 
         geometry.setTexCoordArray(i,0);
     }
 
+    IndexShape indexer(true); 
+    indexer.makeMesh(geometry);
+
+#if 0
     // filter primitive set list to keep only polygon surface
     osg::Geometry::PrimitiveSetList newlist;
     for (unsigned int i = 0 ; i < geometry.getNumPrimitiveSets(); i++) {
@@ -1071,6 +1083,9 @@ osg::Geometry* GeometryWireframeVisitor::applyGeometry(osg::Geometry& geometry) 
     indexer.makeMesh(*optimzedGeometry);
 
     return createWireframeGeometry(*optimzedGeometry);
+#else
+    return &geometry;
+#endif
 }
 
 void GeometryWireframeVisitor::apply(osg::Node& node) {
@@ -1083,7 +1098,7 @@ void GeometryWireframeVisitor::apply(osg::Geode& geode) {
     GeometryList geomList;
     for (unsigned int i = 0; i < geode.getNumDrawables(); i++) {
         if (geode.getDrawable(i) && geode.getDrawable(i)->asGeometry()) {
-            osg::Geometry* wireframe = applyGeometry(*geode.getDrawable(i)->asGeometry());
+            osg::ref_ptr<osg::Geometry> wireframe = applyGeometry(*geode.getDrawable(i)->asGeometry());
             if (wireframe) {
                 wireframe->setStateSet(0);
                 geomList.push_back(wireframe);
