@@ -541,22 +541,9 @@ void VertexData::_calculateNormals( const bool vertexNormals )
 
         unsigned int vtx;
         bool badVertex = false;
-        if (i0 >= _vertices->size()) {
-            vtx = i0;
-            badVertex = true;
-        }
-        if (i1 >= _vertices->size()) {
-            vtx = i1;
-            badVertex = true;
-        }
-        if (i2 >= _vertices->size()) {
-            vtx = i2;
-            badVertex = true;
-        }
+        if (i0 >= _vertices->size() || i1 >= _vertices->size() || i2 >= _vertices->size()) {
+            osg::notify(osg::WARN) << "ply calculate normal: vertex index are superior to the total vertex (" << max_size << ")" <<std::endl;
 
-        if (badVertex) {
-            osg::notify(osg::WARN) << "ply calculate normal: vertex index " << vtx << "  > " << max_size << std::endl;
-            continue;
         }
 
         triangleNormal.normal((*_vertices)[i0],
