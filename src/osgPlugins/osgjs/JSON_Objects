@@ -43,9 +43,9 @@ struct JSONObjectBase : public osg::Referenced
     virtual void write(std::ostream& str, WriteVisitor& visitor) {}
 };
 
-template <class T> class JSONValue;
+template <class T> struct JSONValue;
 
-class JSONArray;
+struct JSONArray;
 struct JSONObject : public JSONObjectBase
 {
     typedef std::map<std::string, osg::ref_ptr<JSONObject> > JSONMap;

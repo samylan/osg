@@ -29,8 +29,9 @@
 
 void translateObject(JSONObject* json, osg::Object* osg);
 
-struct WriteVisitor : public osg::NodeVisitor
+class WriteVisitor : public osg::NodeVisitor
 {
+public:
     typedef std::vector<osg::ref_ptr<osg::StateSet> > StateSetStack;
 
     std::ofstream _mergeBinaryFile;
