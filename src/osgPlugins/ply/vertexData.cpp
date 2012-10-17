@@ -501,6 +501,7 @@ osg::Node* VertexData::readPlyFile( const char* filename, const bool ignoreColor
 }
 
 
+
 /*  Calculate the face or vertex normals of the current vertex data.  */
 void VertexData::_calculateNormals( const bool vertexNormals )
 {
@@ -528,6 +529,7 @@ void VertexData::_calculateNormals( const bool vertexNormals )
     }
 
 
+    unsigned int max_size = _vertices->size();
     for( size_t i = 0; i < ((_triangles->size()));  i += 3 )
     {
         // iterate over all triangles and add their normals to adjacent vertices
@@ -536,6 +538,27 @@ void VertexData::_calculateNormals( const bool vertexNormals )
         i0 = (*_triangles)[i+0];
         i1 = (*_triangles)[i+1];
         i2 = (*_triangles)[i+2];
+
+        unsigned int vtx;
+        bool badVertex = false;
+        if (i0 >= _vertices->size()) {
+            vtx = i0;
+            badVertex = true;
+        }
+        if (i1 >= _vertices->size()) {
+            vtx = i1;
+            badVertex = true;
+        }
+        if (i2 >= _vertices->size()) {
+            vtx = i2;
+            badVertex = true;
+        }
+
+        if (badVertex) {
+            osg::notify(osg::WARN) << "ply calculate normal: vertex index " << vtx << "  > " << max_size << std::endl;
+            continue;
+        }
+
         triangleNormal.normal((*_vertices)[i0],
                                (*_vertices)[i1],
                                (*_vertices)[i2] );
