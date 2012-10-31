@@ -77,6 +77,7 @@ ADD_SUBDIRECTORY(tga)
 ADD_SUBDIRECTORY(hdr)
 ADD_SUBDIRECTORY(dot)
 ADD_SUBDIRECTORY(vtf)
+ADD_SUBDIRECTORY(ktx)
 
 IF(JPEG_FOUND)
     ADD_SUBDIRECTORY(jpeg)
@@ -222,6 +223,10 @@ IF(APPLE AND NOT ANDROID)
     ADD_SUBDIRECTORY(imageio)
 ENDIF()
 
+IF(AV_FOUNDATION_FOUND)
+    ADD_SUBDIRECTORY(avfoundation)
+ENDIF()
+
 IF(QUICKTIME_FOUND)
     ADD_SUBDIRECTORY(quicktime)
 ENDIF()
@@ -260,6 +265,18 @@ IF(LIBVNCSERVER_FOUND)
 ENDIF()
 
 ADD_SUBDIRECTORY(pvr)
+
+####################################################
+#
+# Device integration plugins
+#
+IF   (SDL_FOUND)
+    ADD_SUBDIRECTORY(sdl)
+ENDIF(SDL_FOUND)
+
+IF(ASIO_FOUND)
+    ADD_SUBDIRECTORY(RestHttpDevice)
+ENDIF(ASIO_FOUND)
 
 ##########to get all the variables of Cmake
 #GET_CMAKE_PROPERTY(MYVARS VARIABLES)
