@@ -325,7 +325,7 @@ void ReaderWriterOBJ::saveMaterialToStateSetMetaData(obj::Material& material, os
     // transluency
     {
         std::stringstream ss;
-        ss << (1.0-material.ambient[3]);
+        ss << (material.ambient[3]);
         stateset.setUserValue("tr", ss.str());
     }
 
