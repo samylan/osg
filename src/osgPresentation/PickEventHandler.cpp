@@ -16,35 +16,36 @@
 #include <osgViewer/Viewer>
 #include <osg/Notify>
 #include <osgDB/FileUtils>
+#include <osg/io_utils>
 
 #include <stdlib.h>
 
 using namespace osgPresentation;
 
-PickEventHandler::PickEventHandler(osgPresentation::Operation operation,bool relativeJump, int slideNum, int layerNum):
+PickEventHandler::PickEventHandler(osgPresentation::Operation operation, const JumpData& jumpData):
     _operation(operation),
-    _relativeJump(relativeJump),
-    _slideNum(slideNum),
-    _layerNum(layerNum)
+    _jumpData(jumpData),
+    _drawablesOnPush()
 {
+    OSG_INFO<<"PickEventHandler::PickEventHandler(operation="<<operation<<", jumpData.relativeJump="<<jumpData.relativeJump<<", jumpData.="<<jumpData.slideNum<<", jumpData.layerNum="<<jumpData.layerNum<<std::endl;
 }
 
-PickEventHandler::PickEventHandler(const std::string& str, osgPresentation::Operation operation,bool relativeJump, int slideNum, int layerNum):
+PickEventHandler::PickEventHandler(const std::string& str, osgPresentation::Operation operation, const JumpData& jumpData):
     _command(str),
     _operation(operation),
-    _relativeJump(relativeJump),
-    _slideNum(slideNum),
-    _layerNum(layerNum)
+    _jumpData(jumpData),
+    _drawablesOnPush()
 {
+    OSG_INFO<<"PickEventHandler::PickEventHandler(str="<<str<<", operation="<<operation<<", jumpData.relativeJump="<<jumpData.relativeJump<<", jumpData.="<<jumpData.slideNum<<", jumpData.layerNum="<<jumpData.layerNum<<std::endl;
 }
 
-PickEventHandler::PickEventHandler(const osgPresentation::KeyPosition& keyPos,bool relativeJump, int slideNum, int layerNum):
+PickEventHandler::PickEventHandler(const osgPresentation::KeyPosition& keyPos, const JumpData& jumpData):
     _keyPos(keyPos),
     _operation(osgPresentation::EVENT),
-    _relativeJump(relativeJump),
-    _slideNum(slideNum),
-    _layerNum(layerNum)
+    _jumpData(jumpData),
+    _drawablesOnPush()
 {
+    OSG_INFO<<"PickEventHandler::PickEventHandler(keyPos="<<keyPos._key<<", jumpData.relativeJump="<<jumpData.relativeJump<<", jumpData.="<<jumpData.slideNum<<", jumpData.layerNum="<<jumpData.layerNum<<std::endl;
 }
 
 
@@ -56,8 +57,13 @@ bool PickEventHandler::handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionA
     {
         case(osgGA::GUIEventAdapter::MOVE):
         case(osgGA::GUIEventAdapter::PUSH):
+        case(osgGA::GUIEventAdapter::DRAG):
         case(osgGA::GUIEventAdapter::RELEASE):
         {
+            if(ea.getEventType() == osgGA::GUIEventAdapter::PUSH)
+            {
+                _drawablesOnPush.clear();
+            }
             osgViewer::Viewer* viewer = dynamic_cast<osgViewer::Viewer*>(&aa);
             osgUtil::LineSegmentIntersector::Intersections intersections;
             if (viewer->computeIntersections(ea.getX(),ea.getY(), nv->getNodePath(), intersections))
@@ -66,14 +72,48 @@ bool PickEventHandler::handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionA
                     hitr!=intersections.end();
                     ++hitr)
                 {
-                    if (ea.getEventType()==osgGA::GUIEventAdapter::MOVE)
+                    if (_operation == FORWARD_EVENT)
                     {
-                        OSG_INFO<<"Tooltip..."<<std::endl;
+                        osg::ref_ptr<osgGA::GUIEventAdapter> cloned_ea = osg::clone(&ea);
+                        const osg::BoundingBox bb(hitr->drawable->getBound());
+                        const osg::Vec3& p(hitr->localIntersectionPoint);
+                        
+                        float transformed_x = (p.x() - bb.xMin()) / (bb.xMax() - bb.xMin());
+                        float transformed_y = (p.z() - bb.zMin()) / (bb.zMax() - bb.zMin());
+                        
+                        cloned_ea->setX(ea.getXmin() + transformed_x * (ea.getXmax() - ea.getXmin()));
+                        cloned_ea->setY(ea.getYmin() + transformed_y * (ea.getYmax() - ea.getYmin()));
+                        cloned_ea->setMouseYOrientation(osgGA::GUIEventAdapter::Y_INCREASING_UPWARDS);
+                        
+                        // std::cout << transformed_x << "/" << transformed_x << " -> " << cloned_ea->getX() << "/" <<cloned_ea->getY() << std::endl;
+                        
+                        
+                        // dispatch cloned event to devices
+                        osgViewer::View::Devices& devices = viewer->getDevices();
+                        for(osgViewer::View::Devices::iterator i = devices.begin(); i != devices.end(); ++i)
+                        {
+                            if((*i)->getCapabilities() & osgGA::Device::SEND_EVENTS)
+                            {
+                                (*i)->sendEvent(*cloned_ea);
+                            }
+                        }
                     }
-                    else if (ea.getEventType()==osgGA::GUIEventAdapter::RELEASE)
+                    else 
                     {
-                        doOperation();
-                        return true;
+                        if (ea.getEventType()==osgGA::GUIEventAdapter::PUSH)
+                        {
+                            _drawablesOnPush.insert( hitr->drawable );
+                        }
+                        else if (ea.getEventType()==osgGA::GUIEventAdapter::MOVE)
+                        {
+                            OSG_INFO<<"Tooltip..."<<std::endl;
+                        }
+                        else if (ea.getEventType()==osgGA::GUIEventAdapter::RELEASE)
+                        {
+                            if (_drawablesOnPush.find(hitr->drawable) != _drawablesOnPush.end())
+                                doOperation();
+                            return true;
+                        }
                     }
                 }
             }
@@ -100,21 +140,6 @@ void PickEventHandler::accept(osgGA::GUIEventHandlerVisitor& v)
 void PickEventHandler::getUsage(osg::ApplicationUsage& /*usage*/) const
 {
 }
-
-void PickEventHandler::setRelativeJump(int slideNum, int layerNum)
-{
-    _relativeJump = true;
-    _slideNum = slideNum;
-    _layerNum = layerNum;
-}
-
-void PickEventHandler::setAbsoluteJump(int slideNum, int layerNum)
-{
-    _relativeJump = false;
-    _slideNum = slideNum;
-    _layerNum = layerNum;
-}
-
 
 void PickEventHandler::doOperation()
 {
@@ -187,44 +212,26 @@ void PickEventHandler::doOperation()
         }
         case(osgPresentation::EVENT):
         {
-            OSG_INFO<<"Event "<<_keyPos._key<<" "<<_keyPos._x<<" "<<_keyPos._y<<std::endl;
+            OSG_NOTICE<<"Event "<<_keyPos._key<<" "<<_keyPos._x<<" "<<_keyPos._y<<std::endl;
             if (SlideEventHandler::instance()) SlideEventHandler::instance()->dispatchEvent(_keyPos);
             break;
         }
         case(osgPresentation::JUMP):
         {
-            OSG_NOTICE<<"Requires jump "<<std::endl;
+            OSG_INFO<<"Requires jump "<<std::endl;
             break;
         }
+        case(osgPresentation::FORWARD_EVENT):
+            break;
     }
 
-    if (requiresJump())
+    if (_jumpData.requiresJump())
     {
-        OSG_NOTICE<<"Requires jump "<<_relativeJump<<", "<<_slideNum<<", "<<_layerNum<<std::endl;
-
-        if (_relativeJump)
-        {
-            int previousSlide = SlideEventHandler::instance()->getActiveSlide();
-            int previousLayer = SlideEventHandler::instance()->getActiveLayer();
-            int newSlide = previousSlide + _slideNum;
-            int newLayer = previousLayer + _layerNum;
-            if (newLayer<0)
-            {
-                newLayer = 0;
-            }
-
-            OSG_NOTICE<<"   jump to "<<newSlide<<", "<<newLayer<<std::endl;
-
-            SlideEventHandler::instance()->selectSlide(newSlide, newLayer);
-        }
-        else
-        {
-            SlideEventHandler::instance()->selectSlide(_slideNum,_layerNum);
-        }
+        _jumpData.jump(SlideEventHandler::instance());
     }
     else
     {
-        OSG_NOTICE<<"No jump required."<<std::endl;
+        OSG_INFO<<"No jump required."<<std::endl;
     }
 }
 

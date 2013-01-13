@@ -43,7 +43,7 @@ public:
 
     ~NSAutoreleasePoolHelper()
     {
-        [_pool release];
+        [_pool drain];
     }
 
 private:
@@ -99,15 +99,26 @@ void OSXQTKitVideo::initializeQTKit()
         if (![NSThread isMainThread]) {
             dispatch_apply(1, dispatch_get_main_queue(), ^(size_t n) {
                 EnterMovies();
-                QTMovie* movie = [QTMovie movie];
-                // release missing by intent, gets released by the block!
+                {
+                    // workaround for gcc bug. See discussion here
+                    // http://stackoverflow.com/questions/6525928/objective-c-block-vs-objective-c-block
+                    
+                    #if (GCC_VERSION <= 40201) && !(__clang__)
+                        QTMovie* ::temp_movie = [QTMovie movie];
+                    #else
+                        QTMovie* temp_movie = [QTMovie movie];
+                    #endif
+                    
+                    // release missing by intent, gets released by the block!
+                    temp_movie = NULL;
+                }
             });
         }
         else
         {
             EnterMovies();
             QTMovie* movie = [QTMovie movie];
-            [movie release];
+            movie = NULL;
         }
     }
 }
@@ -118,6 +129,8 @@ OSXQTKitVideo::OSXQTKitVideo()
     , _rate(0.0)
     , _coreVideoAdapter(NULL)
 {
+    NSAutoreleasePoolHelper autorelease_pool_helper;
+     
     initializeQTKit();
     
     _status = INVALID;
@@ -370,21 +383,21 @@ void OSXQTKitVideo::decodeFrame(bool force)
             CFRelease(_data->lastFrame);
             CVPixelBufferRelease(_data->lastFrame);
         }
-        
-        size_t buffer_width = CVPixelBufferGetWidth(currentFrame);
+        size_t bpr = CVPixelBufferGetBytesPerRow(currentFrame);
+        size_t buffer_width =  CVPixelBufferGetWidth(currentFrame);
         size_t buffer_height = CVPixelBufferGetHeight(currentFrame);
         
         CVPixelBufferLockBaseAddress( currentFrame, kCVPixelBufferLock_ReadOnly );
 
         void* raw_pixel_data = CVPixelBufferGetBaseAddress(currentFrame);
 
-
+        
         setImage(buffer_width,buffer_height,1,
                              GL_RGBA8,
                              GL_BGRA,
-                             GL_UNSIGNED_INT_8_8_8_8_REV,
+                             GL_UNSIGNED_BYTE,
                              (unsigned char *)raw_pixel_data,
-                             osg::Image::NO_DELETE,1);
+                             osg::Image::NO_DELETE,1, bpr/4);
                              
         CVPixelBufferUnlockBaseAddress( currentFrame, 0 );
         

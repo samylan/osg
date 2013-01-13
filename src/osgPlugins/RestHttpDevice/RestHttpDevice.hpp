@@ -106,7 +106,7 @@ public:
         
         double getTimeStamp(const Arguments& arguments, http::server::reply& reply)
         {
-            double time_stamp;
+            double time_stamp(0.0);
             getDoubleArgument(arguments, "time", reply, time_stamp);
             return time_stamp;
         }
@@ -151,11 +151,12 @@ public:
     {
         if (_firstEventRemoteTimeStamp < 0)
         {
-            _firstEventLocalTimeStamp = osg::Timer::instance()->time_s();
+            _firstEventLocalTimeStamp = getEventQueue()->getTime();
             _firstEventRemoteTimeStamp = time_stamp;
         }
-        
-        return  _firstEventLocalTimeStamp + (time_stamp - _firstEventRemoteTimeStamp) / 1000.0;;
+        double local_time = _firstEventLocalTimeStamp + (time_stamp - _firstEventRemoteTimeStamp);
+        // std::cout << "ts: "<< time_stamp << " -> " << local_time << std::endl;
+        return  local_time;
     }
     
     bool isNewer(double time_stamp)
@@ -168,7 +169,26 @@ public:
     
 
     
-    virtual void checkEvents() {}
+    virtual void checkEvents()
+    {
+        if ((fabs(_currentMouseX - _targetMouseY) > 0.1f) || (fabs(_currentMouseY - _targetMouseY) > 0.1))
+        {
+            static const float scalar = 0.2f;
+            _currentMouseX = (1.0f - scalar) * _currentMouseX + scalar * _targetMouseX;
+            _currentMouseY = (1.0f - scalar) * _currentMouseY + scalar * _targetMouseY;
+            getEventQueue()->mouseMotion(_currentMouseX, _currentMouseY, getEventQueue()->getTime());
+        }
+    }
+    
+    void setTargetMousePosition(float x, float y, bool force = false)
+    {
+        _targetMouseX = x; _targetMouseY = y;
+        if (force) {
+            _currentMouseX = x; _currentMouseY = y;
+        }
+    }
+    
+    
     
 private:
     void parseArguments(const std::string request_path, RequestHandler::Arguments& arguments);
@@ -178,6 +198,7 @@ private:
     double _firstEventLocalTimeStamp;
     double _firstEventRemoteTimeStamp;
     double _lastEventRemoteTimeStamp;
+    float _currentMouseX, _currentMouseY, _targetMouseX, _targetMouseY;
     
 };
 
@@ -186,10 +207,13 @@ private:
 class SendKeystrokeRequestHandler : public RestHttpDevice::RequestHandler {
 public:
     SendKeystrokeRequestHandler(const std::string& request_path, int key) : RestHttpDevice::RequestHandler(request_path), _key(key) {}
+    
     virtual bool operator()(const std::string& request_path, const std::string& full_request_path, const Arguments& arguments, http::server::reply& reply)
     {
-        getDevice()->getEventQueue()->keyPress(_key);
-        getDevice()->getEventQueue()->keyRelease(_key);
+        double local_time = getLocalTime(arguments, reply);
+        
+        getDevice()->getEventQueue()->keyPress(_key, local_time);
+        getDevice()->getEventQueue()->keyRelease(_key, local_time);
         
         return sendOkReply(reply);
     }

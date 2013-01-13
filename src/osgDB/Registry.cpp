@@ -749,11 +749,7 @@ std::string Registry::createLibraryNameForExtension(const std::string& ext)
     ExtensionAliasMap::iterator itr=_extAliasMap.find(lowercase_ext);
     if (itr!=_extAliasMap.end() && ext != itr->second) return createLibraryNameForExtension(itr->second);
 
-#if defined(OSG_JAVA_BUILD)
-    static std::string prepend = std::string("osgPlugins-")+std::string(osgGetVersion())+std::string("/java");
-#else
-    static std::string prepend = std::string("osgPlugins-")+std::string(osgGetVersion())+std::string("/");
-#endif
+    std::string prepend = std::string("osgPlugins-")+std::string(osgGetVersion())+std::string("/");
 
 #if defined(__CYGWIN__)
     return prepend+"cygwin_"+"osgdb_"+lowercase_ext+OSG_LIBRARY_POSTFIX_WITH_QUOTES+".dll";
@@ -1228,11 +1224,15 @@ ReaderWriter::ReadResult Registry::read(const ReadFunctor& readFunctor)
         }
     }
 
-    //If the filename contains a server address and wasn't loaded by any of the plugins, try to use the CURL plugin
-    //to download the file and use the stream reading functionality of the plugins to load the file
+    //If the filename contains a server address and wasn't loaded by any of the plugins, try to find a plugin which supports the server
+    //protocol and supports wildcards. If not successfully use curl as a last fallback
     if (containsServerAddress(readFunctor._filename))
     {
-        ReaderWriter* rw = getReaderWriterForExtension("curl");
+        ReaderWriter* rw = getReaderWriterForProtocolAndExtension(
+            osgDB::getServerProtocol(readFunctor._filename),
+            osgDB::getFileExtension(readFunctor._filename)
+        );
+                
         if (rw)
         {
             return readFunctor.doRead(*rw);
@@ -1299,6 +1299,7 @@ ReaderWriter::ReadResult Registry::readImplementation(const ReadFunctor& readFun
         const Options* options=readFunctor._options;
         useObjectCache=options ? (options->getObjectCacheHint()&cacheHint)!=0: false;
     }
+
     if (useObjectCache)
     {
         // search for entry in the object cache.
@@ -1307,7 +1308,7 @@ ReaderWriter::ReadResult Registry::readImplementation(const ReadFunctor& readFun
             ObjectCache::iterator oitr=_objectCache.find(file);
             if (oitr!=_objectCache.end())
             {
-                OSG_NOTIFY(INFO)<<"returning cached instanced of "<<file<<std::endl;
+                OSG_INFO<<"returning cached instanced of "<<file<<std::endl;
                 if (readFunctor.isValid(oitr->second.first.get())) return ReaderWriter::ReadResult(oitr->second.first.get(), ReaderWriter::ReadResult::FILE_LOADED_FROM_CACHE);
                 else return ReaderWriter::ReadResult("Error file does not contain an osg::Object");
             }
@@ -1317,12 +1318,12 @@ ReaderWriter::ReadResult Registry::readImplementation(const ReadFunctor& readFun
         if (rr.validObject())
         {
             // update cache with new entry.
-            OSG_NOTIFY(INFO)<<"Adding to object cache "<<file<<std::endl;
+            OSG_INFO<<"Adding to object cache "<<file<<std::endl;
             addEntryToObjectCache(file,rr.getObject());
         }
         else
         {
-            OSG_NOTIFY(INFO)<<"No valid object found for "<<file<<std::endl;
+            OSG_INFO<<"No valid object found for "<<file<<std::endl;
         }
 
         return rr;
@@ -1780,3 +1781,34 @@ bool Registry::isProtocolRegistered(const std::string& protocol)
     return (_registeredProtocols.find( convertToLowerCase(protocol) ) != _registeredProtocols.end());
 }
 
+void Registry::getReaderWriterListForProtocol(const std::string& protocol, ReaderWriterList& results) const
+{
+    for(ReaderWriterList::const_iterator i = _rwList.begin(); i != _rwList.end(); ++i)
+    {        if ((*i)->acceptsProtocol(protocol))
+            results.push_back(*i);
+    }
+}
+
+
+ReaderWriter* Registry::getReaderWriterForProtocolAndExtension(const std::string& protocol, const std::string& extension)
+{
+    // try first the registered ReaderWriter
+    ReaderWriter* result = getReaderWriterForExtension(extension);
+    if (result && result->acceptsProtocol(protocol))
+        return result;
+    
+    result = NULL;
+    ReaderWriterList results;
+    getReaderWriterListForProtocol(protocol, results);
+    
+    for(ReaderWriterList::const_iterator i = results.begin(); i != results.end(); ++i)
+    {
+        // if we have a readerwriter which supports wildcards, save it as a fallback
+        if ((*i)->acceptsExtension("*"))
+            result = *i;
+        else if ((*i)->acceptsExtension(extension))
+            return *i;
+    }
+    
+    return result ? result : getReaderWriterForExtension("curl");
+}

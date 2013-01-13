@@ -13,8 +13,11 @@
 
 #include "RestHttpDevice.hpp"
 #include <OpenThreads/Thread>
+#include <osg/ValueObject>
 #include <osgDB/FileUtils>
 #include "request_handler.hpp"
+
+namespace RestHttp {
 
 
 class StandardRequestHandler : public RestHttpDevice::RequestHandler {
@@ -22,13 +25,20 @@ public:
     StandardRequestHandler() : RestHttpDevice::RequestHandler("") {}
     virtual bool operator()(const std::string& request_path, const std::string& full_request_path, const Arguments& arguments, http::server::reply& reply)
     {
-        std::cout << "unhandled request: " << full_request_path << std::endl;
+        OSG_INFO << "RestHttpDevice :: handling request " << full_request_path << " as user-event" << std::endl;
+        
+        osg::ref_ptr<osgGA::GUIEventAdapter> event = new osgGA::GUIEventAdapter();
+        event->setEventType(osgGA::GUIEventAdapter::USER);
+        event->setName(full_request_path);
+        event->setTime(getDevice()->getEventQueue()->getTime());
+        
         for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
         {
-            std::cout << "    " << i->first << ": " << i->second << std::endl;
+            event->setUserValue(i->first,i->second);
         }
+        getDevice()->getEventQueue()->addEvent(event.get());
         
-        return false;
+        return sendOkReply(reply);
     }
     
     virtual void describeTo(std::ostream& out) const
@@ -68,7 +78,7 @@ public:
     
     virtual bool operator()(const std::string& request_path, const std::string& full_request_path, const Arguments& arguments, http::server::reply& reply)
     {
-        int x_min, y_min, x_max, y_max;
+        int x_min(0), y_min(0), x_max(0), y_max(0);
         
         if (   getIntArgument(arguments, "x_min", reply, x_min)
             && getIntArgument(arguments, "y_min", reply, y_min)
@@ -101,7 +111,7 @@ public:
     
     virtual bool operator()(const std::string& request_path, const std::string& full_request_path, const Arguments& arguments, http::server::reply& reply)
     {
-        int keycode;
+        int keycode(0);
         
         if (getHexArgument(arguments, "code", reply, keycode))
         {
@@ -132,13 +142,16 @@ public:
     
     virtual bool operator()(const std::string& request_path, const std::string& full_request_path, const Arguments& arguments, http::server::reply& reply)
     {
-        int x,y;
+        int x(0),y(0);
         if (getIntArgument(arguments, "x", reply, x) && getIntArgument(arguments, "y", reply, y))
         {
             double time_stamp = getTimeStamp(arguments, reply);
             
             if (getDevice()->isNewer(time_stamp))
-                getDevice()->getEventQueue()->mouseMotion(x,y, getLocalTime(time_stamp));
+            {
+                //getDevice()->getEventQueue()->mouseMotion(x,y, getLocalTime(time_stamp));
+                getDevice()->setTargetMousePosition(x,y);
+            }
         }
         
         return sendOkReply(reply);
@@ -176,12 +189,13 @@ public:
     
     virtual bool operator()(const std::string& request_path, const std::string& full_request_path, const Arguments& arguments, http::server::reply& reply)
     {
-        int x,y, button;
+        int x(0),y(0), button(0);
 
         if (getIntArgument(arguments, "x", reply, x)
             && getIntArgument(arguments, "y", reply, y)
             && getIntArgument(arguments, "button", reply, button))
         {
+            getDevice()->setTargetMousePosition(x,y, true);
             switch (_mode) {
                 case PRESS:
                     getDevice()->getEventQueue()->mouseButtonPress(x,y, button, getLocalTime(arguments, reply));
@@ -241,6 +255,7 @@ bool RequestHandlerDispatcherCallback::operator()(const std::string& request_pat
     return _parent->handleRequest(request_path, reply);
 }
 
+}
 
 RestHttpDevice::RestHttpDevice(const std::string& listening_address, const std::string& listening_port, const std::string& doc_root)
     : osgGA::Device()
@@ -253,26 +268,28 @@ RestHttpDevice::RestHttpDevice(const std::string& listening_address, const std::
     , _firstEventRemoteTimeStamp(-1)
     , _lastEventRemoteTimeStamp(0)
 {
-    OSG_INFO << "RestHttpDevice :: listening on " << listening_address << ":" << listening_port << ", document root: " << doc_root << std::endl;
+    setCapabilities(RECEIVE_EVENTS);
+    
+    OSG_NOTICE << "RestHttpDevice :: listening on " << listening_address << ":" << listening_port << ", document root: " << doc_root << std::endl;
     
     if (osgDB::findDataFile(doc_root).empty())
     {
         OSG_WARN << "RestHttpDevice :: warning, can't locate document-root '" << doc_root << "'for the http-server, starting anyway" << std::endl;
     }
-    _server.setCallback(new RequestHandlerDispatcherCallback(this));
+    _server.setCallback(new RestHttp::RequestHandlerDispatcherCallback(this));
     
-    addRequestHandler(new KeyCodeRequestHandler(false));
-    addRequestHandler(new KeyCodeRequestHandler(true));
+    addRequestHandler(new RestHttp::KeyCodeRequestHandler(false));
+    addRequestHandler(new RestHttp::KeyCodeRequestHandler(true));
     
-    addRequestHandler(new SetMouseInputRangeRequestHandler());
-    addRequestHandler(new MouseMotionRequestHandler());
-    addRequestHandler(new MouseButtonRequestHandler(MouseButtonRequestHandler::PRESS));
-    addRequestHandler(new MouseButtonRequestHandler(MouseButtonRequestHandler::RELEASE));
-    addRequestHandler(new MouseButtonRequestHandler(MouseButtonRequestHandler::DOUBLE_PRESS));
+    addRequestHandler(new RestHttp::SetMouseInputRangeRequestHandler());
+    addRequestHandler(new RestHttp::MouseMotionRequestHandler());
+    addRequestHandler(new RestHttp::MouseButtonRequestHandler(RestHttp::MouseButtonRequestHandler::PRESS));
+    addRequestHandler(new RestHttp::MouseButtonRequestHandler(RestHttp::MouseButtonRequestHandler::RELEASE));
+    addRequestHandler(new RestHttp::MouseButtonRequestHandler(RestHttp::MouseButtonRequestHandler::DOUBLE_PRESS));
     
-    addRequestHandler(new HomeRequestHandler());
+    addRequestHandler(new RestHttp::HomeRequestHandler());
     
-    addRequestHandler(new StandardRequestHandler());
+    addRequestHandler(new RestHttp::StandardRequestHandler());
     
     // start the thread
     start();
@@ -359,14 +376,15 @@ bool RestHttpDevice::handleRequest(const std::string& in_request_path,  http::se
 
 void RestHttpDevice::describeTo(std::ostream& out) const
 {
-    out << "Server:        " << _serverAddress << std::endl;
-    out << "Port:          " << _serverPort << std::endl;
-    out << "Document-Root: " << _documentRoot << std::endl;
+    out << "RestHttpDevice :: Server:        " << _serverAddress << std::endl;
+    out << "RestHttpDevice :: Port:          " << _serverPort << std::endl;
+    out << "RestHttpDevice :: Document-Root: " << _documentRoot << std::endl;
     out << std::endl;
     
     for(RequestHandlerMap::const_iterator i = _map.begin(); i != _map.end(); ++i)
     {
         const RequestHandler* handler(i->second.get());
+        out << "RestHttpDevice :: ";
         handler->describeTo(out);
         out << std::endl;
     }

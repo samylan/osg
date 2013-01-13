@@ -120,7 +120,7 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
 - (void)setGraphicsWindow: (osgViewer::GraphicsWindowIOS*) win;
 - (osgViewer::GraphicsWindowIOS*) getGraphicsWindow;
 - (void)setOpenGLContext: (EAGLContext*) context;
-
+- (void)updateDimensions;
 - (BOOL)createFramebuffer;
 - (void)destroyFramebuffer;
 - (void)swapBuffers;
@@ -267,16 +267,22 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
         // Get the layer
         CAEAGLLayer *eaglLayer = (CAEAGLLayer *)self.layer;
         
-        eaglLayer.opaque = YES;//need to look into this, can't remember why it's here, i.e. do I set it to no for alphaed window?
+        osgViewer::GraphicsWindowIOS::WindowData* win_data(NULL);
+        if (_win->getTraits()->inheritedWindowData.valid())
+            win_data = dynamic_cast<osgViewer::GraphicsWindowIOS::WindowData*>(_win->getTraits()->inheritedWindowData.get());
+        
+        eaglLayer.opaque = win_data ? !win_data->getCreateTransparentView() : YES;
+        bool retained_backing = win_data ? win_data->getUseRetainedBacking() : NO;
+
         if(_win->getTraits()->alpha > 0)
         {
             //create layer with alpha channel RGBA8
             eaglLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
-                                            [NSNumber numberWithBool:NO], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat, nil];
+                                            [NSNumber numberWithBool:retained_backing], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat, nil];
         }else{
             //else no alpha, IOS uses RBG565
             eaglLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
-                                            [NSNumber numberWithBool:NO], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGB565, kEAGLDrawablePropertyColorFormat, nil];
+                                            [NSNumber numberWithBool:retained_backing], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGB565, kEAGLDrawablePropertyColorFormat, nil];
 
         }
     }
@@ -298,13 +304,35 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
 }
 
 - (void)layoutSubviews {
-    /*
-    [EAGLContext setCurrentContext:_context];
-    [self destroyFramebuffer];
-    [self createFramebuffer];
-    */
+    [super layoutSubviews];
+    [self updateDimensions];
 }
 
+
+- (void) setFrame:(CGRect)frame
+{
+    [super setFrame:frame];
+    [self updateDimensions];
+}
+
+
+- (void) updateDimensions
+{
+    if (_win)
+    {
+        CGRect frame = self.bounds;
+        osg::Vec2 pointOrigin = osg::Vec2(frame.origin.x,frame.origin.y);
+        osg::Vec2 pointSize = osg::Vec2(frame.size.width,frame.size.height);
+        osg::Vec2 pixelOrigin = [(GraphicsWindowIOSGLView*)(self) convertPointToPixel:pointOrigin];
+        osg::Vec2 pixelSize = [(GraphicsWindowIOSGLView*)(self) convertPointToPixel:pointSize];
+        
+        OSG_INFO << "updateDimensions, resize to "
+            <<  pixelOrigin.x() << " " << pixelOrigin.y() << " " 
+            << pixelSize.x() << " " << pixelSize.y() 
+            << std::endl;
+        _win->resized(pixelOrigin.x(), pixelOrigin.y(), pixelSize.x(), pixelSize.y());
+    }
+}
 
 - (BOOL)createFramebuffer {
 
@@ -367,6 +395,12 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
         }else if(_win->getTraits()->depth == 24){
             glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH_COMPONENT24_OES, _backingWidth, _backingHeight);
         }
+
+#if defined(GL_DEPTH_COMPONENT32_OES)
+        else if(_win->getTraits()->depth == 32){
+            glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH_COMPONENT32_OES, _backingWidth, _backingHeight);
+        }
+#endif
 
         glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, _depthRenderbuffer);
     }
@@ -437,17 +471,17 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
     }
     
     if(_stencilBuffer) {
-        glDeleteFramebuffersOES(1, &_stencilBuffer);
+        glDeleteRenderbuffersOES(1, &_stencilBuffer);
         _stencilBuffer = 0;
     }
     
     if(_msaaRenderBuffer) {
-        glDeleteFramebuffersOES(1, &_msaaRenderBuffer);
+        glDeleteRenderbuffersOES(1, &_msaaRenderBuffer);
         _msaaRenderBuffer = 0;
     }
     
     if(_msaaDepthBuffer) {
-        glDeleteFramebuffersOES(1, &_msaaDepthBuffer);
+        glDeleteRenderbuffersOES(1, &_msaaDepthBuffer);
         _msaaDepthBuffer = 0;
     }
 
@@ -657,20 +691,7 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
 
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration 
 {
-    osgViewer::GraphicsWindowIOS* win = [(GraphicsWindowIOSGLView*)(self.view) getGraphicsWindow];
-    if (win) {
-        CGRect frame = self.view.bounds;
-        osg::Vec2 pointOrigin = osg::Vec2(frame.origin.x,frame.origin.y);
-        osg::Vec2 pointSize = osg::Vec2(frame.size.width,frame.size.height);
-        osg::Vec2 pixelOrigin = [(GraphicsWindowIOSGLView*)(self.view) convertPointToPixel:pointOrigin];
-        osg::Vec2 pixelSize = [(GraphicsWindowIOSGLView*)(self.view) convertPointToPixel:pointSize];
-       OSG_INFO << "willAnimateRotationToInterfaceOrientation, resize to " 
-            <<  pixelOrigin.x() << " " << pixelOrigin.y() << " " 
-            << pixelSize.x() << " " << pixelSize.y() 
-            << std::endl;
-        win->resized(pixelOrigin.x(), pixelOrigin.y(), pixelSize.x(), pixelSize.y());
-    }
-
+    [(GraphicsWindowIOSGLView*)(self.view) updateDimensions];
 }
 
 
@@ -852,11 +873,14 @@ bool GraphicsWindowIOS::realizeImplementation()
     
     // Attach view to window
     [_window addSubview: _view];
+    if ([_window isKindOfClass:[UIWindow class]])
+        _window.rootViewController = _viewController;
     [theView release];
     
     //if we own the window also make it visible
     if (_ownsWindow) 
     {
+        
         //show window
         [_window makeKeyAndVisible];
     }

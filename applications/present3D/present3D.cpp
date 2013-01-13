@@ -28,6 +28,7 @@
 
 #include <OpenThreads/Thread>
 
+#include <osgGA/GUIEventHandler>
 #include <osgGA/TrackballManipulator>
 #include <osgGA/FlightManipulator>
 #include <osgGA/DriveManipulator>
@@ -127,26 +128,47 @@ void setViewer(osgViewer::Viewer& viewer, float width, float height, float dista
     // double hfov = osg::RadiansToDegrees(atan2(width/2.0f,distance)*2.0);
 
     viewer.getCamera()->setProjectionMatrixAsPerspective( vfov, width/height, 0.1, 1000.0);
+
+    OSG_NOTICE<<"setProjectionMatrixAsPerspective( "<<vfov<<", "<<width/height<<", "<<0.1<<", "<<1000.0<<");"<<std::endl;
 }
+
+class ForwardToDeviceEventHandler : public osgGA::GUIEventHandler {
+public:
+    ForwardToDeviceEventHandler(osgGA::Device* device) : osgGA::GUIEventHandler(), _device(device) {}
+    
+    virtual bool handle (const osgGA::GUIEventAdapter &ea, osgGA::GUIActionAdapter &aa, osg::Object *, osg::NodeVisitor *)
+    {
+        OSG_INFO<<"ForwardToDeviceEventHandler::setEvent("<<ea.getKey()<<")"<<std::endl;
+        _device->sendEvent(ea);
+        return false;
+    }
+    
+private:
+    osg::ref_ptr<osgGA::Device> _device;
+};
+
 
 class FollowMouseCallback: public osgGA::GUIEventHandler
 {
     public:
+
+        FollowMouseCallback():
+            _mousePostition(0.5,0.5) {}
 
         virtual bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter& aa, osg::Object* object, osg::NodeVisitor* nv)
         {
             osg::AutoTransform* transform = dynamic_cast<osg::AutoTransform*>(object);
             if (!transform) return false;
 
+            osg::NotifySeverity level = osg::INFO;
+            
             switch(ea.getEventType())
             {
-                case(osgGA::GUIEventAdapter::FRAME):
-                //case(osgGA::GUIEventAdapter::MOVE):
-                //case(osgGA::GUIEventAdapter::DRAG):
-                {
-                    osgViewer::View* view = dynamic_cast<osgViewer::View*>(&aa);
+                case(osgGA::GUIEventAdapter::PUSH):
+                case(osgGA::GUIEventAdapter::RELEASE):
+                case(osgGA::GUIEventAdapter::MOVE):
+                case(osgGA::GUIEventAdapter::DRAG):
 
-                    osg::NotifySeverity level = osg::INFO;
                     osg::notify(level)<<std::endl<<"ea.getGraphicsContext()="<<ea.getGraphicsContext()<<std::endl;
                     osg::notify(level)<<"ea.getWindowWidth()="<<ea.getWindowWidth()<<std::endl;
                     osg::notify(level)<<"ea.getWindowHeight()="<<ea.getWindowHeight()<<std::endl;
@@ -157,14 +179,22 @@ class FollowMouseCallback: public osgGA::GUIEventHandler
                     osg::notify(level)<<"ea.getYin()="<<ea.getYmin()<<std::endl;
                     osg::notify(level)<<"ea.getYmax()="<<ea.getYmax()<<std::endl;
 
+                    _mousePostition.set(ea.getXnormalized(), ea.getYnormalized());
+                    break;
+
+                case(osgGA::GUIEventAdapter::FRAME):
+                {
+                    osgViewer::View* view = dynamic_cast<osgViewer::View*>(&aa);
+
+
                     osg::Camera* camera = view->getCamera();
                     osg::Matrix VP =  camera->getViewMatrix() * camera->getProjectionMatrix();
 
                     osg::Matrix inverse_VP;
                     inverse_VP.invert(VP);
 
-                    osg::Vec3d start_eye(ea.getXnormalized(), ea.getYnormalized(), 0.0);
-                    osg::Vec3d end_eye(ea.getXnormalized(), ea.getYnormalized(), 1.0);
+                    osg::Vec3d start_eye(_mousePostition.x(), _mousePostition.y(), 0.0);
+                    osg::Vec3d end_eye(_mousePostition.x(), _mousePostition.y(), 1.0);
 
                     osg::Vec3d start_world = start_eye * inverse_VP;
                     osg::Vec3d end_world = start_eye * inverse_VP;
@@ -206,6 +236,7 @@ class FollowMouseCallback: public osgGA::GUIEventHandler
             v.visit(*this);
         }
 
+        osg::Vec2d _mousePostition;
 };
 
 osg::Node* createCursorSubgraph(const std::string& filename, float size)
@@ -273,6 +304,24 @@ void processLoadedModel(osg::ref_ptr<osg::Node>& loadedModel, int optimizer_opti
         loadedModel = group;
     }
 }
+
+void addDeviceTo(osgViewer::Viewer& viewer, const std::string& device_name)
+{
+    osg::ref_ptr<osgGA::Device> dev = osgDB::readFile<osgGA::Device>(device_name);
+    if (dev.valid())
+    {
+        OSG_INFO << "Adding Device : " << device_name << std::endl;
+        viewer.addDevice(dev.get());
+        
+        if (dev->getCapabilities() & osgGA::Device::SEND_EVENTS)
+            viewer.getEventHandlers().push_front(new ForwardToDeviceEventHandler(dev.get()));
+    }
+    else
+    {
+        OSG_WARN << "could not open device: " << device_name << std::endl;
+    }
+}
+
 
 int main( int argc, char **argv )
 {
@@ -402,14 +451,23 @@ int main( int argc, char **argv )
         doSetViewer = false;
     }
 
+    const char* p3dDevice = getenv("P3D_DEVICE");
+    if (p3dDevice)
+    {
+        osgDB::StringList devices;
+        osgDB::split(p3dDevice, devices);
+        for(osgDB::StringList::iterator i = devices.begin(); i != devices.end(); ++i)
+        {
+            addDeviceTo(viewer, *i);
+        }
+    }
+
+
     std::string device;
     while (arguments.read("--device", device))
     {
-        osg::ref_ptr<osgGA::Device> dev = osgDB::readFile<osgGA::Device>(device);
-        if (dev.valid())
-        {
-            viewer.addDevice(dev.get());
-        }
+        addDeviceTo(viewer, device);
+        
     }
 
     if (arguments.read("--http-control"))
@@ -425,7 +483,7 @@ int main( int argc, char **argv )
 
         osg::ref_ptr<osgDB::Options> device_options = new osgDB::Options("documentRegisteredHandlers");
 
-        osg::ref_ptr<osgGA::Device> rest_http_device = osgDB::readFile<osgGA::Device>(server_address+":"+server_port+"/"+document_root+".resthttp", device_options);
+        osg::ref_ptr<osgGA::Device> rest_http_device = osgDB::readFile<osgGA::Device>(server_address+":"+server_port+"/"+document_root+".resthttp", device_options.get());
         if (rest_http_device.valid())
         {
             viewer.addDevice(rest_http_device.get());
@@ -481,10 +539,19 @@ int main( int argc, char **argv )
     std::string cursorFileName( p3dCursor ? p3dCursor : "");
     while (arguments.read("--cursor",cursorFileName)) {}
 
+    const char* p3dShowCursor = getenv("P3D_SHOW_CURSOR");
+    std::string showCursor( p3dShowCursor ? p3dShowCursor : "YES");
+    while (arguments.read("--show-cursor")) { showCursor="YES"; }
+    while (arguments.read("--hide-cursor")) { showCursor="NO"; }
+
+    bool hideCursor = (showCursor=="No" || showCursor=="NO" || showCursor=="no");
 
     while (arguments.read("--set-viewer")) { doSetViewer = true; }
     
     while (arguments.read("--no-set-viewer")) { doSetViewer = false; }
+
+    // if we want to hide the cursor override the custom cursor.
+    if (hideCursor) cursorFileName.clear();
     
 
     // cluster related entries.
@@ -513,7 +580,26 @@ int main( int argc, char **argv )
     bool loopPresentation = false;
     while (arguments.read("--loop")) loopPresentation = true;
 
+    {
+        // set update hte default traversal mode settings for update visitor
+        // default to osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN.
+        osg::NodeVisitor::TraversalMode updateTraversalMode = osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN; // viewer.getUpdateVisitor()->getTraversalMode();
 
+        const char* p3dUpdateStr = getenv("P3D_UPDATE");
+        if (p3dUpdateStr)
+        {
+            std::string updateStr(p3dUpdateStr);
+            if (updateStr=="active" || updateStr=="Active" || updateStr=="ACTIVE") updateTraversalMode = osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN;
+            else if (updateStr=="all" || updateStr=="All" || updateStr=="ALL") updateTraversalMode = osg::NodeVisitor::TRAVERSE_ALL_CHILDREN;
+        }
+
+        while(arguments.read("--update-active")) updateTraversalMode = osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN;
+        while(arguments.read("--update-all")) updateTraversalMode = osg::NodeVisitor::TRAVERSE_ALL_CHILDREN;
+
+        viewer.getUpdateVisitor()->setTraversalMode(updateTraversalMode);
+    }
+
+    
     // register the slide event handler - which moves the presentation from slide to slide, layer to layer.
     osg::ref_ptr<osgPresentation::SlideEventHandler> seh = new osgPresentation::SlideEventHandler(&viewer);
     viewer.addEventHandler(seh.get());
@@ -556,7 +642,7 @@ int main( int argc, char **argv )
     viewer.addEventHandler(peh.get());
 
     // add the screen capture handler
-    std::string screenCaptureFilename = "screen_short.jpg";
+    std::string screenCaptureFilename = "screen_shot.jpg";
     while(arguments.read("--screenshot", screenCaptureFilename)) {}
     osg::ref_ptr<osgViewer::ScreenCaptureHandler::WriteToFile> writeFile = new osgViewer::ScreenCaptureHandler::WriteToFile(
         osgDB::getNameLessExtension(screenCaptureFilename),
@@ -759,7 +845,7 @@ int main( int argc, char **argv )
     }
     
 
-    if (!cursorFileName.empty())
+    if (!cursorFileName.empty() || hideCursor)
     {
         // have to add a frame in here to avoid problems with X11 threading issue on switching off the cursor
         // not yet sure why it makes a difference, but it at least fixes the crash that would otherwise occur

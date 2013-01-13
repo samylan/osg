@@ -266,6 +266,9 @@ ENDIF()
 
 ADD_SUBDIRECTORY(pvr)
 
+ADD_SUBDIRECTORY(osc)
+ADD_SUBDIRECTORY(trk)
+
 ####################################################
 #
 # Device integration plugins
@@ -277,6 +280,11 @@ ENDIF(SDL_FOUND)
 IF(ASIO_FOUND)
     ADD_SUBDIRECTORY(RestHttpDevice)
 ENDIF(ASIO_FOUND)
+
+
+IF(ZEROCONF_FOUND)
+    ADD_SUBDIRECTORY(ZeroConfDevice)
+ENDIF()
 
 ##########to get all the variables of Cmake
 #GET_CMAKE_PROPERTY(MYVARS VARIABLES)
