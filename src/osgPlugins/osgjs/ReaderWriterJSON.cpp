@@ -10,6 +10,8 @@
 #include <osg/PositionAttitudeTransform>
 
 #include <osgUtil/UpdateVisitor>
+#include <osgDB/ReaderWriter>
+#include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
 #include <osgDB/Registry>
@@ -29,7 +31,7 @@
 #include "GeometryOperation"
 #include "Animation"
 #include "WriteVisitor"
-//#include "StatsVisitor"
+#include "UnIndexMeshVisitor"
 
 
 
@@ -77,6 +79,7 @@ public:
     ReaderWriterJSON()
     {
         supportsExtension("osgjs","OpenSceneGraph Javascript implementation format");
+        supportsExtension("unindex","Unindex the geometry");
         supportsOption("generateTangentSpace","Build tangent space to each geometry");
         supportsOption("tangentSpaceTextureUnit=<unit>","Specify on wich texture unit normal map is");
         supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
@@ -90,6 +93,7 @@ public:
         
     virtual const char* className() const { return "OSGJS json Writer"; }
 
+    virtual ReadResult readNode(const std::string& fileName, const Options* options) const;
 
     virtual WriteResult writeNode(const Node& node, const std::string& fileName, const osgDB::ReaderWriter::Options* options) const
     {
@@ -133,12 +137,15 @@ public:
         if (options.enableWireframe) {
             model->accept(wireframer);
         }
-            
+
+#ifdef TEST_TANGENT2
+#else
         // generate model tangent space
         if (options.generateTangentSpace && options.enableWireframe == false) {
             TangentSpaceVisitor tgen(options.tangentSpaceTextureUnit);
             model->accept(tgen);
         }
+#endif
 
 //        StatsVisitor sceneStats;
 //        model->accept(sceneStats);
@@ -245,6 +252,31 @@ public:
 protected:
 
 };
+
+osgDB::ReaderWriter::ReadResult ReaderWriterJSON::readNode(const std::string& file, const Options* options) const
+{
+    std::string ext = osgDB::getLowerCaseFileExtension(file);
+    if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
+
+    // strip the pseudo-loader extension
+    std::string fileName = osgDB::getNameLessExtension( file );
+
+    fileName = osgDB::findDataFile( fileName, options );
+    if (fileName.empty()) return ReadResult::FILE_NOT_FOUND;
+
+    osg::Node *node = osgDB::readNodeFile( fileName, options );
+    if (!node)
+        return ReadResult::FILE_NOT_HANDLED;
+
+
+    if (ext == "unindex") {
+        UnIndexMeshVisitor unindex;
+        node->accept(unindex);
+        return node;
+    }
+
+    return ReadResult::FILE_NOT_HANDLED;
+}
 
 // now register with Registry to instantiate the above
 // reader/writer.

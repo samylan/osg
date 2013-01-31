@@ -356,7 +356,9 @@ osg::Geode *daeReader::processMesh(domMesh* pDomMesh)
     domSource_Array sourceArray = pDomMesh->getSource_array();
     for ( size_t i = 0; i < sourceArray.getCount(); i++)
     {
-        sources.insert(std::make_pair((daeElement*)sourceArray[i], domSourceReader(sourceArray[i])));
+        daeElement* daeEl = (daeElement*)sourceArray[i];
+        domSourceReader domSource = domSourceReader(sourceArray[i]);
+        sources.insert(std::make_pair(daeEl, domSource ));
     }
 
     // 0..*    <lines>

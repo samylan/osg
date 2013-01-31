@@ -17,6 +17,8 @@
 #include <osg/Geode>
 #include <map>
 
+#define TEST_TANGENT2
+
 bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex = 65535, unsigned int* index = 0);
 bool needToSplit(osg::Geometry& geom, unsigned int maxIndex = 65535);
 

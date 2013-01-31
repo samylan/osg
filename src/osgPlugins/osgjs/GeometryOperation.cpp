@@ -10,7 +10,6 @@
  *
 */
 
-#include "GeometryOperation"
 #include <osg/Math>
 #include <osg/Notify>
 #include <osg/NodeVisitor>
@@ -28,6 +27,9 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 #include "GeometryProcess"
+#include "GeometryOperation"
+#include "TangentSpace"
+#include "GeometryArray"
 
 bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex, unsigned int* index)
 {
@@ -287,228 +289,6 @@ struct ConvertToBindPerVertex {
 
 
 
-template <class T> bool arraySetNumElements(osg::Array* src, unsigned int numElements)
-{
-    T* array= dynamic_cast<T*>(src);
-    if (array) {
-        array->resize(numElements);
-        return true;
-    }
-    return false;
-}
-
-template <class T> bool arrayAppendElement(osg::Array* src, unsigned int index, osg::Array* dst)
-{
-    T* array= dynamic_cast<T*>(src);
-    if (array) {
-        T* arrayDst = dynamic_cast<T*>(dst);
-        arrayDst->push_back((*array)[index]);
-        return true;
-    }
-    return false;
-}
-
-struct ArrayList {
-
-    struct ArrayAppendElement {
-        void operator()(osg::Array* src, unsigned int index, osg::Array* dst) {
-
-            if (arrayAppendElement<osg::FloatArray>(src, index, dst))
-                return;
-
-            if (arrayAppendElement<osg::Vec2Array>(src, index, dst))
-                return;
-
-            if (arrayAppendElement<osg::Vec3Array>(src, index, dst))
-                return;
-
-            if (arrayAppendElement<osg::Vec4Array>(src, index, dst))
-                return;
-
-            if (arrayAppendElement<osg::Vec4ubArray>(src, index, dst))
-                return;
-        }
-    };
-
-    struct ArraySetNumElements {
-        void operator()(osg::Array* array, unsigned int numElements) {
-
-            if (arraySetNumElements<osg::FloatArray>(array, numElements))
-                return;
-
-            if (arraySetNumElements<osg::Vec2Array>(array, numElements))
-                return;
-
-            if (arraySetNumElements<osg::Vec3Array>(array, numElements))
-                return;
-
-            if (arraySetNumElements<osg::Vec4Array>(array, numElements))
-                return;
-
-            if (arraySetNumElements<osg::Vec4ubArray>(array, numElements))
-                return;
-        }
-    };
-
-    osg::ref_ptr<osg::Array> _vertexes;
-    osg::ref_ptr<osg::Array> _normals;
-    osg::ref_ptr<osg::Array> _colors;
-    osg::ref_ptr<osg::Array> _secondaryColors;
-    osg::ref_ptr<osg::Array> _fogCoords;
-    std::vector<osg::ref_ptr<osg::Array> > _texCoordArrays;
-    std::vector<osg::ref_ptr<osg::Array> > _attributesArrays;
-
-    ArrayList() {}
-    ArrayList(osg::Geometry& geometry) {
-        _vertexes = geometry.getVertexArray();
-        unsigned int nbvertexes = _vertexes->getNumElements();
-        if (geometry.getNormalArray() && nbvertexes == geometry.getNormalArray()->getNumElements())
-            _normals = geometry.getNormalArray();
-
-        if (geometry.getColorArray() && nbvertexes == geometry.getColorArray()->getNumElements())
-            _colors = geometry.getColorArray();
-
-        if (geometry.getSecondaryColorArray() && nbvertexes == geometry.getSecondaryColorArray()->getNumElements())
-            _secondaryColors = geometry.getSecondaryColorArray();
-
-        if (geometry.getFogCoordArray() && nbvertexes == geometry.getFogCoordArray()->getNumElements())
-            _fogCoords = geometry.getFogCoordArray();
-
-        _texCoordArrays.resize(geometry.getNumTexCoordArrays());
-        for(unsigned int i=0;i<geometry.getNumTexCoordArrays();++i)
-            if (geometry.getTexCoordArray(i) && nbvertexes == geometry.getTexCoordArray(i)->getNumElements())
-                _texCoordArrays[i] = geometry.getTexCoordArray(i);
-
-        _attributesArrays.resize(geometry.getNumVertexAttribArrays());
-        for(unsigned int i=0;i<geometry.getNumVertexAttribArrays();++i)
-            if (geometry.getVertexAttribArrayList()[i].array && nbvertexes == geometry.getVertexAttribArrayList()[i].array->getNumElements())
-                _attributesArrays[i] = geometry.getVertexAttribArrayList()[i].array;
-    }
-
-    void setNumElements(unsigned int nbElements) {
-        if (_vertexes.valid())
-            ArraySetNumElements()(_vertexes.get(), nbElements);
-
-        if (_normals.valid())
-            ArraySetNumElements()(_normals.get(), nbElements);
-
-        if (_colors.valid())
-            ArraySetNumElements()(_colors.get(), nbElements);
-
-        if (_secondaryColors.valid())
-            ArraySetNumElements()(_secondaryColors.get(), nbElements);
-
-        if (_fogCoords.valid())
-            ArraySetNumElements()(_fogCoords.get(), nbElements);
-
-        for (unsigned int i = 0; i < _texCoordArrays.size(); i++)
-            if (_texCoordArrays[i].valid())
-                ArraySetNumElements()(_texCoordArrays[i].get(), nbElements);
-
-        for (unsigned int i = 0; i < _attributesArrays.size(); i++)
-            if (_attributesArrays[i].valid())
-                ArraySetNumElements()(_attributesArrays[i].get(), nbElements);
-    }
-
-    unsigned int append(unsigned int index, ArrayList& dst) {
-        if (_vertexes.valid())
-            ArrayAppendElement()(_vertexes.get(), index, dst._vertexes.get());
-
-        if (_normals.valid())
-            ArrayAppendElement()(_normals.get(), index, dst._normals.get());
-
-        if (_colors.valid())
-            ArrayAppendElement()(_colors.get(), index, dst._colors.get());
-
-        if (_secondaryColors.valid())
-            ArrayAppendElement()(_secondaryColors.get(), index, dst._secondaryColors.get());
-
-        if (_fogCoords.valid())
-            ArrayAppendElement()(_fogCoords.get(), index, dst._fogCoords.get());
-
-        for (unsigned int i = 0; i < _texCoordArrays.size(); i++)
-            if (_texCoordArrays[i].valid())
-                ArrayAppendElement()(_texCoordArrays[i].get(), index, dst._texCoordArrays[i].get());
-
-        for (unsigned int i = 0; i < _attributesArrays.size(); i++)
-            if (_attributesArrays[i].valid())
-                ArrayAppendElement()(_attributesArrays[i].get(), index, dst._attributesArrays[i].get());
-
-        return dst._vertexes->getNumElements()-1;
-    }
-
-    ArrayList cloneType() const {
-        ArrayList array;
-        if (_vertexes.valid())
-            array._vertexes = dynamic_cast<osg::Array*>(_vertexes->cloneType());
-
-        if (_normals.valid())
-            array._normals = dynamic_cast<osg::Array*>(_normals->cloneType());
-
-        if (_colors.valid())
-            array._colors = dynamic_cast<osg::Array*>(_colors->cloneType());
-
-        if (_secondaryColors.valid())
-            array._secondaryColors = dynamic_cast<osg::Array*>(_secondaryColors->cloneType());
-
-        if (_fogCoords.valid())
-            array._fogCoords = dynamic_cast<osg::Array*>(_fogCoords->cloneType());
-
-        array._texCoordArrays.resize(_texCoordArrays.size());
-        for (unsigned int i = 0; i < _texCoordArrays.size(); i++) {
-            if (_texCoordArrays[i].valid())
-                array._texCoordArrays[i] = dynamic_cast<osg::Array*>(_texCoordArrays[i]->cloneType());
-        }
-
-        array._attributesArrays.resize(_attributesArrays.size());
-        for (unsigned int i = 0; i < _attributesArrays.size(); i++) {
-            if (_attributesArrays[i].valid())
-                array._attributesArrays[i] = dynamic_cast<osg::Array*>(_attributesArrays[i]->cloneType());
-        }
-
-        return array;
-    }
-
-    unsigned int size() const {
-        return _vertexes->getNumElements();
-    }
-
-    void setToGeometry(osg::Geometry& geom) {
-        if (_vertexes.valid())
-            geom.setVertexArray(_vertexes.get());
-
-        if (_normals.valid()) {
-            geom.setNormalArray(_normals.get());
-            geom.setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-        }
-
-        if (_colors.valid()) {
-            geom.setColorArray(_colors.get());
-            geom.setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-        }
-
-        if (_secondaryColors.valid()) {
-            geom.setSecondaryColorArray(_secondaryColors.get());
-            geom.setSecondaryColorBinding(osg::Geometry::BIND_PER_VERTEX);
-        }
-
-        if (_fogCoords.valid()) {
-            geom.setFogCoordArray(_fogCoords.get());
-            geom.setFogCoordBinding(osg::Geometry::BIND_PER_VERTEX);
-        }
-
-        for (unsigned int i = 0; i < _texCoordArrays.size(); ++i) {
-            if (_texCoordArrays[i].valid())
-                geom.setTexCoordArray(i, _texCoordArrays[i].get());
-        }
-
-        for (unsigned int i = 0; i < _attributesArrays.size(); ++i) {
-            if (_attributesArrays[i].valid())
-                geom.setVertexAttribArray(i, _attributesArrays[i].get());
-        }
-    }
-};
-
 
 
 class GeometryIndexSplitVisitor : public osg::NodeVisitor
@@ -551,7 +331,7 @@ public:
             reported = doSplit(*processing, _maxIndexToSplit);
 
             // reduce vertex array if needed
-            ArrayList arrayList(*processing);
+            GeometryArrayList arrayList(*processing);
             arrayList.setNumElements(osg::minimum(arrayList.size(), _maxIndexToSplit+1));
 
             _geometryList.push_back(processing);
@@ -725,12 +505,12 @@ static void convertToBindPerVertex(osg::Geometry& srcGeom)
 static osg::Geometry* convertToDrawArray(osg::Geometry& geom)
 {
     
-    ArrayList srcArrays(geom);
+    GeometryArrayList srcArrays(geom);
 
     // clone but clear content
     osg::Geometry* newGeometry = new osg::Geometry;
     newGeometry->setStateSet(geom.getStateSet());
-    ArrayList dst = srcArrays.cloneType();
+    GeometryArrayList dst = srcArrays.cloneType();
 
     for (unsigned int i = 0; i < geom.getPrimitiveSetList().size(); i++) {
 
@@ -950,16 +730,21 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
             // convert index triangles
             if (triangles.valid() && triangles->getVertexArray()->getNumElements() > 0) {
 
-#if 0
-                osgUtil::IndexMeshVisitor indexer;
-                indexer.setForceReIndex(true);
-                indexer.makeMesh(*triangles);
-#else
                 IndexShape indexer;
                 indexer.makeMesh(*triangles);
-#endif
 
                 stats.computeStats(*triangles);
+
+#ifdef TEST_TANGENT2
+                // test to generate tangent space at this point
+                // generate model tangent space
+//                if (true || options.generateTangentSpace && options.enableWireframe == false) {
+                int tex = 0;
+                    TangentSpaceVisitor tgen(tex);
+                    tgen.apply(*triangles);
+//                }
+#endif
+
 
                 if (!_useDrawArray) {
 
