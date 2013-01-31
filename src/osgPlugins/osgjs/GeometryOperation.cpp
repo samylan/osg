@@ -735,15 +735,13 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
 
                 stats.computeStats(*triangles);
 
-#ifdef TEST_TANGENT2
-                // test to generate tangent space at this point
-                // generate model tangent space
-//                if (true || options.generateTangentSpace && options.enableWireframe == false) {
-                int tex = 0;
+                if (_generateTangentSpace) {
+                    // test to generate tangent space at this point
+                    // generate model tangent space
+                    int tex = _tangentUnit;
                     TangentSpaceVisitor tgen(tex);
                     tgen.apply(*triangles);
-//                }
-#endif
+                }
 
 
                 if (!_useDrawArray) {

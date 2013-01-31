@@ -25,7 +25,7 @@
 #include "Animation"
 #include "WriteVisitor"
 
-#define WRITER_VERSION 6
+#define WRITER_VERSION 7
 
 void translateObject(JSONObject* json, osg::Object* osg);
 

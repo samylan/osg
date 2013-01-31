@@ -138,20 +138,18 @@ public:
             model->accept(wireframer);
         }
 
-#ifdef TEST_TANGENT2
-#else
-        // generate model tangent space
-        if (options.generateTangentSpace && options.enableWireframe == false) {
-            TangentSpaceVisitor tgen(options.tangentSpaceTextureUnit);
-            model->accept(tgen);
-        }
-#endif
 
 //        StatsVisitor sceneStats;
 //        model->accept(sceneStats);
 //        sceneStats.dump();
 
         OpenGLESGeometryOptimizerVisitor visitor;
+
+        // generated in model when indexed
+        if (options.generateTangentSpace) {
+            visitor.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
+        }
+            
         visitor.setUseDrawArray(options.useDrawArray);
         visitor.setTripStripCacheSize(options.triStripCacheSize);
         visitor.setDisableTriStrip(options.disableTriStrip);
