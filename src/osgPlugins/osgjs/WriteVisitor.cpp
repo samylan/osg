@@ -2,6 +2,7 @@
 #include <osgDB/WriteFile>
 #include <osg/UserDataContainer>
 #include <osg/ValueObject>
+#include <osg/TextureRectangle>
 #include <osg/Texture2D>
 #include <osg/Texture1D>
 #include <osg/Material>
@@ -67,10 +68,20 @@ JSONObject* createImage(osg::Image* image)
             
             if (needToResize) {
                 // resize and rewrite image file
-                image->ensureValidSizeForTexturing(2048);
+                // CP: TODO resize should be done from external
+                image->ensureValidSizeForTexturing(2048); // 32768
                 osgDB::writeImageFile(*image, image->getFileName());
             }
             return new JSONValue<std::string>(image->getFileName());
+        } else {
+            // no image file so use this inline image and create a file
+            std::stringstream ss;
+            ss << (long int)image << ".png"; // write the pointer location
+            std::string filename = ss.str();
+            if (osgDB::writeImageFile(*image, filename)) {
+                image->setFileName(filename);
+                return new JSONValue<std::string>(filename);
+            }
         }
     }
     return 0;
@@ -164,7 +175,9 @@ static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
 {
     switch(mode) {
     case GL_CLAMP:
-        return new JSONValue<std::string>("CLAMP");
+        // clamp does not exist in opengles 2.0
+        //return new JSONValue<std::string>("CLAMP");
+        return new JSONValue<std::string>("CLAMP_TO_EDGE");
     case GL_CLAMP_TO_EDGE:
         return new JSONValue<std::string>("CLAMP_TO_EDGE");
     case GL_CLAMP_TO_BORDER_ARB:
@@ -502,6 +515,19 @@ JSONObject* WriteVisitor::createJSONLight(osg::Light* light)
     return jsonLight.release();
 }
 
+template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture) 
+{
+    T* text = dynamic_cast<T*>( texture);
+    if (text) {
+        translateObject(jsonTexture,text);
+        JSONObject* image = createImage(text->getImage());
+        if (image)
+            jsonTexture->getMaps()["File"] = image;
+        return jsonTexture;
+    }
+    return 0;
+}
+
 JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
 {
     if (!texture) {
@@ -522,23 +548,28 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
     jsonTexture->getMaps()["WrapS"] = getJSONWrapMode(texture->getWrap(osg::Texture::WRAP_S));
     jsonTexture->getMaps()["WrapT"] = getJSONWrapMode(texture->getWrap(osg::Texture::WRAP_T));
 
-    osg::Texture2D* t2d = dynamic_cast<osg::Texture2D*>(texture);
-    if (t2d) {
-        translateObject(jsonTexture,t2d);
-        JSONObject* image = createImage(t2d->getImage());
-        if (image)
-            jsonTexture->getMaps()["File"] = image;
-        return jsonTexture.release();
-    }
-    osg::Texture1D* t1d = dynamic_cast<osg::Texture1D*>(texture);
-    if (t1d) {
-        translateObject(jsonTexture,t1d);
-        JSONObject* image = createImage(t1d->getImage());
-        if (image)
-            jsonTexture->getMaps()["File"] = image;
 
-        return jsonTexture.release();
+    {
+        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture);
+        if (obj) {
+            return obj;
+        }
     }
+
+    {
+        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture);
+        if (obj) {
+            return obj;
+        }
+    }
+
+    {
+        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture);
+        if (obj) {
+            return obj;
+        }
+    }
+
     return 0;
 }
 
