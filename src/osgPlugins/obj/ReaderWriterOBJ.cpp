@@ -768,12 +768,19 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                         startPos += element.vertexIndices.size();
                         geometry->addPrimitiveSet(drawArrays);
                     }
-                    else
+                    else if (element.vertexIndices.size() == 3)
                     {
-                        osg::DrawArrays* drawArrays = new osg::DrawArrays(GL_TRIANGLE_FAN,startPos,element.vertexIndices.size());
-                        startPos += element.vertexIndices.size();
+                        osg::DrawArrays* drawArrays = new osg::DrawArrays(GL_TRIANGLES,startPos,3);
+                        startPos += 3;
                         geometry->addPrimitiveSet(drawArrays);
                     }
+                    else if (element.vertexIndices.size() == 4)
+                    {
+                        osg::DrawArrays* drawArrays = new osg::DrawArrays(GL_QUADS,startPos,4);
+                        startPos += 4;
+                        geometry->addPrimitiveSet(drawArrays);
+                    }
+
                 #endif
 
 
