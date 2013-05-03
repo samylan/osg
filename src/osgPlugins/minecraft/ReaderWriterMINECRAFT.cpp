@@ -4,6 +4,8 @@
 #include <osg/LightSource>
 #include <osg/CullFace>
 #include <osg/Material>
+#include <osg/UserDataContainer>
+#include <osg/ValueObject>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgDB/ReaderWriter>
@@ -29,18 +31,22 @@ public:
     virtual void apply(osg::Geode& geode)
     {
         for (unsigned int i = 0; i < geode.getNumDrawables(); ++i) {
-            osg::Drawable* drawable = geode.getDrawable(i);
+            osg::ref_ptr<osg::Drawable> drawable = geode.getDrawable(i);
             if (drawable) {
-                bool bothFaces = false;
-                apply(drawable->getStateSet(), bothFaces);
-                
-                // clone the geometries to fake back faces. But reverse normals so lighting isn't messed up.
-                if (bothFaces) {
-                    osg::Geometry* geometry = drawable->asGeometry();
-                    size_t primitiveSetCount = geometry->getNumPrimitiveSets();
-                    std::cout << primitiveSetCount << std::endl;
-                    for (unsigned int j = 0; j < primitiveSetCount; j++) {
-                        apply(geometry->getPrimitiveSet(j), geometry);
+                osg::ref_ptr<osg::StateSet> stateSet = drawable->getStateSet();
+                if (stateSet) {
+                    bool bothFaces = false;
+                    apply(stateSet, bothFaces);
+                    
+                    // clone the geometries to fake back faces. But reverse normals so lighting isn't messed up.
+                    if (bothFaces) {
+                        osg::Geometry* geometry = drawable->asGeometry();
+                        size_t primitiveSetCount = geometry->getNumPrimitiveSets();
+                        std::cout << primitiveSetCount << std::endl;
+                        for (unsigned int j = 0; j < primitiveSetCount; j++) {
+                            apply(geometry->getPrimitiveSet(j), geometry);
+                        }
+
                     }
                 }
             }
@@ -119,7 +125,11 @@ public:
                 cull->setMode(osg::CullFace::BACK); 
                 stateSet->setAttributeAndModes(cull, osg::StateAttribute::ON); 
                 bothFaces = true;
+
+                osg::Texture* texture = dynamic_cast<osg::Texture*>(stateSet->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
             }
+
+            stateSet->setUserValue("map_ka", std::string("0"));
         }
     }
 };
