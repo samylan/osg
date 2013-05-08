@@ -178,23 +178,30 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        TextureFilterSetter visitor(osg::Texture2D::NEAREST, osg::Texture2D::NEAREST);
+        TextureFilterSetter visitor(osg::Texture2D::LINEAR_MIPMAP_LINEAR, osg::Texture2D::LINEAR);
         node->accept(visitor);
 
 
+
+        // light source in osgjs use a static vector transformed by an upper
+        // matrix node
+        osg::MatrixTransform* mt = new osg::MatrixTransform();
+
+        // transform the light direction
+        mt->setMatrix(osg::Matrix::rotate(osg::PI/6, osg::Vec3(1,0,0))* osg::Matrix::rotate(osg::PI/6, osg::Vec3(0,1,0)));
         osg::LightSource* lightSource = new osg::LightSource();
 
         osg::Light* light = lightSource->getLight();
         light->setLightNum(0);
-        light->setPosition(osg::Vec4(0.0, 0.5, 0.5, 0.0));
+        light->setPosition(osg::Vec4(0.0, 0.0, -1.0, 0.0));
         light->setDiffuse(osg::Vec4(1.0, 1.0, 1.0, 1.0));
         light->setSpecular(osg::Vec4(1.0, 0.8, 0.8, 1.0));
         light->setAmbient(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-
+        mt->addChild(lightSource);
 
         osg::Group* root = new osg::Group();
         root->addChild(node);
-        root->addChild(lightSource);
+        root->addChild(mt);
 
         return root;
     }
