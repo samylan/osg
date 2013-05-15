@@ -196,26 +196,9 @@ public:
         TextureFilterSetter visitor(osg::Texture2D::LINEAR_MIPMAP_LINEAR, osg::Texture2D::LINEAR);
         node->accept(visitor);
 
-        osg::MatrixTransform* transform = new osg::MatrixTransform(osg::Matrixd::rotate(osg::DegreesToRadians(22.5f), osg::Vec3(1.0, 1.0, 0.0)));
+        node->setUserValue("source", std::string("minecraft"));
 
-        osg::LightSource* lightSource = new osg::LightSource();
-
-        osg::Light* light = lightSource->getLight();
-        light->setLightNum(0);
-        light->setPosition(osg::Vec4(0.0, -1.0, 0.0, 0.0));
-        light->setDiffuse(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-        light->setSpecular(osg::Vec4(1.0, 0.8, 0.8, 1.0));
-        light->setAmbient(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-        light->setUserValue("source", std::string("minecraft"));
-
-        osg::Group* root = new osg::Group();
-        root->addChild(node);
-
-        transform->addChild(lightSource);
-        root->addChild(transform);
-
-
-        return root;
+        return node.release();
     }
 };
 
