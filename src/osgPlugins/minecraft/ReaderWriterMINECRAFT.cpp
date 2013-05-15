@@ -12,6 +12,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgUtil/Optimizer>
+#include <osgUtil/SmoothingVisitor>
 #include <stdlib.h>
 
 std::set<std::string> doubleSidedMaterials;
@@ -100,53 +101,7 @@ public:
                 }
 
                 // regenerate normals
-                osg::ref_ptr<osg::Vec3Array> normalArray = dynamic_cast<osg::Vec3Array*>(geometry->getNormalArray());
-                if (normalArray && _mirroredVec3Array.count(normalArray) == 0 && vertexArray) {
-                    _mirroredVec3Array.insert(normalArray);
-
-                    if (drawArrays->getMode() == osg::PrimitiveSet::TRIANGLE_STRIP) {
-                        normalArray->clear();
-                        unsigned int num = vertexArray->size();
-                        for (unsigned int i = 1; i < num - 1; i++) {
-                            osg::Vec3f a = (*vertexArray)[i - 1] - (*vertexArray)[i],
-                                       b = (*vertexArray)[i + 1] - (*vertexArray)[i],
-                                       n = a ^ b;
-
-                            normalArray->push_back(n);
-                            normalArray->push_back(n);
-                            normalArray->push_back(n);
-                        }
-                    } else if (drawArrays->getMode() == osg::PrimitiveSet::QUADS) {
-                        normalArray->clear();
-                        unsigned int num = vertexArray->size();
-                        for (unsigned int i = 0; i < num; i += 4) {
-                            osg::Vec3f a = (*vertexArray)[i + 1] - (*vertexArray)[i],
-                                       b = (*vertexArray)[i + 2] - (*vertexArray)[i],
-                                       n = a ^ b;
-
-                            normalArray->push_back(n);
-                            normalArray->push_back(n);
-                            normalArray->push_back(n);
-                            normalArray->push_back(n);
-                        }
-                    } else if (drawArrays->getMode() == osg::PrimitiveSet::QUAD_STRIP) {
-                        std::cout << "Mode quad strip." << std::endl;
-                    } else if (drawArrays->getMode() == osg::PrimitiveSet::TRIANGLES) {
-                        normalArray->clear();
-                        unsigned int num = vertexArray->size();
-                        for (unsigned int i = 0; i < num; i += 3) {
-                            osg::Vec3f a = (*vertexArray)[i + 1] - (*vertexArray)[i],
-                                       b = (*vertexArray)[i + 2] - (*vertexArray)[i],
-                                       n = a ^ b;
-
-                            normalArray->push_back(n);
-                            normalArray->push_back(n);
-                            normalArray->push_back(n);
-                        }
-                    } else {
-                        std::cerr << "Unsupported mode." << std::endl;
-                    }
-                }
+                osgUtil::SmoothingVisitor::smooth(*geometry, osg::PI / 4.0f);
             }
         }
     }
