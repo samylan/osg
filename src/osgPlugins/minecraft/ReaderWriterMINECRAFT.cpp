@@ -1,7 +1,5 @@
 #include <osg/MatrixTransform>
 #include <osg/Vec4f>
-#include <osg/Light>
-#include <osg/LightSource>
 #include <osg/CullFace>
 #include <osg/Material>
 #include <osg/UserDataContainer>
@@ -12,9 +10,11 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgUtil/Optimizer>
+#include <osgUtil/SmoothingVisitor>
 #include <stdlib.h>
 
-std::set<std::string> transprentMaterials;
+std::set<std::string> doubleSidedMaterials;
+std::set<std::string> backFaceCulledMaterials;
 
 class TextureFilterSetter : public osg::NodeVisitor
 {
@@ -39,14 +39,11 @@ public:
                     apply(stateSet, bothFaces);
                     
                     // clone the geometries to fake back faces. But reverse normals so lighting isn't messed up.
-                    if (bothFaces) {
-                        osg::Geometry* geometry = drawable->asGeometry();
-                        size_t primitiveSetCount = geometry->getNumPrimitiveSets();
-                        std::cout << primitiveSetCount << std::endl;
-                        for (unsigned int j = 0; j < primitiveSetCount; j++) {
-                            apply(geometry->getPrimitiveSet(j), geometry);
-                        }
-
+                    osg::Geometry* geometry = drawable->asGeometry();
+                    size_t primitiveSetCount = geometry->getNumPrimitiveSets();
+                    std::cout << primitiveSetCount << std::endl;
+                    for (unsigned int j = 0; j < primitiveSetCount; j++) {
+                        apply(geometry->getPrimitiveSet(j), geometry, bothFaces);
                     }
                 }
             }
@@ -55,7 +52,7 @@ public:
         osg::NodeVisitor::apply(geode);
     }
 
-    void apply(osg::PrimitiveSet* primitiveSet, osg::Geometry* geometry)
+    void apply(osg::PrimitiveSet* primitiveSet, osg::Geometry* geometry, bool bothFaces)
     {
         osg::DrawElements* drawElements = primitiveSet->getDrawElements();
         osg::PrimitiveSet::Type type = primitiveSet->getType();
@@ -65,44 +62,43 @@ public:
             if (type == osg::PrimitiveSet::DrawArraysPrimitiveType) {
                 osg::DrawArrays* drawArrays = dynamic_cast<osg::DrawArrays*>(primitiveSet);
 
-                // mirror the vertex array
-                osg::Vec3Array* vertexArray = dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
-                if(vertexArray && _mirroredVec3Array.count(vertexArray) == 0) {
-                    _mirroredVec3Array.insert(vertexArray);
+                osg::ref_ptr<osg::Vec3Array> vertexArray = dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
+                osg::ref_ptr<osg::Vec2Array> texCoordArray = dynamic_cast<osg::Vec2Array*>(geometry->getTexCoordArray(0));
 
-                    unsigned int num = vertexArray->size();
-                    for (unsigned int i = num; i > 0; i--) {
-                        vertexArray->push_back((*vertexArray)[i - 1]);
+                if (bothFaces) {
+                    // mirror the vertex array
+                    if (vertexArray && _mirroredVec3Array.count(vertexArray) == 0) {
+                        _mirroredVec3Array.insert(vertexArray);
+
+                        unsigned int num = vertexArray->size();
+                        for (unsigned int i = 0; i < num; i++) {
+                            osg::Vec3f a = (*vertexArray)[i];
+                            vertexArray->push_back(osg::Vec3f(a.x() / 2.0f, a.y(), a.z()));
+                        }
+                        for (unsigned int i = num; i > 0; i--) {
+                            vertexArray->push_back((*vertexArray)[i - 1]);
+                        }
                     }
+
+                    // mirror the texcoords
+                    if (texCoordArray && _mirroredVec2Array.count(texCoordArray) == 0) {
+                        _mirroredVec2Array.insert(texCoordArray);
+
+                        unsigned int num = texCoordArray->size();
+                        for (unsigned int i = num; i > 0; i--) {
+                            texCoordArray->push_back((*texCoordArray)[i - 1]);
+                        }
+                    }
+
+                    // add mirrored as new primitiveset
+                    GLint first = vertexArray->size() - (drawArrays->getFirst() + drawArrays->getCount());
+                    GLsizei count = drawArrays->getCount();
+                    osg::DrawArrays* drawArraysMirror = new osg::DrawArrays(drawArrays->getMode(), first, count);
+                    geometry->addPrimitiveSet(drawArraysMirror);
                 }
 
-                // mirror the normal array and invert normals
-                osg::Vec3Array* normalArray = dynamic_cast<osg::Vec3Array*>(geometry->getNormalArray());
-                if(normalArray && _mirroredVec3Array.count(normalArray) == 0) {
-                    _mirroredVec3Array.insert(normalArray);
-
-                    unsigned int num = normalArray->size();
-                    for (unsigned int i = num; i > 0; i--) {
-                        normalArray->push_back(-(*normalArray)[i - 1]);
-                    }
-                }
-
-                // mirror the texcoords
-                osg::Vec2Array* texCoordArray = dynamic_cast<osg::Vec2Array*>(geometry->getTexCoordArray(0));
-                if(texCoordArray && _mirroredVec2Array.count(texCoordArray) == 0) {
-                    _mirroredVec2Array.insert(texCoordArray);
-
-                    unsigned int num = texCoordArray->size();
-                    for (unsigned int i = num; i > 0; i--) {
-                        texCoordArray->push_back((*texCoordArray)[i - 1]);
-                    }
-                }
-
-                // add mirrored as new primitiveset
-                GLint first = vertexArray->size() - (drawArrays->getFirst() + drawArrays->getCount());
-                GLsizei count = drawArrays->getCount();
-                osg::DrawArrays* drawArraysMirror = new osg::DrawArrays(drawArrays->getMode(), first, count);
-                geometry->addPrimitiveSet(drawArraysMirror);
+                // regenerate normals
+                osgUtil::SmoothingVisitor::smooth(*geometry, osg::PI / 4.0f);
             }
         }
     }
@@ -110,26 +106,39 @@ public:
     void apply(osg::StateSet* stateSet, bool& bothFaces)
     {
         if (stateSet) {
+            stateSet->setUserValue("source", std::string("minecraft"));
+
             // apply the texture filter
             for (unsigned int i = 0; i < stateSet->getTextureAttributeList().size(); i++) {
                 osg::Texture* texture = dynamic_cast<osg::Texture*>(stateSet->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
                 
                 texture->setFilter(osg::Texture2D::MIN_FILTER, _min); 
                 texture->setFilter(osg::Texture2D::MAG_FILTER, _mag);
+                //texture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+                //texture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE); 
+                //texture->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
+                //texture->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT); 
             }
 
             // enable culling for materials mean't to be seen from both sides
             osg::Material* material = dynamic_cast<osg::Material*>(stateSet->getAttribute(osg::StateAttribute::MATERIAL));
-            if (transprentMaterials.count(material->getName()) > 0) {
+            bool isDoubleSided = doubleSidedMaterials.count(material->getName()) > 0;
+            bool isBackFaceCulled = backFaceCulledMaterials.count(material->getName()) > 0;
+
+            if (isDoubleSided || isBackFaceCulled) {
                 osg::CullFace* cull = new osg::CullFace(); 
                 cull->setMode(osg::CullFace::BACK); 
                 stateSet->setAttributeAndModes(cull, osg::StateAttribute::ON); 
+            }
+            if (isDoubleSided) {
                 bothFaces = true;
-
-                osg::Texture* texture = dynamic_cast<osg::Texture*>(stateSet->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
             }
 
-            stateSet->setUserValue("map_ka", std::string("0"));
+            stateSet->setUserValue("map_ka", std::string("0")); // EmitColor
+
+            if (stateSet->getTextureAttributeList().size() > 1) {
+                stateSet->setUserValue("map_d", std::string("1")); // Opacity
+            }
         }
     }
 };
@@ -142,11 +151,13 @@ public:
         supportsExtension("minecraft", "Forces nearest filter, for minecraft maps.");
 
         // doubled sided materials
-        transprentMaterials.clear();
-        transprentMaterials.insert("iron_bars");
-        transprentMaterials.insert("torch");
-        transprentMaterials.insert("torch_flame");
-        transprentMaterials.insert("water");
+        doubleSidedMaterials.clear();
+        doubleSidedMaterials.insert("iron_bars");
+        doubleSidedMaterials.insert("torch");
+        doubleSidedMaterials.insert("torch_flame");
+
+        backFaceCulledMaterials.clear();
+        backFaceCulledMaterials.insert("water");
     }
     
     virtual const char* className() const
@@ -181,29 +192,8 @@ public:
         TextureFilterSetter visitor(osg::Texture2D::LINEAR_MIPMAP_LINEAR, osg::Texture2D::LINEAR);
         node->accept(visitor);
 
-
-
-        // light source in osgjs use a static vector transformed by an upper
-        // matrix node
-        osg::MatrixTransform* mt = new osg::MatrixTransform();
-
-        // transform the light direction
-        mt->setMatrix(osg::Matrix::rotate(osg::PI/6, osg::Vec3(1,0,0))* osg::Matrix::rotate(osg::PI/6, osg::Vec3(0,1,0)));
-        osg::LightSource* lightSource = new osg::LightSource();
-
-        osg::Light* light = lightSource->getLight();
-        light->setLightNum(0);
-        light->setPosition(osg::Vec4(0.0, 0.0, -1.0, 0.0));
-        light->setDiffuse(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-        light->setSpecular(osg::Vec4(1.0, 0.8, 0.8, 1.0));
-        light->setAmbient(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-        mt->addChild(lightSource);
-
-        osg::Group* root = new osg::Group();
-        root->addChild(node);
-        root->addChild(mt);
-
-        return root;
+        node->setUserValue("source", std::string("minecraft"));
+        return node.release();
     }
 };
 
@@ -211,4 +201,5 @@ public:
 REGISTER_OSGPLUGIN(minecraft, ReaderWriterMinecraft)
 
 /*EOF*/
+
 
