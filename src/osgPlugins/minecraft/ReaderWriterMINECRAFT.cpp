@@ -1,7 +1,5 @@
 #include <osg/MatrixTransform>
 #include <osg/Vec4f>
-#include <osg/Light>
-#include <osg/LightSource>
 #include <osg/CullFace>
 #include <osg/Material>
 #include <osg/UserDataContainer>
@@ -17,7 +15,6 @@
 
 std::set<std::string> doubleSidedMaterials;
 std::set<std::string> backFaceCulledMaterials;
-std::set<std::string> clampedTextures;
 
 class TextureFilterSetter : public osg::NodeVisitor
 {
