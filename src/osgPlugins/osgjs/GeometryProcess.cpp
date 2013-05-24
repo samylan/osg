@@ -375,6 +375,8 @@ namespace {
                 unsigned int pos=first+1;
                 for(GLsizei i=2;i<count;++i,++pos)
                 {
+                    this->operator()(first, pos);
+                    this->operator()(first, pos+1);
                     this->operator()(pos, pos+1);
                 }
                 break;
@@ -458,6 +460,8 @@ namespace {
                 ++iptr;
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
+                    this->operator()(first, *(iptr));
+                    this->operator()(first, *(iptr+1));
                     this->operator()(*(iptr),*(iptr+1));
                 }
                 break;
@@ -541,6 +545,8 @@ namespace {
                 ++iptr;
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
+                    this->operator()(first, *(iptr));
+                    this->operator()(first, *(iptr+1));
                     this->operator()(*(iptr),*(iptr+1));
                 }
                 break;
@@ -624,6 +630,8 @@ namespace {
                 ++iptr;
                 for(GLsizei i=2;i<count;++i,++iptr)
                 {
+                    this->operator()(first, *(iptr));
+                    this->operator()(first, *(iptr+1));
                     this->operator()(*(iptr),*(iptr+1));
                 }
                 break;
