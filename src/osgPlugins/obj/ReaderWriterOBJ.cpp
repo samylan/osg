@@ -629,23 +629,30 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
     osg::Vec3Array* vertices = numVertexIndices ? new osg::Vec3Array : 0;
     osg::Vec3Array* normals = numNormalIndices ? new osg::Vec3Array : 0;
     osg::Vec2Array* texcoords = numTexCoordIndices ? new osg::Vec2Array : 0;
+    osg::Vec4Array* colors = (!model.colors.empty()) ? new osg::Vec4Array : 0;
 
     if (vertices) vertices->reserve(numVertexIndices);
     if (normals) normals->reserve(numNormalIndices);
     if (texcoords) texcoords->reserve(numTexCoordIndices);
+    if (colors) colors->reserve(numVertexIndices);
+
 
     osg::Geometry* geometry = new osg::Geometry;
     if (vertices) geometry->setVertexArray(vertices);
-    if (normals)
-    {
+
+    if (normals) {
         geometry->setNormalArray(normals);
         geometry->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
     }
-    if (texcoords)
-    {
+
+    if (texcoords) {
         geometry->setTexCoordArray(0,texcoords);
     }
 
+    if (colors) {
+        geometry->setColorArray(colors);
+        geometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
 
     if (numPointElements>0)
     {
@@ -662,6 +669,10 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                     index_itr != element.vertexIndices.end();
                     ++index_itr)
                 {
+                    // if use color extension ( not standard but used by meshlab)
+                    if (colors) {
+                        colors->push_back(model.colors[*index_itr]);
+                    }
                     vertices->push_back(transformVertex(model.vertices[*index_itr],localOptions.rotate));
                     ++numPoints;
                 }
@@ -708,6 +719,11 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                     index_itr != element.vertexIndices.end();
                     ++index_itr)
                 {
+                    // if use color extension ( not standard but used by meshlab)
+                    if (colors) {
+                        colors->push_back(model.colors[*index_itr]);
+                    }
+
                     vertices->push_back(transformVertex(model.vertices[*index_itr],localOptions.rotate));
                 }
                 if (numNormalIndices)
@@ -791,6 +807,11 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                         index_itr != element.vertexIndices.rend();
                         ++index_itr)
                     {
+                        // if use color extension ( not standard but used by meshlab)
+                        if (colors) {
+                            colors->push_back(model.colors[*index_itr]);
+                        }
+
                         vertices->push_back(transformVertex(model.vertices[*index_itr],localOptions.rotate));
                     }
                     if (numNormalIndices)
@@ -821,6 +842,11 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                         index_itr != element.vertexIndices.end();
                         ++index_itr)
                     {
+                        // if use color extension ( not standard but used by meshlab)
+                        if (colors) {
+                            colors->push_back(model.colors[*index_itr]);
+                        }
+
                         vertices->push_back(transformVertex(model.vertices[*index_itr],localOptions.rotate));
                     }
                     if (numNormalIndices)

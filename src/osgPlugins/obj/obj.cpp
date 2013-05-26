@@ -521,6 +521,7 @@ bool Model::readOBJ(std::istream& fin, const osgDB::ReaderWriter::Options* optio
     const int LINE_SIZE = 4096;
     char line[LINE_SIZE];
     float x = 0.0f, y = 0.0f, z = 0.0f, w = 0.0f;
+    float r,g,b,a;
 
     while (fin)
     {
@@ -534,12 +535,23 @@ bool Model::readOBJ(std::istream& fin, const osgDB::ReaderWriter::Options* optio
         {
             if (strncmp(line,"v ",2)==0)
             {
-                unsigned int fieldsRead = sscanf(line+2,"%f %f %f %f", &x, &y, &z, &w);
+                unsigned int fieldsRead = sscanf(line+2,"%f %f %f %f %f %f %f", &x, &y, &z, &w, &g, &b, &a);
 
-                if (fieldsRead==1) vertices.push_back(osg::Vec3(x,0.0f,0.0f));
-                else if (fieldsRead==2) vertices.push_back(osg::Vec3(x,y,0.0f));
-                else if (fieldsRead==3) vertices.push_back(osg::Vec3(x,y,z));
-                else if (fieldsRead>=4) vertices.push_back(osg::Vec3(x/w,y/w,z/w));
+                if (fieldsRead==1) 
+                    vertices.push_back(osg::Vec3(x,0.0f,0.0f));
+                else if (fieldsRead==2) 
+                    vertices.push_back(osg::Vec3(x,y,0.0f));
+                else if (fieldsRead==3) 
+                    vertices.push_back(osg::Vec3(x,y,z));
+                else if (fieldsRead == 4) 
+                    vertices.push_back(osg::Vec3(x/w,y/w,z/w));
+                else if (fieldsRead == 6)  {
+                    vertices.push_back(osg::Vec3(x,y,z));
+                    colors.push_back(osg::Vec4(w, g, b, 1.0));
+                } else if ( fieldsRead == 7 )  {
+                    vertices.push_back(osg::Vec3(x,y,z));
+                    colors.push_back(osg::Vec4(w, g, b, a));
+                }
             }
             else if (strncmp(line,"vn ",3)==0)
             {
