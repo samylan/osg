@@ -505,50 +505,18 @@ bool Model::readMTL(std::istream& fin, const osgDB::ReaderWriter::Options* optio
                     material->maps.push_back(parseTextureMap(strip(line+7),Material::Map::SPECULAR_EXPONENT));
                 }
                 // modelling tools and convertors variously produce bump, map_bump, and map_Bump so parse them all
-                else if (strncmp(line,"bump ",5)==0)
+                else if (strncmp(line,"bump ",5)==0 || strncmp(line,"map_bump ",9)==0 || strncmp(line,"map_Bump ",9)==0)
                 {
-                    std::string filename = strip(line+5);
-                    Material::Map::TextureMapType type = imageBumpNormal(filename, options);
-                    if (type == Material::Map::UNKNOWN)
-                        type = Material::Map::BUMP;
-                    material->maps.push_back(parseTextureMap(filename,type));
-                }
-                else if (strncmp(line,"map_bump ",9)==0)
-                {
-                    std::string filename = strip(line+9);
-                    Material::Map::TextureMapType type = imageBumpNormal(filename, options);
-                    if (type == Material::Map::UNKNOWN)
-                        type = Material::Map::BUMP;
-                    material->maps.push_back(parseTextureMap(filename,type));
-                }
-                else if (strncmp(line,"map_Bump ",9)==0)
-                {
-                    std::string filename = strip(line+9);
+                    std::string filename = strip(strchr(line, ' '));
                     Material::Map::TextureMapType type = imageBumpNormal(filename, options);
                     if (type == Material::Map::UNKNOWN)
                         type = Material::Map::BUMP;
                     material->maps.push_back(parseTextureMap(filename,type));
                 }
                 // normal map
-                else if (strncmp(line,"normal ",7)==0)
+                else if (strncmp(line,"normal ",7)==0 || strncmp(line,"map_normal ",11)==0 || strncmp(line,"map_Normal ",11)==0)
                 {
-                    std::string filename = strip(line+7);
-                    Material::Map::TextureMapType type = imageBumpNormal(filename, options);
-                    if (type == Material::Map::UNKNOWN)
-                        type = Material::Map::NORMAL;
-                    material->maps.push_back(parseTextureMap(filename,type));
-                }
-                else if (strncmp(line,"map_normal ",11)==0)
-                {
-                    std::string filename = strip(line+11);
-                    Material::Map::TextureMapType type = imageBumpNormal(filename, options);
-                    if (type == Material::Map::UNKNOWN)
-                        type = Material::Map::NORMAL;
-                    material->maps.push_back(parseTextureMap(filename,type));
-                }
-                else if (strncmp(line,"map_Normal ",11)==0)
-                {
-                    std::string filename = strip(line+11);
+                    std::string filename = strip(strchr(line, ' '));
                     Material::Map::TextureMapType type = imageBumpNormal(filename, options);
                     if (type == Material::Map::UNKNOWN)
                         type = Material::Map::NORMAL;
