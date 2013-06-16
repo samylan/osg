@@ -78,6 +78,7 @@ public:
             SPECULAR,
             SPECULAR_EXPONENT,
             BUMP,
+            NORMAL,
             DISPLACEMENT,
             REFLECTION,        // read of a reflection map will also apply spherical texgen coordinates
             UNKNOWN            // UNKNOWN has to be the last
@@ -195,7 +196,7 @@ public:
     const std::string& getDatabasePath() const { return databasePath; }
 
     std::string lastComponent(const char* linep);
-    bool readMTL(std::istream& fin);
+    bool readMTL(std::istream& fin, const osgDB::ReaderWriter::Options* options);
     bool readOBJ(std::istream& fin, const osgDB::ReaderWriter::Options* options);
 
     bool readline(std::istream& fin, char* line, const int LINE_SIZE);
