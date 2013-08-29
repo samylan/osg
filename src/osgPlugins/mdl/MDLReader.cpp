@@ -154,8 +154,13 @@ ref_ptr<Texture> MDLReader::readTextureFile(std::string textureName)
     osg::ref_ptr<Texture>   texture;
 
     // Find the texture's image file
-    texFile = std::string(textureName) + ".vtf";
-    texPath = findDataFile(texFile, CASE_INSENSITIVE);
+    if(textureName.substr(textureName.find_last_of(".") + 1 ) == "vtf")
+        texPath = findDataFile(textureName, CASE_INSENSITIVE);        
+    else
+    {
+        texFile = std::string(textureName) + ".vtf";
+        texPath = findDataFile(texFile, CASE_INSENSITIVE);        
+    }
 
     // If we don't find it right away, check in a "materials" subdirectory
     if (texPath.empty())
