@@ -281,8 +281,13 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
             }
         }
     }
-    str << JSONObjectBase::indent() << "\"Size\": " << array->getNumElements() << "," << std::endl;
 
+    str << JSONObjectBase::indent() << "\"Size\": " << array->getNumElements();
+    if (_useExternalBinaryArray) {
+        str << "," << std::endl;
+    } else {
+        str << std::endl;
+    }
 
     if (_useExternalBinaryArray) {
         unsigned int size;

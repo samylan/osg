@@ -73,6 +73,7 @@ public:
         supportsOption("SPECULAR_EXPONENT=<unit>", "Set texture unit for specular exponent texture");
         supportsOption("OPACITY=<unit>", "Set texture unit for opacity/dissolve texture");
         supportsOption("BUMP=<unit>", "Set texture unit for bumpmap texture");
+        supportsOption("NORMAL=<unit>", "Set texture unit for normalmap texture");
         supportsOption("DISPLACEMENT=<unit>", "Set texture unit for displacement texture");
         supportsOption("REFLECTION=<unit>", "Set texture unit for reflection texture");
 
@@ -371,6 +372,10 @@ void ReaderWriterOBJ::saveMaterialToStateSetMetaData(obj::Material& material, os
                 std::stringstream ss;
                 ss << unit;
                 stateset.setUserValue("bump", ss.str());
+            } else if (material.maps[index].type == obj::Material::Map::NORMAL) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("map_normal", ss.str());
             } else if (material.maps[index].type == obj::Material::Map::REFLECTION) {
                 std::stringstream ss;
                 ss << unit;
@@ -1017,6 +1022,7 @@ ReaderWriterOBJ::ObjOptionsStruct ReaderWriterOBJ::parseOptions(const osgDB::Rea
                 else if (pre_equals == "SPECULAR_EXPONENT") type = obj::Material::Map::SPECULAR_EXPONENT;
                 else if (pre_equals == "OPACITY")            type = obj::Material::Map::OPACITY;
                 else if (pre_equals == "BUMP")                type = obj::Material::Map::BUMP;
+                else if (pre_equals == "NORMAL")                type = obj::Material::Map::NORMAL;
                 else if (pre_equals == "DISPLACEMENT")        type = obj::Material::Map::DISPLACEMENT;
                 else if (pre_equals == "REFLECTION")        type = obj::Material::Map::REFLECTION;
 

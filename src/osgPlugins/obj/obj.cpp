@@ -21,6 +21,7 @@
 
 #include <osg/Notify>
 
+#include <osgDB/ReadFile>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
 
@@ -213,7 +214,49 @@ std::string Model::lastComponent(const char* linep)
     return line;
 }
 
-bool Model::readMTL(std::istream& fin)
+Material::Map::TextureMapType imageBumpNormal(std::string filename, const osgDB::ReaderWriter::Options* options)
+{
+    std::string fullPathFileName = osgDB::findDataFile( filename, options );
+    if (!fullPathFileName.empty())
+    {
+        osg::ref_ptr< osg::Image > image;
+        // first try with database path of parent.
+
+        image = osgDB::readRefImageFile(fullPathFileName, options);
+
+        if ( image.valid() )
+        {
+            unsigned int numComponents = image->computeNumComponents(image->getPixelFormat());
+            if ( numComponents >= 3 ) // color image, or is it ?
+            {
+                // assume 8 bit per channel, RGB/RGBA
+                //TODO: support more
+
+                unsigned char* data = image->data();
+                int size = image->s() * image->t();
+
+                for (int i = 0; i < size; i++)
+                {
+                    //TODO: variance threshold or something
+                    // if RGB channels are not equal : really a color
+                    if (data[i * numComponents] != data[i * numComponents + 1] ||
+                        data[i * numComponents] != data[i * numComponents + 2])
+                    {
+                        OSG_INFO << "Found color as normal map." << std::endl;
+                return Material::Map::NORMAL;
+                    }
+                }
+            }
+
+            OSG_INFO << "Found black and white as bump map." << std::endl;
+            return Material::Map::BUMP;
+        }
+    }
+
+    return Material::Map::UNKNOWN;
+}
+
+bool Model::readMTL(std::istream& fin, const osgDB::ReaderWriter::Options* options)
 {
     OSG_INFO<<"Reading MTL file"<<std::endl;
 
@@ -462,17 +505,22 @@ bool Model::readMTL(std::istream& fin)
                     material->maps.push_back(parseTextureMap(strip(line+7),Material::Map::SPECULAR_EXPONENT));
                 }
                 // modelling tools and convertors variously produce bump, map_bump, and map_Bump so parse them all
-                else if (strncmp(line,"bump ",5)==0)
+                else if (strncmp(line,"bump ",5)==0 || strncmp(line,"map_bump ",9)==0 || strncmp(line,"map_Bump ",9)==0)
                 {
-                    material->maps.push_back(parseTextureMap(strip(line+5),Material::Map::BUMP));
+                    std::string filename = strip(strchr(line, ' '));
+                    Material::Map::TextureMapType type = imageBumpNormal(filename, options);
+                    if (type == Material::Map::UNKNOWN)
+                        type = Material::Map::BUMP;
+                    material->maps.push_back(parseTextureMap(filename,type));
                 }
-                else if (strncmp(line,"map_bump ",9)==0)
+                // normal map
+                else if (strncmp(line,"normal ",7)==0 || strncmp(line,"map_normal ",11)==0 || strncmp(line,"map_Normal ",11)==0)
                 {
-                    material->maps.push_back(parseTextureMap(strip(line+9),Material::Map::BUMP));
-                }
-                else if (strncmp(line,"map_Bump ",9)==0)
-                {
-                    material->maps.push_back(parseTextureMap(strip(line+9),Material::Map::BUMP));
+                    std::string filename = strip(strchr(line, ' '));
+                    Material::Map::TextureMapType type = imageBumpNormal(filename, options);
+                    if (type == Material::Map::UNKNOWN)
+                        type = Material::Map::NORMAL;
+                    material->maps.push_back(parseTextureMap(filename,type));
                 }
                 // displacement map
                 else if (strncmp(line,"disp ",5)==0)
@@ -663,7 +711,7 @@ bool Model::readOBJ(std::istream& fin, const osgDB::ReaderWriter::Options* optio
                     if (mfin)
                     {
                         OSG_INFO << "Obj reading mtllib '" << fullPathFileName << "'\n";
-                        readMTL(mfin);
+                        readMTL(mfin, options);
                     }
                     else
                     {
