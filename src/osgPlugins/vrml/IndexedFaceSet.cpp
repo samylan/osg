@@ -204,9 +204,9 @@ osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openv
                     }
                 }
                 osg_geom->setColorIndices(osg_color_index.get());
-            } else
+            } //else
                 // unspecified, use coordIndices field
-                osg_geom->setColorIndices(osg_geom->getVertexIndices());
+                //osg_geom->setColorIndices(osg_geom->getVertexIndices());
 
             // get color binding
             std::auto_ptr<openvrml::field_value> fv3 = vrml_ifs->field("colorPerVertex");

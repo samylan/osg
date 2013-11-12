@@ -33,6 +33,11 @@ ELSE()
         OPENVRML_LIBRARY)
 ENDIF()
 
+FIND_PACKAGE(Boost 1.37 REQUIRED COMPONENTS system)
+if (Boost_SYSTEM_FOUND)
+    SET(TARGET_EXTERNAL_LIBRARIES ${Boost_SYSTEM_LIBRARY})
+endif()
+
 SET(TARGET_SRC 
     IndexedFaceSet.cpp
     Primitives.cpp

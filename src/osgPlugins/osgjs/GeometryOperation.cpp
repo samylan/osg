@@ -228,7 +228,13 @@ struct ConvertToBindPerVertex {
                 break;
                 case osg::Geometry::BIND_PER_PRIMITIVE:
                 {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for QUADS" << std::endl;
+                    unsigned int nb = primitives[p]->getNumPrimitives();
+                    for (unsigned int i = 0; i < nb; i++) {
+                        result->push_back(array[i]);
+                        result->push_back(array[i]);
+                        result->push_back(array[i]);
+                        result->push_back(array[i]);
+                    }
                 }
                 break;
                 }
