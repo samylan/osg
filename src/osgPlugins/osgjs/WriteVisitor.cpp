@@ -11,6 +11,7 @@
 #include <osg/BlendFunc>
 #include <osgSim/ShapeAttribute>
 
+
 static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
     switch (mode) {
     case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
@@ -63,6 +64,7 @@ JSONObject* createImage(osg::Image* image, bool inlineImages, const std::string 
         osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
         return new JSONValue<std::string>("/unknown.png");
     } else {
+        std::string modelDir = osgDB::getFilePath(baseName);
         if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
             int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
             int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
@@ -74,7 +76,12 @@ JSONObject* createImage(osg::Image* image, bool inlineImages, const std::string 
                 // resize and rewrite image file
                 // CP: TODO resize should be done from external
                 image->ensureValidSizeForTexturing(2048); // 32768
-                osgDB::writeImageFile(*image, image->getFileName());
+                if(osgDB::isAbsolutePath(image->getFileName()))
+                    osgDB::writeImageFile(*image, image->getFileName());
+                else
+                    osgDB::writeImageFile(*image,
+                                          osgDB::concatPaths(modelDir,
+                                                             image->getFileName()));
             }
         } else {
             // no image file so use this inline name image and create a file
