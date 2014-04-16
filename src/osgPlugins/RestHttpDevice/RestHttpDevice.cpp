@@ -20,15 +20,14 @@
 namespace RestHttp {
 
 
-class StandardRequestHandler : public RestHttpDevice::RequestHandler {
+class UserEventRequestHandler : public RestHttpDevice::RequestHandler {
 public:
-    StandardRequestHandler() : RestHttpDevice::RequestHandler("") {}
+    UserEventRequestHandler() : RestHttpDevice::RequestHandler("/user-event") {}
     virtual bool operator()(const std::string& request_path, const std::string& full_request_path, const Arguments& arguments, http::server::reply& reply)
     {
         OSG_INFO << "RestHttpDevice :: handling request " << full_request_path << " as user-event" << std::endl;
         
-        osg::ref_ptr<osgGA::GUIEventAdapter> event = new osgGA::GUIEventAdapter();
-        event->setEventType(osgGA::GUIEventAdapter::USER);
+        osg::ref_ptr<osgGA::Event> event = new osgGA::Event();
         event->setName(full_request_path);
         event->setTime(getDevice()->getEventQueue()->getTime());
         
@@ -267,6 +266,11 @@ RestHttpDevice::RestHttpDevice(const std::string& listening_address, const std::
     , _firstEventLocalTimeStamp()
     , _firstEventRemoteTimeStamp(-1)
     , _lastEventRemoteTimeStamp(0)
+    , _currentMouseX(0.0f)
+    , _currentMouseY(0.0f)
+    , _targetMouseX(0.0f)
+    , _targetMouseY(0.0f)
+    , _targetMouseChanged(false)
 {
     setCapabilities(RECEIVE_EVENTS);
     
@@ -289,7 +293,7 @@ RestHttpDevice::RestHttpDevice(const std::string& listening_address, const std::
     
     addRequestHandler(new RestHttp::HomeRequestHandler());
     
-    addRequestHandler(new RestHttp::StandardRequestHandler());
+    addRequestHandler(new RestHttp::UserEventRequestHandler());
     
     // start the thread
     start();

@@ -37,12 +37,13 @@ public:
         _autoDiscovery->registerService(type, port);
     }
     
-    virtual void checkEvents()
+    virtual bool checkEvents()
     {
         _autoDiscovery->update();
+        return !(getEventQueue()->empty());
     }
     
-    virtual void sendEvent(const osgGA::GUIEventAdapter& event)
+    virtual void sendEvent(const osgGA::Event& event)
     {
         if (event.getName() == "/zeroconf/advertise")
         {
@@ -72,9 +73,10 @@ class ZeroConfDiscoverDevice : public osgGA::Device {
 public:
     ZeroConfDiscoverDevice(const std::string& type);
     
-    virtual void checkEvents()
+    virtual bool checkEvents()
     {
         _autoDiscovery->update();
+        return !(getEventQueue()->empty());
     }
     
 private:
@@ -94,11 +96,10 @@ public:
     virtual bool ignoreIP6Addresses() { return true; }
     virtual void serviceAdded(const std::string& host, unsigned int port)
     {
-        osg::ref_ptr<osgGA::GUIEventAdapter> event = new osgGA::GUIEventAdapter();
+        osg::ref_ptr<osgGA::Event> event = new osgGA::Event();
         
         OSG_NOTICE << "ZeroConfDevice :: serviceAdded: " << host << ":" << port << " event " << event << std::endl;
         
-        event->setEventType(osgGA::GUIEventAdapter::USER);
         
         event->setName("/zeroconf/service-added");
         event->setUserValue("host", host);
@@ -110,11 +111,9 @@ public:
     
     virtual void serviceRemoved(const std::string& host, unsigned int port)
     {
-        osg::ref_ptr<osgGA::GUIEventAdapter> event = new osgGA::GUIEventAdapter();
+        osg::ref_ptr<osgGA::Event> event = new osgGA::Event();
 
         OSG_NOTICE << "ZeroConfDevice :: serviceRemoved: " << host << ":" << port << " event " << event << std::endl;
-        
-        event->setEventType(osgGA::GUIEventAdapter::USER);
         
         event->setName("/zeroconf/service-removed");
         event->setUserValue("host", host);

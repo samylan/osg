@@ -322,7 +322,7 @@ void ReaderWriterOBJ::saveMaterialToStateSetMetaData(obj::Material& material, os
         ss << "[ " << material.emissive[0] << ", " << material.emissive[1] << ", " << material.emissive[2] << "]";
         stateset.setUserValue("emissive", ss.str());
     }
-    
+
     // transluency
     {
         std::stringstream ss;
@@ -644,10 +644,9 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
 
     osg::Geometry* geometry = new osg::Geometry;
     if (vertices) geometry->setVertexArray(vertices);
-
-    if (normals) {
-        geometry->setNormalArray(normals);
-        geometry->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    if (normals)
+    {
+        geometry->setNormalArray(normals, osg::Array::BIND_PER_VERTEX);
     }
 
     if (texcoords) {
@@ -928,7 +927,7 @@ osg::Node* ReaderWriterOBJ::convertModelToSceneGraph(obj::Model& model, ObjOptio
             }
 
             // if no normals present add them.
-            if (localOptions.generateFacetNormals==false && 
+            if (localOptions.generateFacetNormals==false &&
                 (!geometry->getNormalArray() || geometry->getNormalArray()->getNumElements()==0)) {
                 if (es.smoothingGroup != 0) {
                     osg::notify(osg::NOTICE) << "autogenerate normal for smoothing group " << es.smoothingGroup << std::endl;

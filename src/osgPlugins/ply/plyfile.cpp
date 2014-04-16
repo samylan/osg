@@ -301,30 +301,16 @@ PlyFile *ply_open_for_writing(
   float *version
 )
 {
-  PlyFile *plyfile;
-  char *name;
-  FILE *fp;
-
-
-  /* tack on the extension .ply, if necessary */
-  name = (char *) myalloc (sizeof (char) *
-                           (static_cast<int>(strlen (filename)) + 5));
-  strcpy (name, filename);
-  if (strlen (name) < 4 ||
-      strcmp (name + strlen (name) - 4, ".ply") != 0)
-      strcat (name, ".ply");
-
   /* open the file for writing */
 
-  fp = osgDB::fopen (name, "wb");
-  free (name); //wjs remove memory leak//
+  FILE *fp = osgDB::fopen (filename, "wb");
   if (fp == NULL) {
     return (NULL);
   }
 
   /* create the actual PlyFile structure */
 
-  plyfile = ply_write (fp, nelems, elem_names, file_type);
+  PlyFile *plyfile = ply_write (fp, nelems, elem_names, file_type);
 
   // If the plyfile could not load return NULL
   if (plyfile == NULL)
@@ -947,21 +933,9 @@ PlyFile *ply_open_for_reading(
 {
   FILE *fp;
   PlyFile *plyfile;
-  char *name;
-
-  /* tack on the extension .ply, if necessary */
-
-  name = (char *) myalloc (sizeof (char) *
-                           (static_cast<int>(strlen (filename) + 5)));
-  strcpy (name, filename);
-  if (strlen (name) < 4 ||
-      strcmp (name + strlen (name) - 4, ".ply") != 0)
-      strcat (name, ".ply");
 
   /* open the file for reading */
-  std::string fname = std::string(name);
-  fp = osgDB::fopen (name, "rb");
-  free(name);
+  fp = osgDB::fopen (filename, "rb");
   if (fp == NULL)
     return (NULL);
 
@@ -971,7 +945,7 @@ PlyFile *ply_open_for_reading(
 
   if(!plyfile)
   {
-      std::cout<<"Ply File Error : Could not read file " << fname <<std::endl;
+    std::cout<<"Ply File Error : Could not read file " << filename <<std::endl;
     return NULL;
   }
 
@@ -2767,4 +2741,3 @@ char *my_alloc(int size, int lnum, const char *fname)
 
   return (ptr);
 }
-

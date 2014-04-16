@@ -49,6 +49,7 @@
 #include <osgGA/TrackballManipulator>
 #include <osgGA/FlightManipulator>
 #include <osgGA/KeySwitchMatrixManipulator>
+#include <osgGA/StateSetManipulator>
 
 #include <osgUtil/CullVisitor>
 
@@ -69,6 +70,8 @@
 #include <osgVolume/VolumeTile>
 #include <osgVolume/RayTracedTechnique>
 #include <osgVolume/FixedFunctionTechnique>
+#include <osgVolume/MultipassTechnique>
+#include <osgVolume/VolumeScene>
 
 enum ShadingModel
 {
@@ -132,7 +135,7 @@ struct ScaleOperator
     inline void rgba(float& r,float& g,float& b,float& a) const { r*= _scale; g*=_scale; b*=_scale; a*=_scale; }
 };
 
-struct RecordRowOperator
+struct RecordRowOperator : public osg::CastAndScaleToFloatOperation
 {
     RecordRowOperator(unsigned int num):_colours(num),_pos(0) {}
 
@@ -437,6 +440,9 @@ int main( int argc, char **argv )
     arguments.getApplicationUsage()->addCommandLineOption("-h or --help","Display this information");
     arguments.getApplicationUsage()->addCommandLineOption("--images [filenames]","Specify a stack of 2d images to build the 3d volume from.");
     arguments.getApplicationUsage()->addCommandLineOption("--shader","Use OpenGL Shading Language. (default)");
+    arguments.getApplicationUsage()->addCommandLineOption("--multi-pass","Use MultipassTechnique to render volumes.");
+    arguments.getApplicationUsage()->addCommandLineOption("--model","load 3D model and insert into the scene along with the volume.");
+    arguments.getApplicationUsage()->addCommandLineOption("--hull","load 3D hull that defines the extents of the region to volume render.");
     arguments.getApplicationUsage()->addCommandLineOption("--no-shader","Disable use of OpenGL Shading Language.");
     arguments.getApplicationUsage()->addCommandLineOption("--gpu-tf","Aply the transfer function on the GPU. (default)");
     arguments.getApplicationUsage()->addCommandLineOption("--cpu-tf","Apply the transfer function on the CPU.");
@@ -484,6 +490,9 @@ int main( int argc, char **argv )
 
     // add the stats handler
     viewer.addEventHandler(new osgViewer::StatsHandler);
+
+    // add stateset manipulator
+    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
 
     viewer.getCamera()->setClearColor(osg::Vec4(0.0f,0.0f,0.0f,0.0f));
 
@@ -618,10 +627,35 @@ int main( int argc, char **argv )
     bool useManipulator = false;
     while(arguments.read("--manipulator") || arguments.read("-m")) { useManipulator = true; }
 
-
     bool useShader = true;
     while(arguments.read("--shader")) { useShader = true; }
     while(arguments.read("--no-shader")) { useShader = false; }
+
+    bool useMultipass = false;
+    while(arguments.read("--multi-pass")) useMultipass = true;
+
+    std::string filename;
+    osg::ref_ptr<osg::Group> models;
+    while(arguments.read("--model",filename))
+    {
+        osg::ref_ptr<osg::Node> model = osgDB::readNodeFile(filename);
+        if (model.valid())
+        {
+            if (!models) models = new osg::Group;
+            models->addChild(model.get());
+        }
+    }
+
+    osg::ref_ptr<osg::Group> hulls;
+    while(arguments.read("--hull",filename))
+    {
+        osg::ref_ptr<osg::Node> hull = osgDB::readNodeFile(filename);
+        if (hull.valid())
+        {
+            if (!hulls) hulls = new osg::Group;
+            hulls->addChild(hull.get());
+        }
+    }
 
     bool gpuTransferFunction = true;
     while(arguments.read("--gpu-tf")) { gpuTransferFunction = true; }
@@ -629,6 +663,9 @@ int main( int argc, char **argv )
 
     double sampleDensityWhenMoving = 0.0;
     while(arguments.read("--sdwm", sampleDensityWhenMoving)) {}
+
+    double sampleRatioWhenMoving = 0.0;
+    while(arguments.read("--srwm", sampleRatioWhenMoving)) {}
 
     while(arguments.read("--lod")) { sampleDensityWhenMoving = 0.02; }
 
@@ -1033,8 +1070,16 @@ int main( int argc, char **argv )
         sp->setActiveProperty(0);
 
         osgVolume::AlphaFuncProperty* ap = new osgVolume::AlphaFuncProperty(alphaFunc);
-        osgVolume::SampleDensityProperty* sd = new osgVolume::SampleDensityProperty(0.005);
+        osgVolume::IsoSurfaceProperty* isop = new osgVolume::IsoSurfaceProperty(alphaFunc);
+
+        // SampleDensity is now deprecated
+        osgVolume::SampleDensityProperty* sd = new osgVolume::SampleDensityProperty(0.005f);
         osgVolume::SampleDensityWhenMovingProperty* sdwm = sampleDensityWhenMoving!=0.0 ? new osgVolume::SampleDensityWhenMovingProperty(sampleDensityWhenMoving) : 0;
+
+        // use SampleRatio in place of SampleDensity
+        osgVolume::SampleRatioProperty* sr = new osgVolume::SampleRatioProperty(1.0f);
+        osgVolume::SampleRatioWhenMovingProperty* srwm = sampleRatioWhenMoving!=0.0 ? new osgVolume::SampleRatioWhenMovingProperty(sampleRatioWhenMoving) : 0;
+
         osgVolume::TransparencyProperty* tp = new osgVolume::TransparencyProperty(1.0);
         osgVolume::TransferFunctionProperty* tfp = transferFunction.valid() ? new osgVolume::TransferFunctionProperty(transferFunction.get()) : 0;
 
@@ -1042,10 +1087,23 @@ int main( int argc, char **argv )
             // Standard
             osgVolume::CompositeProperty* cp = new osgVolume::CompositeProperty;
             cp->addProperty(ap);
-            cp->addProperty(sd);
+            if (useMultipass)
+            {
+                cp->addProperty(sr);
+                if (srwm) cp->addProperty(srwm);
+            }
+            else
+            {
+                cp->addProperty(sd);
+                if (sdwm) cp->addProperty(sdwm);
+            }
             cp->addProperty(tp);
-            if (sdwm) cp->addProperty(sdwm);
-            if (tfp) cp->addProperty(tfp);
+
+            if (tfp)
+            {
+                OSG_NOTICE<<"Adding TransferFunction"<<std::endl;
+                cp->addProperty(tfp);
+            }
 
             sp->addProperty(cp);
         }
@@ -1054,7 +1112,8 @@ int main( int argc, char **argv )
             // Light
             osgVolume::CompositeProperty* cp = new osgVolume::CompositeProperty;
             cp->addProperty(ap);
-            cp->addProperty(sd);
+            if (useMultipass) cp->addProperty(sr);
+            else cp->addProperty(sd);
             cp->addProperty(tp);
             cp->addProperty(new osgVolume::LightingProperty);
             if (sdwm) cp->addProperty(sdwm);
@@ -1066,9 +1125,10 @@ int main( int argc, char **argv )
         {
             // Isosurface
             osgVolume::CompositeProperty* cp = new osgVolume::CompositeProperty;
-            cp->addProperty(sd);
+            if (useMultipass) cp->addProperty(sr);
+            else cp->addProperty(sd);
             cp->addProperty(tp);
-            cp->addProperty(new osgVolume::IsoSurfaceProperty(alphaFunc));
+            cp->addProperty(isop);
             if (sdwm) cp->addProperty(sdwm);
             if (tfp) cp->addProperty(tfp);
 
@@ -1079,7 +1139,10 @@ int main( int argc, char **argv )
             // MaximumIntensityProjection
             osgVolume::CompositeProperty* cp = new osgVolume::CompositeProperty;
             cp->addProperty(ap);
-            cp->addProperty(sd);
+
+            if (useMultipass) cp->addProperty(sr);
+            else cp->addProperty(sd);
+
             cp->addProperty(tp);
             cp->addProperty(new osgVolume::MaximumIntensityProjectionProperty);
             if (sdwm) cp->addProperty(sdwm);
@@ -1098,7 +1161,14 @@ int main( int argc, char **argv )
         layer->addProperty(sp);
 
 
-        tile->setVolumeTechnique(new osgVolume::RayTracedTechnique);
+        if (useMultipass)
+        {
+            tile->setVolumeTechnique(new osgVolume::MultipassTechnique);
+        }
+        else
+        {
+            tile->setVolumeTechnique(new osgVolume::RayTracedTechnique);
+        }
     }
     else
     {
@@ -1164,6 +1234,30 @@ int main( int argc, char **argv )
 
             loadedModel = group;
         }
+
+        if (hulls.get())
+        {
+            tile->addChild(hulls.get());
+        }
+
+        // add add models into the scene alongside the volume
+        if (models.get())
+        {
+            osg::ref_ptr<osg::Group> group = new osg::Group;
+            group->addChild(models.get());
+            group->addChild(loadedModel.get());
+            loadedModel = group.get();
+        }
+
+        // if we want to do multi-pass volume rendering we need decorate the whole scene with a VolumeScene node.
+        if (useMultipass)
+        {
+            osg::ref_ptr<osgVolume::VolumeScene> volumeScene = new osgVolume::VolumeScene;
+            volumeScene->addChild(loadedModel.get());
+            loadedModel->getOrCreateStateSet();
+            loadedModel = volumeScene.get();
+        }
+
 
 
         // set the scene to render

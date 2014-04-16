@@ -1004,7 +1004,7 @@ osg::Texture2D* daeReader::processTexture(
     domImage *dImg = NULL;
 
     std::string target = std::string("./") + std::string(tex->getTexture());
-    OSG_NOTICE<<"processTexture("<<target<<")"<<std::endl;
+    OSG_INFO<<"processTexture("<<target<<")"<<std::endl;
 
     daeSIDResolver res1( _currentEffect, target.c_str() );
     daeElement *el = res1.getElement();
@@ -1036,6 +1036,12 @@ osg::Texture2D* daeReader::processTexture(
         if (sampler == NULL )
         {
             OSG_WARN << "Wrong newparam type. Expected sampler2D" << std::endl;
+            return NULL;
+        }
+
+        if (sampler->getSource() == NULL )
+        {
+            OSG_WARN << "Could not locate source for sampler2D" << std::endl;
             return NULL;
         }
 
@@ -1150,21 +1156,23 @@ Collada 1.4.1 Specification (2nd Edition) Patch Release Notes: Revision C Releas
 
 In <blinn>, <constant>, <lambert>, and <phong>, the child element <transparent> now has an
 optional opaque attribute whose valid values are:
-• A_ONE (the default): Takes the transparency information from the color’s alpha channel, where the value 1.0 is opaque.
-• RGB_ZERO: Takes the transparency information from the color’s red, green, and blue channels, where the value 0.0 is opaque,
-with each channel modulated independently.
-In the Specification, this is described in the “FX Reference” chapter in the
+ A_ONE (the default): Takes the transparency information from the colors alpha channel, where the value 1.0 is opaque.
+ RGB_ZERO: Takes the transparency information from the colors red, green, and blue channels, where the value 0.0 is opaque,
+ with each channel modulated independently.
+
+ In the Specification, this is described in the FX Reference chapter in the
 common_color_or_texture_type entry, along with a description of how transparency works in the
-“Getting Started with COLLADA FX” chapter in the “Determining Transparency” section.
+Getting Started with COLLADA FX chapter in the Determining Transparency section.
 
 
 Collada Digital Asset Schema Release 1.5.0 Release Notes
 
-The <transparent> element’s opaque attribute now allows, in addition to A_ONE and RGB_ZERO, the following values:
-• A_ZERO: Takes the transparency information from the color’s alpha channel, where the value 0.0 is opaque.
-• RGB_ONE: Takes the transparency information from the color’s red, green, and blue channels, where the value 1.0
-* is opaque, with each channel modulated independently.
-* When we update to a version of the dom using that schema we will need to modify the code below
+The <transparent> elements opaque attribute now allows, in addition to A_ONE and RGB_ZERO, the following values:
+ A_ZERO: Takes the transparency information from the colors alpha channel, where the value 0.0 is opaque.
+ RGB_ONE: Takes the transparency information from the colors red, green, and blue channels, where the value 1.0
+ is opaque, with each channel modulated independently.
+
+When we update to a version of the dom using that schema we will need to modify the code below
 */
 
 void daeReader::processTransparencySettings( domCommon_transparent_type *ctt,
@@ -1290,10 +1298,10 @@ bool daeReader::copyTextureCoordinateSet(const osg::StateSet* ss, const osg::Geo
     {
         if (!strcmp(bvia[k]->getSemantic(), texCoordSetName.c_str()) && !strcmp(bvia[k]->getInput_semantic(), COMMON_PROFILE_INPUT_TEXCOORD))
         {
-            unsigned set = bvia[k]->getInput_set();
+            unsigned int set = bvia[k]->getInput_set();
             if (set < cachedGeometry->getNumTexCoordArrays())
             {
-            clonedGeometry->setTexCoordData(localTextureUnit, cachedGeometry->getTexCoordData(set));
+                clonedGeometry->setTexCoordArray(localTextureUnit, const_cast<osg::Array*>(cachedGeometry->getTexCoordArray(set)));
             }
             else
             {
@@ -1315,7 +1323,7 @@ bool daeReader::copyTextureCoordinateSet(const osg::StateSet* ss, const osg::Geo
                 IdToCoordIndexMap::const_iterator it = _texCoordIdMap.find(ba[k]->getTarget());
                 if (it!=_texCoordIdMap.end()&& (cachedGeometry->getNumTexCoordArrays()>it->second))
                 {
-                  clonedGeometry->setTexCoordData(localTextureUnit, cachedGeometry->getTexCoordData(it->second));
+                  clonedGeometry->setTexCoordArray(localTextureUnit, const_cast<osg::Array*>(cachedGeometry->getTexCoordArray(it->second)));
                 }
                 else
                 {
@@ -1328,7 +1336,7 @@ bool daeReader::copyTextureCoordinateSet(const osg::StateSet* ss, const osg::Geo
         {
             if (cachedGeometry->getNumTexCoordArrays())
             {
-                clonedGeometry->setTexCoordData(localTextureUnit, cachedGeometry->getTexCoordData(0));
+                clonedGeometry->setTexCoordArray(localTextureUnit, const_cast<osg::Array*>(cachedGeometry->getTexCoordArray(0)));
             }
         }
     }

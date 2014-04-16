@@ -44,7 +44,7 @@ class CameraView;
 
 const unsigned int UNINITIALIZED_FRAME_NUMBER=0xffffffff;
 
-#define META_NodeVisitor(library,name) \
+#define META_NodeVisitor(library, name) \
         virtual const char* libraryName() const { return #library; }\
         virtual const char* className() const { return #name; }
 
@@ -62,7 +62,7 @@ const unsigned int UNINITIALIZED_FRAME_NUMBER=0xffffffff;
     myVisitor.apply(*root).  The later method will bypass the double
     dispatch and the appropriate NodeVisitor::apply(..) method will
     not be called. */
-class OSG_EXPORT NodeVisitor : public virtual Referenced
+class OSG_EXPORT NodeVisitor : public virtual Object
 {
     public:
 
@@ -87,13 +87,11 @@ class OSG_EXPORT NodeVisitor : public virtual Referenced
 
         NodeVisitor(VisitorType type,TraversalMode tm=TRAVERSE_NONE);
 
-        virtual ~NodeVisitor();
+        NodeVisitor(const NodeVisitor& nv, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
-        /** return the library name/namespapce of the visitor's. Should be defined by derived classes.*/
-        virtual const char* libraryName() const { return "osg"; }
-
-        /** return the name of the visitor's class type. Should be defined by derived classes.*/
-        virtual const char* className() const { return "NodeVisitor"; }
+	virtual ~NodeVisitor();
+        
+        META_Object(osg, NodeVisitor)
 
         /** Method to call to reset visitor. Useful if your visitor accumulates
             state during a traversal, and you plan to reuse the visitor.
@@ -306,7 +304,7 @@ class OSG_EXPORT NodeVisitor : public virtual Referenced
 
             virtual double getPreLoadTime() const = 0;
 
-            virtual osg::Image* readImageFile(const std::string& fileName) = 0;
+            virtual osg::Image* readImageFile(const std::string& fileName, const osg::Referenced* options=0) = 0;
 
             virtual void requestImageFile(const std::string& fileName,osg::Object* attachmentPoint, int attachmentIndex, double timeToMergeBy, const FrameStamp* framestamp, osg::ref_ptr<osg::Referenced>& imageRequest, const osg::Referenced* options=0) = 0;
 

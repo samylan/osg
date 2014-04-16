@@ -140,6 +140,17 @@ void Texture::TextureProfile::computeSize()
         case(GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG): numBitsPerTexel = 4; break;
 
         case(GL_ETC1_RGB8_OES):                       numBitsPerTexel = 4; break;
+
+        case(GL_COMPRESSED_RGB8_ETC2):                      numBitsPerTexel = 4; break;
+        case(GL_COMPRESSED_SRGB8_ETC2):                     numBitsPerTexel = 4; break;
+        case(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2):  numBitsPerTexel = 8; break;
+        case(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2): numBitsPerTexel = 8; break;
+        case(GL_COMPRESSED_RGBA8_ETC2_EAC):                 numBitsPerTexel = 8; break;
+        case(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC):          numBitsPerTexel = 8; break;
+        case(GL_COMPRESSED_R11_EAC):                        numBitsPerTexel = 4; break;
+        case(GL_COMPRESSED_SIGNED_R11_EAC):                 numBitsPerTexel = 4; break;
+        case(GL_COMPRESSED_RG11_EAC):                       numBitsPerTexel = 8; break;
+        case(GL_COMPRESSED_SIGNED_RG11_EAC):                numBitsPerTexel = 8; break;
     }
 
     _size = (unsigned int)(ceil(double(_width * _height * _depth * numBitsPerTexel)/8.0));
@@ -401,7 +412,7 @@ void Texture::TextureObjectSet::discardAllDeletedTextureObjects()
     _orphanedTextureObjects.clear();
 }
 
-void Texture::TextureObjectSet::flushDeletedTextureObjects(double currentTime, double& availableTime)
+void Texture::TextureObjectSet::flushDeletedTextureObjects(double /*currentTime*/, double& availableTime)
 {
     // OSG_NOTICE<<"Texture::TextureObjectSet::flushDeletedTextureObjects(..)"<<std::endl;
 
@@ -1075,6 +1086,7 @@ Texture::Texture():
             _min_filter(LINEAR_MIPMAP_LINEAR), // trilinear
             _mag_filter(LINEAR),
             _maxAnisotropy(1.0f),
+            _swizzle(GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA),
             _useHardwareMipMapGeneration(true),
             _unrefImageDataAfterApply(false),
             _clientStorageHint(false),
@@ -1101,6 +1113,7 @@ Texture::Texture(const Texture& text,const CopyOp& copyop):
             _min_filter(text._min_filter),
             _mag_filter(text._mag_filter),
             _maxAnisotropy(text._maxAnisotropy),
+            _swizzle(text._swizzle),
             _useHardwareMipMapGeneration(text._useHardwareMipMapGeneration),
             _unrefImageDataAfterApply(text._unrefImageDataAfterApply),
             _clientStorageHint(text._clientStorageHint),
@@ -1133,6 +1146,7 @@ int Texture::compareTexture(const Texture& rhs) const
     COMPARE_StateAttribute_Parameter(_min_filter)
     COMPARE_StateAttribute_Parameter(_mag_filter)
     COMPARE_StateAttribute_Parameter(_maxAnisotropy)
+    COMPARE_StateAttribute_Parameter(_swizzle)
     COMPARE_StateAttribute_Parameter(_useHardwareMipMapGeneration)
     COMPARE_StateAttribute_Parameter(_internalFormatMode)
 
@@ -1226,6 +1240,16 @@ void Texture::setMaxAnisotropy(float anis)
     }
 }
 
+void Texture::bindToImageUnit(unsigned int unit, GLenum access, GLenum format, int level, bool layered, int layer)
+{
+    _imageAttachment.unit = unit;
+    _imageAttachment.level = level;
+    _imageAttachment.layered = layered ? GL_TRUE : GL_FALSE;
+    _imageAttachment.layer = layer;
+    _imageAttachment.access = access;
+    _imageAttachment.format = format;
+    dirtyTextureParameters();
+}
 
 /** Force a recompile on next apply() of associated OpenGL texture objects.*/
 void Texture::dirtyTextureObject()
@@ -1399,6 +1423,24 @@ void Texture::computeInternalFormatWithImage(const osg::Image& image) const
             }
             break;
 
+        case(USE_ETC2_COMPRESSION):
+            if (extensions->isTextureCompressionETC2Supported())
+            {
+                switch(image.getPixelFormat())
+                {
+                    case(1):
+                    case(GL_RED):   internalFormat = GL_COMPRESSED_R11_EAC; break;
+                    case(2):
+                    case(GL_RG):   internalFormat = GL_COMPRESSED_RG11_EAC; break;
+                    case(3):
+                    case(GL_RGB):   internalFormat = GL_COMPRESSED_RGB8_ETC2; break;
+                    case(4):
+                    case(GL_RGBA):  internalFormat = GL_COMPRESSED_RGBA8_ETC2_EAC; break;
+                    default:        internalFormat = image.getInternalTextureFormat(); break;
+                }
+            }
+            break;
+
         case(USE_RGTC1_COMPRESSION):
             if (extensions->isTextureCompressionRGTCSupported())
             {
@@ -1445,8 +1487,20 @@ void Texture::computeInternalFormatWithImage(const osg::Image& image) const
         case(GL_RGBA8_OES) : internalFormat = GL_RGBA; break;
         default: break;
     }
+#elif defined(OSG_GL3_AVAILABLE)
+    switch(internalFormat)
+    {
+        case(GL_INTENSITY) : internalFormat = GL_RED; break; // should it be swizzled to match RGBA(INTENSITY, INTENSITY, INTENSITY, INTENSITY)?
+        case(GL_LUMINANCE) : internalFormat = GL_RED; break; // should it be swizzled to match RGBA(LUMINANCE, LUMINANCE, LUMINANCE, 1.0)?
+        case(1) : internalFormat = GL_RED; break; // or sould this be GL_ALPHA?
+        case(2) : internalFormat = GL_RG; break; // should we assume GL_LUMINANCE_ALPHA?
+        case(GL_LUMINANCE_ALPHA) : internalFormat = GL_RG; break; // should it be swizlled to match RGAB(LUMUNIANCE, LUMINANCE, LUMINANCE, ALPHA)?
+        case(3) : internalFormat = GL_RGB; break;
+        case(4) : internalFormat = GL_RGBA; break;
+        default: break;
+    }
 #endif
-    
+
     _internalFormat = internalFormat;
 
 
@@ -1556,6 +1610,16 @@ bool Texture::isCompressedInternalFormat(GLint internalFormat)
         case(GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT):
         case(GL_COMPRESSED_RED_GREEN_RGTC2_EXT):
         case(GL_ETC1_RGB8_OES):
+        case(GL_COMPRESSED_RGB8_ETC2):
+        case(GL_COMPRESSED_SRGB8_ETC2):
+        case(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+        case(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+        case(GL_COMPRESSED_RGBA8_ETC2_EAC):
+        case(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC):
+        case(GL_COMPRESSED_R11_EAC):
+        case(GL_COMPRESSED_SIGNED_R11_EAC):
+        case(GL_COMPRESSED_RG11_EAC):
+        case(GL_COMPRESSED_SIGNED_RG11_EAC):
         case(GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG):
         case(GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG):
         case(GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG):
@@ -1572,8 +1636,16 @@ void Texture::getCompressedSize(GLenum internalFormat, GLint width, GLint height
         blockSize = 8;
     else if (internalFormat == GL_COMPRESSED_RGBA_S3TC_DXT3_EXT || internalFormat == GL_COMPRESSED_RGBA_S3TC_DXT5_EXT)
         blockSize = 16;
-    else if (internalFormat == GL_ETC1_RGB8_OES)
+    else if (internalFormat == GL_COMPRESSED_RGB8_ETC2 || internalFormat == GL_COMPRESSED_SRGB8_ETC2)
         blockSize = 8;
+    else if (internalFormat == GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2 || internalFormat == GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2)
+        blockSize = 8;
+    else if (internalFormat == GL_COMPRESSED_RGBA8_ETC2_EAC || internalFormat == GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC)
+        blockSize = 16;
+    else if (internalFormat == GL_COMPRESSED_R11_EAC || internalFormat == GL_COMPRESSED_SIGNED_R11_EAC)
+        blockSize = 8;
+    else if (internalFormat == GL_COMPRESSED_RG11_EAC || internalFormat == GL_COMPRESSED_SIGNED_RG11_EAC)
+        blockSize = 16;
     else if (internalFormat == GL_COMPRESSED_RED_RGTC1_EXT || internalFormat == GL_COMPRESSED_SIGNED_RED_RGTC1_EXT)
         blockSize = 8;
     else if (internalFormat == GL_COMPRESSED_RED_GREEN_RGTC2_EXT || internalFormat == GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT)
@@ -1694,6 +1766,13 @@ void Texture::applyTexParameters(GLenum target, State& state) const
         glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, _maxAnisotropy);
     }
 
+    if (extensions->isTextureSwizzleSupported())
+    {
+        // note, GL_TEXTURE_SWIZZLE_RGBA will either be defined
+        // by gl.h (or via glext.h) or by include/osg/Texture.
+        glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, _swizzle.ptr());
+    }
+
     if (extensions->isTextureBorderClampSupported())
     {
 
@@ -1738,6 +1817,19 @@ void Texture::applyTexParameters(GLenum target, State& state) const
         else
         {
             glTexParameteri(target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE);
+        }
+    }
+
+    // Apply image load/store attributes
+    if (extensions->isBindImageTextureSupported() && _imageAttachment.access!=0)
+    {
+        TextureObject* tobj = getTextureObject(contextID);
+        if (tobj)
+        {
+            extensions->glBindImageTexture(
+                _imageAttachment.unit, tobj->id(), _imageAttachment.level,
+                _imageAttachment.layered, _imageAttachment.layer, _imageAttachment.access,
+                _imageAttachment.format!=0 ? _imageAttachment.format : _internalFormat);
         }
     }
 
@@ -1833,21 +1925,31 @@ void Texture::applyTexImage2D_load(State& state, GLenum target, const Image* ima
             case GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
             case GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
             case GL_ETC1_RGB8_OES:
+            case(GL_COMPRESSED_RGB8_ETC2):
+            case(GL_COMPRESSED_SRGB8_ETC2):
             case GL_COMPRESSED_RGB: _internalFormat = GL_RGB; break;
             case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
             case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
             case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
             case GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG:
             case GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
+            case(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+            case(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+            case(GL_COMPRESSED_RGBA8_ETC2_EAC):
+            case(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC):
             case GL_COMPRESSED_RGBA: _internalFormat = GL_RGBA; break;
             case GL_COMPRESSED_ALPHA: _internalFormat = GL_ALPHA; break;
             case GL_COMPRESSED_LUMINANCE: _internalFormat = GL_LUMINANCE; break;
             case GL_COMPRESSED_LUMINANCE_ALPHA: _internalFormat = GL_LUMINANCE_ALPHA; break;
             case GL_COMPRESSED_INTENSITY: _internalFormat = GL_INTENSITY; break;
+            case(GL_COMPRESSED_R11_EAC):
+            case(GL_COMPRESSED_SIGNED_R11_EAC):
             case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT:
             case GL_COMPRESSED_RED_RGTC1_EXT: _internalFormat = GL_RED; break;
+            case(GL_COMPRESSED_RG11_EAC):
+            case(GL_COMPRESSED_SIGNED_RG11_EAC):
             case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:
-            case GL_COMPRESSED_RED_GREEN_RGTC2_EXT: _internalFormat = GL_LUMINANCE_ALPHA; break;
+            case GL_COMPRESSED_RED_GREEN_RGTC2_EXT: _internalFormat = GL_RG; break;
         }
     }
 
@@ -2056,8 +2158,12 @@ void Texture::applyTexImage2D_load(State& state, GLenum target, const Image* ima
         const BufferObject* bo = image->getBufferObject();
         if (bo->getCopyDataAndReleaseGLBufferObject())
         {
-            //OSG_NOTICE<<"Release PBO"<<std::endl;
-            bo->releaseGLObjects(&state);
+            pbo->setBufferDataHasBeenRead(image);
+            if (pbo->hasAllBufferDataBeenRead())
+            {
+                //OSG_NOTICE<<"Release PBO"<<std::endl;
+                bo->releaseGLObjects(&state);
+            }
         }
     }
 
@@ -2314,7 +2420,7 @@ bool Texture::isHardwareMipmapGenerationEnabled(const State& state) const
 
         const FBOExtensions* fbo_ext = FBOExtensions::instance(contextID,true);
 
-        if (fbo_ext->glGenerateMipmap)
+        if (fbo_ext->isSupported() && fbo_ext->glGenerateMipmap)
         {
             return true;
         }
@@ -2331,7 +2437,8 @@ Texture::GenerateMipmapMode Texture::mipmapBeforeTexImage(const State& state, bo
         return GENERATE_MIPMAP;
 #else
 
-        bool useGenerateMipMap = FBOExtensions::instance(state.getContextID(), true)->glGenerateMipmap!=0;
+        FBOExtensions* fbo_ext = FBOExtensions::instance(state.getContextID(),true);
+        bool useGenerateMipMap = fbo_ext->isSupported() && fbo_ext->glGenerateMipmap;
 
         if (useGenerateMipMap)
         {
@@ -2403,7 +2510,7 @@ void Texture::generateMipmap(State& state) const
     osg::FBOExtensions* fbo_ext = osg::FBOExtensions::instance(state.getContextID(), true);
 
     // check if the function is supported
-    if (fbo_ext->glGenerateMipmap)
+    if (fbo_ext->isSupported() && fbo_ext->glGenerateMipmap)
     {
         textureObject->bind();
         fbo_ext->glGenerateMipmap(textureObject->target());
@@ -2483,6 +2590,8 @@ Texture::Extensions::Extensions(unsigned int contextID)
 
     _isTextureFilterAnisotropicSupported = isGLExtensionSupported(contextID,"GL_EXT_texture_filter_anisotropic");
 
+    _isTextureSwizzleSupported = isGLExtensionSupported(contextID,"GL_ARB_texture_swizzle");
+
     _isTextureCompressionARBSupported = builtInSupport || isGLExtensionOrVersionSupported(contextID,"GL_ARB_texture_compression", 1.3f);
 
     _isTextureCompressionS3TCSupported = isGLExtensionSupported(contextID,"GL_EXT_texture_compression_s3tc");
@@ -2493,6 +2602,7 @@ Texture::Extensions::Extensions(unsigned int contextID)
 
     _isTextureCompressionETCSupported = isGLExtensionSupported(contextID,"GL_OES_compressed_ETC1_RGB8_texture");
 
+    _isTextureCompressionETC2Supported = isGLExtensionSupported(contextID,"GL_ARB_ES3_compatibility");
 
     _isTextureCompressionRGTCSupported = isGLExtensionSupported(contextID,"GL_EXT_texture_compression_rgtc");
 
@@ -2557,27 +2667,6 @@ Texture::Extensions::Extensions(unsigned int contextID)
         }
     }
 
-    if( _isMultiTexturingSupported )
-    {
-       _numTextureUnits = 0;
-       #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
-           glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS,&_numTextureUnits);
-       #else
-           if (osg::asciiToFloat(version)>=2.0)
-           {
-               glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS,&_numTextureUnits);
-           }
-           else
-           {
-               glGetIntegerv(GL_MAX_TEXTURE_UNITS,&_numTextureUnits);
-           }
-       #endif
-    }
-    else
-    {
-       _numTextureUnits = 1;
-    }
-
     setGLExtensionFuncPtr(_glCompressedTexImage2D,"glCompressedTexImage2D","glCompressedTexImage2DARB");
     setGLExtensionFuncPtr(_glCompressedTexSubImage2D,"glCompressedTexSubImage2D","glCompressedTexSubImage2DARB");
     setGLExtensionFuncPtr(_glGetCompressedTexImage,"glGetCompressedTexImage","glGetCompressedTexImageARB");;
@@ -2589,6 +2678,8 @@ Texture::Extensions::Extensions(unsigned int contextID)
 
     if (_glTexParameterIiv == NULL) setGLExtensionFuncPtr(_glTexParameterIiv, "glTexParameterIivEXT");
     if (_glTexParameterIuiv == NULL) setGLExtensionFuncPtr(_glTexParameterIuiv, "glTexParameterIuivEXT");
+
+    setGLExtensionFuncPtr(_glBindImageTexture, "glBindImageTexture", "glBindImageTextureARB");
 
     _isTextureMaxLevelSupported = ( getGLVersionNumber() >= 1.2f );
 }

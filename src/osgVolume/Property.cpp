@@ -13,6 +13,7 @@
 
 #include <osgVolume/Property>
 #include <osgVolume/VolumeTile>
+#include <osgVolume/RayTracedTechnique>
 
 using namespace osgVolume;
 
@@ -193,6 +194,35 @@ SampleDensityWhenMovingProperty::SampleDensityWhenMovingProperty(const SampleDen
 {
 }
 
+/////////////////////////////////////////////////////////////////////////////
+//
+// SampleRatioProperty
+//
+SampleRatioProperty::SampleRatioProperty(float value):
+    ScalarProperty("SampleRatioValue",value)
+{
+}
+
+SampleRatioProperty::SampleRatioProperty(const SampleRatioProperty& srp,const osg::CopyOp& copyop):
+    ScalarProperty(srp, copyop)
+{
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// SampleRatioWhenMovingProperty
+//
+SampleRatioWhenMovingProperty::SampleRatioWhenMovingProperty(float value):
+    ScalarProperty("SampleRatioValue",value)
+{
+}
+
+SampleRatioWhenMovingProperty::SampleRatioWhenMovingProperty(const SampleRatioWhenMovingProperty& isp,const osg::CopyOp& copyop):
+    ScalarProperty(isp, copyop)
+{
+}
+
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -205,6 +235,20 @@ TransparencyProperty::TransparencyProperty(float value):
 
 TransparencyProperty::TransparencyProperty(const TransparencyProperty& isp,const osg::CopyOp& copyop):
     ScalarProperty(isp, copyop)
+{
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ExteriorTransparencyFactorProperty
+//
+ExteriorTransparencyFactorProperty::ExteriorTransparencyFactorProperty(float value):
+    ScalarProperty("ExteriorTransparencyFactorValue",value)
+{
+}
+
+ExteriorTransparencyFactorProperty::ExteriorTransparencyFactorProperty(const ExteriorTransparencyFactorProperty& etfp,const osg::CopyOp& copyop):
+    ScalarProperty(etfp, copyop)
 {
 }
 
@@ -262,7 +306,10 @@ void CollectPropertiesVisitor::apply(MaximumIntensityProjectionProperty& mip) { 
 void CollectPropertiesVisitor::apply(LightingProperty& lp) { _lightingProperty = &lp; }
 void CollectPropertiesVisitor::apply(SampleDensityProperty& sdp) { _sampleDensityProperty = &sdp; }
 void CollectPropertiesVisitor::apply(SampleDensityWhenMovingProperty& sdp) { _sampleDensityWhenMovingProperty = &sdp; }
+void CollectPropertiesVisitor::apply(SampleRatioProperty& srp) { _sampleRatioProperty = &srp; }
+void CollectPropertiesVisitor::apply(SampleRatioWhenMovingProperty& srp) { _sampleRatioWhenMovingProperty = &srp; }
 void CollectPropertiesVisitor::apply(TransparencyProperty& tp) { _transparencyProperty = &tp; }
+void CollectPropertiesVisitor::apply(ExteriorTransparencyFactorProperty& etfp) { _exteriorTransparencyFactorProperty = &etfp; }
 
 
 class CycleSwitchVisitor : public osgVolume::PropertyVisitor
@@ -323,9 +370,11 @@ PropertyAdjustmentCallback::PropertyAdjustmentCallback():
     _cyleForwardKey('v'),
     _cyleBackwardKey('V'),
     _transparencyKey('t'),
+    _exteriorTransparencyFactorKey('y'),
     _alphaFuncKey('a'),
     _sampleDensityKey('d'),
     _updateTransparency(false),
+    _updateExteriorTransparencyFactor(false),
     _updateAlphaCutOff(false),
     _updateSampleDensity(false)
 {
@@ -335,9 +384,11 @@ PropertyAdjustmentCallback::PropertyAdjustmentCallback(const PropertyAdjustmentC
     _cyleForwardKey(pac._cyleForwardKey),
     _cyleBackwardKey(pac._cyleBackwardKey),
     _transparencyKey(pac._transparencyKey),
+    _exteriorTransparencyFactorKey(pac._exteriorTransparencyFactorKey),
     _alphaFuncKey(pac._alphaFuncKey),
     _sampleDensityKey(pac._sampleDensityKey),
     _updateTransparency(false),
+    _updateExteriorTransparencyFactor(false),
     _updateAlphaCutOff(false),
     _updateSampleDensity(false)
 {
@@ -370,11 +421,15 @@ bool PropertyAdjustmentCallback::handle(const osgGA::GUIEventAdapter& ea,osgGA::
                 property->accept(csv);
                 if (csv._switchModified)
                 {
-                    tile->setDirty(true);
-                    tile->init();
+                    if (dynamic_cast<osgVolume::RayTracedTechnique*>(tile->getVolumeTechnique()))
+                    {
+                        tile->setDirty(true);
+                        tile->init();
+                    }
                 }
             }
             else if (ea.getKey()==_transparencyKey) _updateTransparency = passOnUpdates = true;
+            else if (ea.getKey()==_exteriorTransparencyFactorKey) _updateExteriorTransparencyFactor = passOnUpdates = true;
             else if (ea.getKey()==_alphaFuncKey) _updateAlphaCutOff = passOnUpdates = true;
             else if (ea.getKey()==_sampleDensityKey) _updateSampleDensity = passOnUpdates = true;
             break;
@@ -382,6 +437,7 @@ bool PropertyAdjustmentCallback::handle(const osgGA::GUIEventAdapter& ea,osgGA::
         case(osgGA::GUIEventAdapter::KEYUP):
         {
             if (ea.getKey()==_transparencyKey) _updateTransparency = false;
+            else if (ea.getKey()==_exteriorTransparencyFactorKey) _updateExteriorTransparencyFactor = false;
             else if (ea.getKey()==_alphaFuncKey) _updateAlphaCutOff = false;
             else if (ea.getKey()==_sampleDensityKey) _updateSampleDensity = false;
             break;
@@ -396,35 +452,54 @@ bool PropertyAdjustmentCallback::handle(const osgGA::GUIEventAdapter& ea,osgGA::
         if (ea.getMouseYOrientation()==osgGA::GUIEventAdapter::Y_INCREASING_DOWNWARDS) v = 1.0f-v;
 
         float v2 = v*v;
-        float v4 = v2*v2;
+        float sampleRatio = powf((1.0f-v)*2.0f,3.0f);
+        float sampleDensity = (1.0/sampleRatio)/512.0f;
 
         if (_updateAlphaCutOff && cpv._isoProperty.valid())
         {
-            OSG_INFO<<"Setting isoProperty to "<<v<<std::endl;
+            OSG_NOTICE<<"Setting isoProperty to "<<v<<std::endl;
             cpv._isoProperty->setValue(v);
         }
 
         if (_updateAlphaCutOff && cpv._afProperty.valid())
         {
-            OSG_INFO<<"Setting afProperty to "<<v2<<std::endl;
+            OSG_NOTICE<<"Setting afProperty to "<<v2<<std::endl;
             cpv._afProperty->setValue(v2);
         }
 
         if (_updateTransparency && cpv._transparencyProperty.valid())
         {
-            OSG_INFO<<"Setting transparency to "<<v2<<std::endl;
-            cpv._transparencyProperty->setValue(1.0f-v2);
+            cpv._transparencyProperty->setValue((1.0f-v2)*2.0f);
+            OSG_NOTICE<<"Setting transparency to "<<cpv._transparencyProperty->getValue()<<std::endl;
+        }
+
+        if (_updateExteriorTransparencyFactor && cpv._exteriorTransparencyFactorProperty.valid())
+        {
+            cpv._exteriorTransparencyFactorProperty->setValue((1.0f-v));
+            OSG_NOTICE<<"Setting exterior transparency factor to "<<cpv._exteriorTransparencyFactorProperty->getValue()<<std::endl;
         }
 
         if (_updateSampleDensity && cpv._sampleDensityProperty.valid())
         {
-            OSG_INFO<<"Setting sample density to "<<v4<<std::endl;
-            cpv._sampleDensityProperty->setValue(v4);
+            OSG_NOTICE<<"Setting sample density to "<<sampleDensity<<std::endl;
+            cpv._sampleDensityProperty->setValue(sampleDensity);
         }
         if (_updateSampleDensity && cpv._sampleDensityWhenMovingProperty.valid())
         {
-            OSG_INFO<<"Setting sample density when moving to "<<v4<<std::endl;
-            cpv._sampleDensityWhenMovingProperty->setValue(v4);
+            OSG_INFO<<"Setting sample density when moving to "<<sampleDensity<<std::endl;
+            cpv._sampleDensityWhenMovingProperty->setValue(sampleDensity);
+        }
+
+        if (_updateSampleDensity && cpv._sampleRatioProperty.valid())
+        {
+            OSG_NOTICE<<"Setting sample ratio to "<<sampleRatio<<std::endl;
+            cpv._sampleRatioProperty->setValue(sampleRatio);
+        }
+
+        if (_updateSampleDensity && cpv._sampleRatioWhenMovingProperty.valid())
+        {
+            OSG_NOTICE<<"Setting sample ratio to "<<sampleRatio<<std::endl;
+            cpv._sampleRatioWhenMovingProperty->setValue(sampleRatio);
         }
     }
 

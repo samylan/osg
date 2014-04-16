@@ -22,7 +22,7 @@
 namespace osg
 {
 
-struct FindRangeOperator
+struct FindRangeOperator : public CastAndScaleToFloatOperation
 {
     FindRangeOperator():
         _rmin(FLT_MAX),
@@ -168,7 +168,7 @@ void _copyRowAndScale(const unsigned char* src, GLenum srcDataType, unsigned cha
     }
 }
 
-struct RecordRowOperator
+struct RecordRowOperator : public CastAndScaleToFloatOperation
 {
     RecordRowOperator(unsigned int num):_colours(num),_pos(0) {}
 
@@ -200,7 +200,7 @@ struct WriteRowOperator
 bool copyImage(const osg::Image* srcImage, int src_s, int src_t, int src_r, int width, int height, int depth,
                osg::Image* destImage, int dest_s, int dest_t, int dest_r, bool doRescale)
 {
-    if ((src_s+width) > (dest_s + destImage->s()))
+    if ((dest_s+width) > (destImage->s()))
     {
         OSG_NOTICE<<"copyImage("<<srcImage<<", "<<src_s<<", "<< src_t<<", "<<src_r<<", "<<width<<", "<<height<<", "<<depth<<std::endl;
         OSG_NOTICE<<"          "<<destImage<<", "<<dest_s<<", "<< dest_t<<", "<<dest_r<<", "<<doRescale<<")"<<std::endl;
@@ -208,7 +208,7 @@ bool copyImage(const osg::Image* srcImage, int src_s, int src_t, int src_r, int 
         return false;
     }
 
-    if ((src_t+height) > (dest_t + destImage->t()))
+    if ((dest_t+height) > (destImage->t()))
     {
         OSG_NOTICE<<"copyImage("<<srcImage<<", "<<src_s<<", "<< src_t<<", "<<src_r<<", "<<width<<", "<<height<<", "<<depth<<std::endl;
         OSG_NOTICE<<"          "<<destImage<<", "<<dest_s<<", "<< dest_t<<", "<<dest_r<<", "<<doRescale<<")"<<std::endl;
@@ -216,7 +216,7 @@ bool copyImage(const osg::Image* srcImage, int src_s, int src_t, int src_r, int 
         return false;
     }
 
-    if ((src_r+depth) > (dest_r + destImage->r()))
+    if ((dest_r+depth) > (destImage->r()))
     {
         OSG_NOTICE<<"copyImage("<<srcImage<<", "<<src_s<<", "<< src_t<<", "<<src_r<<", "<<width<<", "<<height<<", "<<depth<<std::endl;
         OSG_NOTICE<<"          "<<destImage<<", "<<dest_s<<", "<< dest_t<<", "<<dest_r<<", "<<doRescale<<")"<<std::endl;
@@ -316,7 +316,7 @@ bool copyImage(const osg::Image* srcImage, int src_s, int src_t, int src_r, int 
             }
         }
 
-        return false;
+        return true;
     }
 
 }

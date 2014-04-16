@@ -305,6 +305,7 @@ void Image::setData(unsigned char* data, AllocationMode mode)
     deallocateData();
     _data = data;
     _allocationMode = mode;
+    dirty();
 }
 
 
@@ -408,6 +409,13 @@ GLenum Image::computePixelFormat(GLenum format)
         case(GL_RGBA8UI_EXT):
             return GL_RGBA_INTEGER_EXT;
 
+        case(GL_DEPTH_COMPONENT16):
+        case(GL_DEPTH_COMPONENT24):
+        case(GL_DEPTH_COMPONENT32):
+        case(GL_DEPTH_COMPONENT32F):
+        case(GL_DEPTH_COMPONENT32F_NV):
+            return GL_DEPTH_COMPONENT;
+
         default:
             return format;
     }
@@ -487,9 +495,24 @@ unsigned int Image::computeNumComponents(GLenum pixelFormat)
         case(GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG): return 4;
         case(GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG): return 4;
         case(GL_ETC1_RGB8_OES): return 3;
+        case(GL_COMPRESSED_RGB8_ETC2): return 3;
+        case(GL_COMPRESSED_SRGB8_ETC2): return 3;
+        case(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2): return 4;
+        case(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2): return 4;
+        case(GL_COMPRESSED_RGBA8_ETC2_EAC): return 4;
+        case(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC): return 4;
+        case(GL_COMPRESSED_R11_EAC): return 1;
+        case(GL_COMPRESSED_SIGNED_R11_EAC): return 1;
+        case(GL_COMPRESSED_RG11_EAC): return 2;
+        case(GL_COMPRESSED_SIGNED_RG11_EAC): return 2;
         case(GL_COLOR_INDEX): return 1;
         case(GL_STENCIL_INDEX): return 1;
         case(GL_DEPTH_COMPONENT): return 1;
+        case(GL_DEPTH_COMPONENT16): return 1;
+        case(GL_DEPTH_COMPONENT24): return 1;
+        case(GL_DEPTH_COMPONENT32): return 1;
+        case(GL_DEPTH_COMPONENT32F): return 1;
+        case(GL_DEPTH_COMPONENT32F_NV): return 1;
         case(GL_RED): return 1;
         case(GL_GREEN): return 1;
         case(GL_BLUE): return 1;
@@ -600,6 +623,16 @@ unsigned int Image::computePixelSizeInBits(GLenum format,GLenum type)
         case(GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG): return 4;
         case(GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG): return 2;
         case(GL_ETC1_RGB8_OES): return 4;
+        case(GL_COMPRESSED_RGB8_ETC2): return 4;
+        case(GL_COMPRESSED_SRGB8_ETC2): return 4;
+        case(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2): return 4;
+        case(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2): return 4;
+        case(GL_COMPRESSED_RGBA8_ETC2_EAC): return 8;
+        case(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC): return 8;
+        case(GL_COMPRESSED_R11_EAC): return 4;
+        case(GL_COMPRESSED_SIGNED_R11_EAC): return 4;
+        case(GL_COMPRESSED_RG11_EAC): return 8;
+        case(GL_COMPRESSED_SIGNED_RG11_EAC): return 8;
         default: break;
     }
 
@@ -653,7 +686,7 @@ unsigned int Image::computePixelSizeInBits(GLenum format,GLenum type)
         case(GL_BYTE):
         case(GL_UNSIGNED_BYTE): return 8*computeNumComponents(format);
 
-        case(GL_HALF_FLOAT_NV):
+        case(GL_HALF_FLOAT):
         case(GL_SHORT):
         case(GL_UNSIGNED_SHORT): return 16*computeNumComponents(format);
 
@@ -707,6 +740,20 @@ unsigned int Image::computeBlockSize(GLenum pixelFormat, GLenum packing)
         case(GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT):
         case(GL_COMPRESSED_RED_GREEN_RGTC2_EXT):
             return osg::maximum(16u,packing); // block size of 16
+
+        case(GL_COMPRESSED_RGB8_ETC2):
+        case(GL_COMPRESSED_SRGB8_ETC2):
+        case(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+        case(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+        case(GL_COMPRESSED_R11_EAC):
+        case(GL_COMPRESSED_SIGNED_R11_EAC):
+            return osg::maximum(8u,packing); // block size of 8
+
+        case(GL_COMPRESSED_RGBA8_ETC2_EAC):
+        case(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC):
+        case(GL_COMPRESSED_RG11_EAC):
+        case(GL_COMPRESSED_SIGNED_RG11_EAC):
+            return osg::maximum(16u,packing); // block size of 16
         default:
             break;
     }
@@ -722,14 +769,49 @@ unsigned int Image::computeRowWidthInBytes(int width,GLenum pixelFormat,GLenum t
     return (widthInBits/packingInBits + ((widthInBits%packingInBits)?1:0))*packing;
 }
 
-unsigned int Image::computeImageSizeInBytes(int width,int height, int depth, GLenum pixelFormat,GLenum type,int packing)
+unsigned int Image::computeImageSizeInBytes(int width,int height, int depth, GLenum pixelFormat,GLenum type,int packing, int slice_packing, int image_packing)
 {
-    if (width==0 || height==0 || depth==0) return 0;
+    if (width<=0 || height<=0 || depth<=0) return 0;
 
-    return osg::maximum(
-            Image::computeRowWidthInBytes(width,pixelFormat,type,packing)*height*depth,
-            computeBlockSize(pixelFormat, packing)
-        );
+    // Taking advantage of the fact that
+    // DXT formats are defined as 4 successive numbers:
+    // GL_COMPRESSED_RGB_S3TC_DXT1_EXT         0x83F0
+    // GL_COMPRESSED_RGBA_S3TC_DXT1_EXT        0x83F1
+    // GL_COMPRESSED_RGBA_S3TC_DXT3_EXT        0x83F2
+    // GL_COMPRESSED_RGBA_S3TC_DXT5_EXT        0x83F3
+    if( pixelFormat >= GL_COMPRESSED_RGB_S3TC_DXT1_EXT &&
+        pixelFormat <= GL_COMPRESSED_RGBA_S3TC_DXT5_EXT )
+    {
+        width = (width + 3) & ~3;
+        height = (height + 3) & ~3;
+    }
+
+    // 3dc ATI formats
+    // GL_COMPRESSED_RED_RGTC1_EXT                     0x8DBB
+    // GL_COMPRESSED_SIGNED_RED_RGTC1_EXT              0x8DBC
+    // GL_COMPRESSED_RED_GREEN_RGTC2_EXT               0x8DBD
+    // GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT        0x8DBE
+    if( pixelFormat >= GL_COMPRESSED_RED_RGTC1_EXT &&
+        pixelFormat <= GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT )
+    {
+        width = (width + 3) & ~3;
+        height = (height + 3) & ~3;
+    }
+
+    // compute size of one row
+    unsigned int size = osg::Image::computeRowWidthInBytes( width, pixelFormat, type, packing );
+
+    // now compute size of slice
+    size *= height;
+    size += slice_packing - 1;
+    size -= size % slice_packing;
+
+    // compute size of whole image
+    size *= depth;
+    size += image_packing - 1;
+    size -= size % image_packing;
+
+    return osg::maximum( size, computeBlockSize(pixelFormat, packing) );
 }
 
 int Image::computeNearestPowerOfTwo(int s,float bias)
@@ -777,6 +859,16 @@ bool Image::isCompressed() const
         case(GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG):
         case(GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG):
         case(GL_ETC1_RGB8_OES):
+        case(GL_COMPRESSED_RGB8_ETC2):
+        case(GL_COMPRESSED_SRGB8_ETC2):
+        case(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+        case(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+        case(GL_COMPRESSED_RGBA8_ETC2_EAC):
+        case(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC):
+        case(GL_COMPRESSED_R11_EAC):
+        case(GL_COMPRESSED_SIGNED_R11_EAC):
+        case(GL_COMPRESSED_RG11_EAC):
+        case(GL_COMPRESSED_SIGNED_RG11_EAC):
             return true;
         default:
             return false;
@@ -856,7 +948,7 @@ void Image::allocateImage(int s,int t,int r,
                         int packing)
 {
     _mipmapData.clear();
-    
+
     bool callback_needed(false);
 
     unsigned int previousTotalSize = 0;
@@ -891,7 +983,7 @@ void Image::allocateImage(int s,int t,int r,
     else
     {
         callback_needed = (_s != 0) || (_t != 0) || (_r != 0);
-        
+
         // failed to allocate memory, for now, will simply set values to 0.
         _s = 0;
         _t = 0;
@@ -905,10 +997,10 @@ void Image::allocateImage(int s,int t,int r,
         // policy so that allocateImage honours previous settings of _internalTextureFormat.
         //_internalTextureFormat = 0;
     }
-    
+
     if (callback_needed)
         handleDimensionsChangedCallbacks();
-    
+
     dirty();
 }
 
@@ -921,9 +1013,9 @@ void Image::setImage(int s,int t,int r,
                      int rowLength)
 {
     _mipmapData.clear();
-    
+
     bool callback_needed = (_s != s) || (_t != t) || (_r != r);
-    
+
     _s = s;
     _t = t;
     _r = r;
@@ -938,7 +1030,7 @@ void Image::setImage(int s,int t,int r,
     _rowLength = rowLength;
 
     dirty();
-    
+
     if (callback_needed)
         handleDimensionsChangedCallbacks();
 
@@ -1404,14 +1496,23 @@ void Image::flipVertical()
     unsigned int rowSize = getRowSizeInBytes();
     unsigned int rowStep = getRowStepInBytes();
 
+    const bool dxtc(dxtc_tool::isDXTC(_pixelFormat));
     if (_mipmapData.empty())
     {
         // no mipmaps,
         // so we can safely handle 3d textures
         for(int r=0;r<_r;++r)
         {
-            if (!dxtc_tool::VerticalFlip(_s,_t,_pixelFormat,data(0,0,r)))
+            if (dxtc)
             {
+                if (!dxtc_tool::VerticalFlip(_s,_t,_pixelFormat,data(0,0,r)))
+                {
+                    OSG_NOTICE << "Notice Image::flipVertical(): Vertical flip do not succeed" << std::endl;
+                }
+            }
+            else
+            {
+                if (isCompressed()) OSG_NOTICE << "Notice Image::flipVertical(): image is compressed but normal v-flip is used" << std::endl;
                 // its not a compressed image, so implement flip oursleves.
                 unsigned char* top = data(0,0,r);
                 unsigned char* bottom = top + (_t-1)*rowStep;
@@ -1422,8 +1523,16 @@ void Image::flipVertical()
     }
     else if (_r==1)
     {
-        if (!dxtc_tool::VerticalFlip(_s,_t,_pixelFormat,_data))
+        if (dxtc)
         {
+            if (!dxtc_tool::VerticalFlip(_s,_t,_pixelFormat,_data))
+            {
+                OSG_NOTICE << "Notice Image::flipVertical(): Vertical flip do not succeed" << std::endl;
+            }
+        }
+        else
+        {
+            if (isCompressed()) OSG_NOTICE << "Notice Image::flipVertical(): image is compressed but normal v-flip is used" << std::endl;
             // its not a compressed image, so implement flip oursleves.
             unsigned char* top = data(0,0,0);
             unsigned char* bottom = top + (_t-1)*rowStep;
@@ -1441,7 +1550,14 @@ void Image::flipVertical()
             t >>= 1;
             if (s==0) s=1;
             if (t==0) t=1;
-            if (!dxtc_tool::VerticalFlip(s,t,_pixelFormat,_data+_mipmapData[i]))
+            if (dxtc)
+            {
+                if (!dxtc_tool::VerticalFlip(s,t,_pixelFormat,_data+_mipmapData[i]))
+                {
+                    OSG_NOTICE << "Notice Image::flipVertical(): Vertical flip do not succeed" << std::endl;
+                }
+            }
+            else
             {
                 // its not a compressed image, so implement flip oursleves.
                 unsigned char* top = _data+_mipmapData[i];
@@ -1515,6 +1631,16 @@ bool Image::supportsTextureSubloading() const
     switch(_internalTextureFormat)
     {
         case GL_ETC1_RGB8_OES:
+        case(GL_COMPRESSED_RGB8_ETC2):
+        case(GL_COMPRESSED_SRGB8_ETC2):
+        case(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+        case(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2):
+        case(GL_COMPRESSED_RGBA8_ETC2_EAC):
+        case(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC):
+        case(GL_COMPRESSED_R11_EAC):
+        case(GL_COMPRESSED_SIGNED_R11_EAC):
+        case(GL_COMPRESSED_RG11_EAC):
+        case(GL_COMPRESSED_SIGNED_RG11_EAC):
             return false;
         default:
             return true;
@@ -1651,7 +1777,7 @@ bool Image::isImageTranslucent() const
                                                         0xc0000000u, 1))
                         return true;
                     break;
-                case(GL_HALF_FLOAT_NV):
+                case(GL_HALF_FLOAT):
                     if (_findLowerAlphaValueInRow(s(), (unsigned short*)d + offset,
                                                   (unsigned short)0x3c00, delta))
                         return true;
@@ -1734,8 +1860,7 @@ Geode* osg::createGeodeForImage(osg::Image* image,float s,float t)
 
             osg::Vec4Array* colours = new osg::Vec4Array(1);
             (*colours)[0].set(1.0f,1.0f,1.0,1.0f);
-            geom->setColorArray(colours);
-            geom->setColorBinding(Geometry::BIND_OVERALL);
+            geom->setColorArray(colours, osg::Array::BIND_OVERALL);
 
             geom->addPrimitiveSet(new DrawArrays(PrimitiveSet::QUADS,0,4));
 
@@ -1787,6 +1912,7 @@ Vec4 Image::getColor(unsigned int s,unsigned t,unsigned r) const
         case(GL_INT):               return _readColor(_pixelFormat, (int*)ptr,              1.0f/2147483648.0f);
         case(GL_UNSIGNED_INT):      return _readColor(_pixelFormat, (unsigned int*)ptr,     1.0f/4294967295.0f);
         case(GL_FLOAT):             return _readColor(_pixelFormat, (float*)ptr,            1.0f);
+        case(GL_DOUBLE):            return _readColor(_pixelFormat, (double*)ptr,           1.0f);
     }
     return Vec4(1.0f,1.0f,1.0f,1.0f);
 }
