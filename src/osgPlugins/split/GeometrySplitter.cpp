@@ -1,9 +1,9 @@
-/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson 
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson
  *
- * This application is open source and may be redistributed and/or modified   
+ * This application is open source and may be redistributed and/or modified
  * freely and without restriction, both in commercial and non commercial
  * applications, as long as this copyright notice is maintained.
- * 
+ *
  * This application is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -78,15 +78,6 @@ struct ConvertToBindPerVertex {
                         result->push_back(array[p]);
                 }
                 break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    unsigned int nb = primitives[p]->getNumPrimitives();
-                    for (unsigned int i = 0; i < nb; i++) {
-                        result->push_back(array[i]);
-                        result->push_back(array[i]);
-                    }
-                }
-                break;
                 }
                 break;
 
@@ -108,16 +99,6 @@ struct ConvertToBindPerVertex {
                         result->push_back(array[p]);
                 }
                 break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    unsigned int nb = primitives[p]->getNumPrimitives();
-                    for (unsigned int i = 0; i < nb; i++) {
-                        result->push_back(array[i]);
-                        result->push_back(array[i]);
-                        result->push_back(array[i]);
-                    }
-                }
-                break;
                 }
                 break;
 
@@ -135,11 +116,6 @@ struct ConvertToBindPerVertex {
                 case osg::Geometry::BIND_PER_PRIMITIVE_SET:
                 {
                     osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE_SET to BIND_PER_VERTEX, for TRIANGLE_STRIP" << std::endl;
-                }
-                break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for TRIANGLE_STRIP" << std::endl;
                 }
                 break;
                 }
@@ -161,11 +137,6 @@ struct ConvertToBindPerVertex {
                     osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE_SET to BIND_PER_VERTEX, for TRIANGLE_FAN" << std::endl;
                 }
                 break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for TRIANGLE_FAN" << std::endl;
-                }
-                break;
                 }
                 break;
 
@@ -185,11 +156,6 @@ struct ConvertToBindPerVertex {
                     osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE_SET to BIND_PER_VERTEX, for QUADS" << std::endl;
                 }
                 break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for QUADS" << std::endl;
-                }
-                break;
                 }
                 break;
 
@@ -207,11 +173,6 @@ struct ConvertToBindPerVertex {
                 case osg::Geometry::BIND_PER_PRIMITIVE_SET:
                 {
                     osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE_SET to BIND_PER_VERTEX, for QUAD_STRIP" << std::endl;
-                }
-                break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for QUAD_STRIP" << std::endl;
                 }
                 break;
                 }
@@ -394,7 +355,7 @@ struct GeometrySplitter
             }
         }
     }
-    
+
     ArrayList _arraySrc;
     osg::Geometry& _geometry;
     GeometryList _geometryList;
@@ -415,12 +376,12 @@ struct TriangleConvertorVertexes
 struct SetupTriangleConvertorVertexes : public osg::TriangleFunctor<TriangleConvertorVertexes>
 {
     SetupTriangleConvertorVertexes() {
-        _vertexes = new osg::Vec3Array; 
+        _vertexes = new osg::Vec3Array;
     }
 };
 
 
-void SplitGeometryVisitor::convertToBindPerVertex(osg::Geometry& srcGeom) 
+void SplitGeometryVisitor::convertToBindPerVertex(osg::Geometry& srcGeom)
 {
     unsigned int size = srcGeom.getVertexArray()->getNumElements();
     if (srcGeom.getNormalArray() && srcGeom.getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) {
@@ -454,7 +415,7 @@ unsigned int SplitGeometryVisitor::splitByVertexArray(osg::Geometry& srcGeom, Ge
 
     GeometrySplitter splitter(srcGeom);
     splitter.split(_maxVertexes);
-        
+
     for (unsigned int i = 0; i < splitter._geometryList.size(); i++) {
         list.push_back(splitter._geometryList[i].get());
     }
@@ -462,7 +423,7 @@ unsigned int SplitGeometryVisitor::splitByVertexArray(osg::Geometry& srcGeom, Ge
     return splitter._geometryList.size();
 }
 
-void SplitGeometryVisitor::apply(osg::Geode& node) 
+void SplitGeometryVisitor::apply(osg::Geode& node)
 {
     GeometryList listGeometry;
     bool touched = false;
