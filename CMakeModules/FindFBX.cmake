@@ -9,7 +9,11 @@
 # correspond to the ./configure --prefix=$FBX_DIR
 
 IF(APPLE)
-    SET(FBX_LIBDIR "gcc4/ub")
+    IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+         SET(FBX_LIBDIR "clang/ub")
+    ELSE()
+         SET(FBX_LIBDIR "gcc4/ub")
+    ENDIF()
 ELSEIF(CMAKE_COMPILER_IS_GNUCXX)
     SET(FBX_LIBDIR "gcc4")
 ELSEIF(MSVC80)
@@ -35,7 +39,11 @@ ELSE()
 ENDIF()
 
 IF(APPLE)
-    SET(FBX_LIBNAME "libfbxsdk")
+    IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        SET(FBX_LIBNAME "fbxsdk")
+    ELSE()
+        SET(FBX_LIBNAME "libfbxsdk")
+    ENDIF()
 ELSEIF(CMAKE_COMPILER_IS_GNUCXX)
     SET(FBX_LIBNAME "fbxsdk")
 ELSE()
@@ -48,7 +56,8 @@ SET( FBX_SEARCH_PATHS
     $ENV{FBX_DIR}
     "$ENV{ProgramW6432}/Autodesk/FBX/FBX SDK/2014.2"
     "$ENV{PROGRAMFILES}/Autodesk/FBX/FBX SDK/2014.2"
-    /Applications/Autodesk/FBXSDK20141
+    "/Applications/Autodesk/FBXSDK20141"
+    "/Applications/Autodesk/FBX SDK/2014.2.1/"
 )
 
 # search for headers & debug/release libraries
