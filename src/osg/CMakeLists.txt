@@ -72,7 +72,6 @@ SET(TARGET_H
     ${HEADER_PATH}/FrontFace
     ${HEADER_PATH}/Geode
     ${HEADER_PATH}/Geometry
-    ${HEADER_PATH}/GL
     ${HEADER_PATH}/GL2Extensions
     ${HEADER_PATH}/GLExtensions
     ${HEADER_PATH}/GLBeginEndAdapter
@@ -211,6 +210,7 @@ SET(TARGET_H
     ${HEADER_PATH}/View
     ${HEADER_PATH}/Viewport
     ${OPENSCENEGRAPH_CONFIG_HEADER}
+    ${OPENSCENEGRAPH_OPENGL_HEADER}
 )
 
 #ADD_LIBRARY(${LIB_NAME}
