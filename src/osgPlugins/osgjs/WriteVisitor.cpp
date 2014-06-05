@@ -57,19 +57,19 @@ static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
 
 #include "Base64"
 
-JSONObject* createImage(osg::Image* image, bool inlineImages)
+JSONObject* createImage(osg::Image* image, bool inlineImages, const std::string &baseName)
 {
     if (!image) {
         osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
         return new JSONValue<std::string>("/unknown.png");
     } else {
-        if (!image->getFileName().empty()) {
+        if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
             int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
             int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
             bool needToResize = false;
             if (new_s != image->s()) needToResize = true;
             if (new_t != image->t()) needToResize = true;
-            
+
             if (needToResize) {
                 // resize and rewrite image file
                 // CP: TODO resize should be done from external
@@ -79,7 +79,8 @@ JSONObject* createImage(osg::Image* image, bool inlineImages)
         } else {
             // no image file so use this inline name image and create a file
             std::stringstream ss;
-            ss << (long int)image << ".png"; // write the pointer location
+            ss << osgDB::getFilePath(baseName) << osgDB::getNativePathSeparator();
+            ss << (long int)image << ".inline_conv_generated.png"; // write the pointer location
             std::string filename = ss.str();
             if (osgDB::writeImageFile(*image, filename)) {
                 image->setFileName(filename);
@@ -536,12 +537,12 @@ JSONObject* WriteVisitor::createJSONLight(osg::Light* light)
     return jsonLight.release();
 }
 
-template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, bool inlineImages)
+template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, bool inlineImages, const std::string &baseName = "")
 {
     T* text = dynamic_cast<T*>( texture);
     if (text) {
         translateObject(jsonTexture,text);
-        JSONObject* image = createImage(text->getImage(), inlineImages);
+        JSONObject* image = createImage(text->getImage(), inlineImages, baseName);
         if (image)
             jsonTexture->getMaps()["File"] = image;
         return jsonTexture;
@@ -571,21 +572,21 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
 
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture, _inlineImages, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture, _inlineImages, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture, _inlineImages, this->_baseName);
         if (obj) {
             return obj;
         }
