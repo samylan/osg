@@ -44,11 +44,13 @@ public:
     bool _useExternalBinaryArray;
     bool _mergeAllBinaryFiles;
     bool _inlineImages;
+    int _maxTextureDimension;
 
     WriteVisitor(): osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {
         _mergeAllBinaryFiles = false;
         _useExternalBinaryArray = false;
         _inlineImages = false;
+        _maxTextureDimension = 0;
     }
     std::string getBinaryFilename() {
         return std::string(_baseName) +".bin";
@@ -326,10 +328,11 @@ public:
         traverse(node);
         _parents.pop_back();
     }
-    void setBaseName(const std::string& basename) { _baseName = basename;}
-    void useExternalBinaryArray(bool use) { _useExternalBinaryArray = use;}
-    void mergeAllBinaryFiles(bool use) { _mergeAllBinaryFiles = use;}
-    void inlineImages(bool use) { _inlineImages = use;}
+    void setBaseName(const std::string& basename) { _baseName = basename; }
+    void useExternalBinaryArray(bool use) { _useExternalBinaryArray = use; }
+    void mergeAllBinaryFiles(bool use) { _mergeAllBinaryFiles = use; }
+    void inlineImages(bool use) { _inlineImages = use; }
+    void setMaxTextureDimension(int use) { _maxTextureDimension = use; }
 
 };
 #endif

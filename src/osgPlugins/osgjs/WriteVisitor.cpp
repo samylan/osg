@@ -58,7 +58,7 @@ static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
 
 #include "Base64"
 
-JSONObject* createImage(osg::Image* image, bool inlineImages, const std::string &baseName)
+JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDimension, const std::string &baseName)
 {
     if (!image) {
         osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
@@ -66,22 +66,23 @@ JSONObject* createImage(osg::Image* image, bool inlineImages, const std::string 
     } else {
         std::string modelDir = osgDB::getFilePath(baseName);
         if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
-            int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
-            int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
-            bool needToResize = false;
-            if (new_s != image->s()) needToResize = true;
-            if (new_t != image->t()) needToResize = true;
+            if(maxTextureDimension) {
+                int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
+                int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
 
-            if (needToResize) {
-                // resize and rewrite image file
-                // CP: TODO resize should be done from external
-                image->ensureValidSizeForTexturing(2048); // 32768
-                if(osgDB::isAbsolutePath(image->getFileName()))
-                    osgDB::writeImageFile(*image, image->getFileName());
-                else
-                    osgDB::writeImageFile(*image,
-                                          osgDB::concatPaths(modelDir,
-                                                             image->getFileName()));
+                bool notValidPowerOf2 = false;
+                if (new_s != image->s() || image->s() > maxTextureDimension) notValidPowerOf2 = true;
+                if (new_t != image->t() || image->t() > maxTextureDimension) notValidPowerOf2 = true;
+
+                if (notValidPowerOf2) {
+                    image->ensureValidSizeForTexturing(maxTextureDimension);
+                    if(osgDB::isAbsolutePath(image->getFileName()))
+                        osgDB::writeImageFile(*image, image->getFileName());
+                    else
+                        osgDB::writeImageFile(*image,
+                                              osgDB::concatPaths(modelDir,
+                                                                 image->getFileName()));
+                }
             }
         } else {
             // no image file so use this inline name image and create a file
@@ -544,12 +545,13 @@ JSONObject* WriteVisitor::createJSONLight(osg::Light* light)
     return jsonLight.release();
 }
 
-template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, bool inlineImages, const std::string &baseName = "")
+template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, bool inlineImages,
+                                                      int maxTextureDimension, const std::string &baseName = "")
 {
     T* text = dynamic_cast<T*>( texture);
     if (text) {
         translateObject(jsonTexture,text);
-        JSONObject* image = createImage(text->getImage(), inlineImages, baseName);
+        JSONObject* image = createImage(text->getImage(), inlineImages, maxTextureDimension, baseName);
         if (image)
             jsonTexture->getMaps()["File"] = image;
         return jsonTexture;
@@ -579,21 +581,24 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
 
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture, _inlineImages, this->_baseName);
+        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture, this->_inlineImages,
+                                                                 this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture, _inlineImages, this->_baseName);
+        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture, this->_inlineImages,
+                                                                 this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture, _inlineImages, this->_baseName);
+        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture, this->_inlineImages,
+                                                                        this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
