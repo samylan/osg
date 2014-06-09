@@ -124,8 +124,6 @@ void UnIndexMeshVisitor::apply(osg::Geometry& geom)
             // now copy each vertex to new array, like a draw array
             arraySrc.append(triangleIndexList._indexes, arrayList);
 
-            unsigned int end = arrayList.size();
-
             newPrimitives.push_back(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, index, triangleIndexList._indexes.size()));
         }
         break;
