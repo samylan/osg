@@ -11,6 +11,7 @@
 #include <osg/BlendFunc>
 #include <osgSim/ShapeAttribute>
 
+
 static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
     switch (mode) {
     case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
@@ -57,29 +58,37 @@ static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
 
 #include "Base64"
 
-JSONObject* createImage(osg::Image* image, bool inlineImages)
+JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDimension, const std::string &baseName)
 {
     if (!image) {
         osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
         return new JSONValue<std::string>("/unknown.png");
     } else {
-        if (!image->getFileName().empty()) {
-            int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
-            int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
-            bool needToResize = false;
-            if (new_s != image->s()) needToResize = true;
-            if (new_t != image->t()) needToResize = true;
-            
-            if (needToResize) {
-                // resize and rewrite image file
-                // CP: TODO resize should be done from external
-                image->ensureValidSizeForTexturing(2048); // 32768
-                osgDB::writeImageFile(*image, image->getFileName());
+        std::string modelDir = osgDB::getFilePath(baseName);
+        if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
+            if(maxTextureDimension) {
+                int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
+                int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
+
+                bool notValidPowerOf2 = false;
+                if (new_s != image->s() || image->s() > maxTextureDimension) notValidPowerOf2 = true;
+                if (new_t != image->t() || image->t() > maxTextureDimension) notValidPowerOf2 = true;
+
+                if (notValidPowerOf2) {
+                    image->ensureValidSizeForTexturing(maxTextureDimension);
+                    if(osgDB::isAbsolutePath(image->getFileName()))
+                        osgDB::writeImageFile(*image, image->getFileName());
+                    else
+                        osgDB::writeImageFile(*image,
+                                              osgDB::concatPaths(modelDir,
+                                                                 image->getFileName()));
+                }
             }
         } else {
             // no image file so use this inline name image and create a file
             std::stringstream ss;
-            ss << (long int)image << ".png"; // write the pointer location
+            ss << osgDB::getFilePath(baseName) << osgDB::getNativePathSeparator();
+            ss << (long int)image << ".inline_conv_generated.png"; // write the pointer location
             std::string filename = ss.str();
             if (osgDB::writeImageFile(*image, filename)) {
                 image->setFileName(filename);
@@ -176,17 +185,6 @@ void translateObject(JSONObject* json, osg::Object* osg)
                 }
             }
 
-            {
-                osgSim::ShapeAttributeList* uv = dynamic_cast<osgSim::ShapeAttributeList* >(o);
-#if 0
-                osg::notify(osg::NOTICE) << o->getName() << std::endl;        
-                osg::notify(osg::NOTICE) << o->className() << std::endl;
-                if (uv) {
-                    osg::notify(osg::NOTICE) << "osgSim::ShapeAttributeList" << std::endl;
-                }
-#endif
-            }
-            
         }
         json->getMaps()["UserDataContainer"] = jsonUDC;
     }
@@ -536,12 +534,13 @@ JSONObject* WriteVisitor::createJSONLight(osg::Light* light)
     return jsonLight.release();
 }
 
-template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, bool inlineImages)
+template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, bool inlineImages,
+                                                      int maxTextureDimension, const std::string &baseName = "")
 {
     T* text = dynamic_cast<T*>( texture);
     if (text) {
         translateObject(jsonTexture,text);
-        JSONObject* image = createImage(text->getImage(), inlineImages);
+        JSONObject* image = createImage(text->getImage(), inlineImages, maxTextureDimension, baseName);
         if (image)
             jsonTexture->getMaps()["File"] = image;
         return jsonTexture;
@@ -571,21 +570,24 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
 
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture, this->_inlineImages,
+                                                                 this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture, this->_inlineImages,
+                                                                 this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture, this->_inlineImages,
+                                                                        this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }

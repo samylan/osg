@@ -340,7 +340,7 @@ protected:
                 {
                     osg::DrawElementsUInt* fixed = de;
                     osg::DrawElementsUInt* reported = new osg::DrawElementsUInt(de->getMode());
-                    for (int j = 0; j < de->getNumIndices()/3; j++) {
+                    for (unsigned int j = 0 ; j < de->getNumIndices() / 3 ; j++) {
                         unsigned int base = j*3;
                         unsigned int i0 = de->getElement(base + 0);
                         unsigned int i1 = de->getElement(base + 1);
@@ -605,40 +605,6 @@ static void generateTriStrip(osg::Geometry* geom, int vertexCache, bool merge)
         mergeTrianglesStrip(*geom);
 }
 
-static osg::Geometry* createWireframeGeometry(osg::Geometry& geom) {
-    osg::ref_ptr<osg::Geometry> wireframe = osg::clone(&geom,"osgjs_wireframe",osg::CopyOp::DEEP_COPY_ALL);
-    wireframe->getPrimitiveSetList().clear();
-    for (unsigned int i = 0; i < geom.getPrimitiveSetList().size(); i++) {
-        osg::PrimitiveSet* p = geom.getPrimitiveSetList()[i];
-        if (!p)
-            continue;
-        switch (p->getMode()) {
-        case GL_TRIANGLES:
-        {
-            osg::DrawElements* de = osg::cloneType(p->getDrawElements());
-            de->setMode(GL_LINES);
-            for (unsigned int j = 0; j < p->getDrawElements()->getNumIndices()/3; j++) {
-                unsigned int v0 = p->getDrawElements()->getElement(j*3);
-                unsigned int v1 = p->getDrawElements()->getElement(j*3+1);
-                unsigned int v2 = p->getDrawElements()->getElement(j*3+2);
-                de->addElement(v0);
-                de->addElement(v1);
-                de->addElement(v1);
-                de->addElement(v2);
-                de->addElement(v2);
-                de->addElement(v0);
-            }
-            wireframe->getPrimitiveSetList().push_back(de);
-            break;
-        }
-        default:
-            osg::notify(osg::WARN) <<"wireframe model only support input geometry with triangles" << std::endl;
-            break;
-        }
-    }
-    return wireframe.release();
-}
-
 
 void OpenGLESGeometryOptimizerVisitor::computeStats(osg::Geode& node)
 {
@@ -778,49 +744,10 @@ osg::Geometry* GeometryWireframeVisitor::applyGeometry(osg::Geometry& geometry) 
         geometry.setTexCoordArray(i,0);
     }
 
-    IndexShape indexer(true); 
+    IndexShape indexer(true);
     indexer.makeMesh(geometry);
 
-#if 0
-    // filter primitive set list to keep only polygon surface
-    osg::Geometry::PrimitiveSetList newlist;
-    for (unsigned int i = 0 ; i < geometry.getNumPrimitiveSets(); i++) {
-        osg::PrimitiveSet* prim = geometry.getPrimitiveSet(i);
-        if (!prim)
-            continue;
-
-        switch (prim->getMode() ) {
-        case GL_TRIANGLES:
-        case GL_TRIANGLE_STRIP:
-        case GL_TRIANGLE_FAN:
-        case GL_QUADS:
-        case GL_QUAD_STRIP:
-        case GL_POLYGON:
-            newlist.push_back(prim);
-            break;
-        default:
-            continue;
-        }
-    }
-
-    if (newlist.empty())
-        return 0;
-
-    geometry.setPrimitiveSetList(newlist);
-
-    osg::ref_ptr<osg::Geometry> optimzedGeometry;
-    optimzedGeometry = dynamic_cast<osg::Geometry*>(geometry.clone(osg::CopyOp::SHALLOW_COPY));
-    geometry.copyToAndOptimize(*optimzedGeometry);
-
-    // reindex primitives to creates triangles only
-    osgUtil::IndexMeshVisitor indexer;
-    indexer.setForceReIndex(true);
-    indexer.makeMesh(*optimzedGeometry);
-
-    return createWireframeGeometry(*optimzedGeometry);
-#else
     return &geometry;
-#endif
 }
 
 void GeometryWireframeVisitor::apply(osg::Node& node) {
