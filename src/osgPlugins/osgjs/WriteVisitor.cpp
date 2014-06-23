@@ -561,6 +561,20 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     osg::ref_ptr<JSONObject> jsonPlod = new JSONNode;
     jsonPlod->addUniqueID();
     _maps[plod] = jsonPlod;
+
+
+    // Center Mode
+    osg::ref_ptr<JSONValue<std::string> > centerMode = new JSONValue<std::string>("USE_BOUNDING_SPHERE_CENTER");
+    if (plod->getCenterMode() == osg::LOD::USER_DEFINED_CENTER) {
+        centerMode = new JSONValue<std::string>("USER_DEFINED_CENTER");
+    } else if (plod->getCenterMode() == osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED){
+        centerMode = new JSONValue<std::string>("UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED");
+    }
+    jsonPlod->getMaps()["CenterMode"] = centerMode;
+    // User defined center and radius
+    jsonPlod->getMaps()["UserCenter"] = new JSONVec4Array(osg::Vec4(plod->getCenter().x(), plod->getCenter().y(),plod->getCenter().z(), plod->getRadius()));
+
+
     // Range Mode
     osg::ref_ptr<JSONValue<std::string> > rangeMode = new JSONValue<std::string>("DISTANCE_FROM_EYE_POINT");
     if (plod->getRangeMode() == osg::LOD::PIXEL_SIZE_ON_SCREEN) {
