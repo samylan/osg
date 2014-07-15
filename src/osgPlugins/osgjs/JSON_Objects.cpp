@@ -461,7 +461,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
             {
                 const char* a = static_cast<const char*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();
-                writeInlineArray<char>(str, size, a);
+                writeInlineArray<char, short>(str, size, a); // using short to write readable numbers and not `char`s
             }
             break;
             case osg::Array::UByteArrayType:
@@ -471,7 +471,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
             {
                 const unsigned char* a = static_cast<const unsigned char*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();
-                writeInlineArray<unsigned char>(str, size, a);
+                writeInlineArray<unsigned char, unsigned short>(str, size, a); // using short to write readable numbers and not `char`s
             }
             break;
             case osg::Array::ShortArrayType:
