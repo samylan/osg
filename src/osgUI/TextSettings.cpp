@@ -1,4 +1,4 @@
-/* -*-c++-*- OpenSceneGraph - Copyright (C) 1998-2006 Robert Osfield
+/* -*-c++-*- OpenSceneGraph - Copyright (C) 1998-2014 Robert Osfield
  *
  * This library is open source and may be redistributed and/or modified under
  * the terms of the OpenSceneGraph Public License (OSGPL) version 0.0 or
@@ -10,14 +10,22 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * OpenSceneGraph Public License for more details.
 */
-#include <osg/Node>
-#include <osg/NodeCallback>
-#include <osg/NodeVisitor>
 
-using namespace osg;
+#include <osgUI/TextSettings>
+#include <osg/Geode>
+#include <osgText/Text>
 
-void NodeCallback::traverse(Node* node,NodeVisitor* nv)
+using namespace osgUI;
+
+TextSettings::TextSettings():
+    _characterSize(1.0)
 {
-    if (_nestedCallback.valid()) (*_nestedCallback)(node,nv);
-    else nv->traverse(*node);
 }
+
+TextSettings::TextSettings(const TextSettings& textSettings, const osg::CopyOp& copyop):
+    osg::Object(textSettings, copyop),
+    _font(textSettings._font),
+    _characterSize(textSettings._characterSize)
+{
+}
+

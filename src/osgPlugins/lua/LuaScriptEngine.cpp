@@ -15,6 +15,7 @@
 
 #include <osg/io_utils>
 #include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 
 using namespace lua;
 
@@ -135,7 +136,7 @@ static int getContainerProperty(lua_State * _lua)
 
             // check to see if Object "is a" vector
             osgDB::BaseSerializer::Type type;
-            osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+            osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
             osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(bs);
             if (vs)
             {
@@ -183,7 +184,7 @@ static int setContainerProperty(lua_State* _lua)
 
             // check to see if Object "is a" vector
             osgDB::BaseSerializer::Type type;
-            osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+            osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
             osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(bs);
             if (vs)
             {
@@ -212,7 +213,7 @@ static int getContainerSize(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(bs);
     if (vs)
     {
@@ -234,7 +235,7 @@ static int callVectorClear(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(bs);
     if (vs)
     {
@@ -257,7 +258,7 @@ static int callVectorResize(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(bs);
     if (vs)
     {
@@ -279,7 +280,7 @@ static int callVectorReserve(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(bs);
     if (vs)
     {
@@ -301,7 +302,7 @@ static int callVectorAdd(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(bs);
     if (vs)
     {
@@ -348,7 +349,7 @@ static int getMapProperty(lua_State * _lua)
 
             // check to see if Object "is a" vector
             osgDB::BaseSerializer::Type type;
-            osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+            osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
             osgDB::MapBaseSerializer* ms = dynamic_cast<osgDB::MapBaseSerializer*>(bs);
 
             if (ms)
@@ -403,7 +404,7 @@ static int setMapProperty(lua_State* _lua)
 
             // check to see if Object "is a" vector
             osgDB::BaseSerializer::Type type;
-            osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+            osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
             osgDB::MapBaseSerializer* ms = dynamic_cast<osgDB::MapBaseSerializer*>(bs);
 
             if (ms)
@@ -443,7 +444,7 @@ static int callMapClear(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::MapBaseSerializer* ms = dynamic_cast<osgDB::MapBaseSerializer*>(bs);
     if (ms)
     {
@@ -465,7 +466,7 @@ static int getMapSize(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::MapBaseSerializer* ms = dynamic_cast<osgDB::MapBaseSerializer*>(bs);
     if (ms)
     {
@@ -488,7 +489,7 @@ static int createMapIterator(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::MapBaseSerializer* ms = dynamic_cast<osgDB::MapBaseSerializer*>(bs);
     if (ms)
     {
@@ -510,7 +511,7 @@ static int createMapReverseIterator(lua_State* _lua)
 
     // check to see if Object "is a" vector
     osgDB::BaseSerializer::Type type;
-    osgDB::BaseSerializer* bs = lse->getPropertyInterface().getSerializer(object, containerPropertyName, type);
+    osgDB::BaseSerializer* bs = lse->getClassInterface().getSerializer(object, containerPropertyName, type);
     osgDB::MapBaseSerializer* ms = dynamic_cast<osgDB::MapBaseSerializer*>(bs);
     if (ms)
     {
@@ -1607,6 +1608,62 @@ static int callImageSet(lua_State* _lua)
 
 //////////////////////////////////////////////////////////////////////////////////////
 //
+//  Node Parent
+//
+static int callGetParent(lua_State* _lua)
+{
+    const LuaScriptEngine* lse = reinterpret_cast<const LuaScriptEngine*>(lua_topointer(_lua, lua_upvalueindex(1)));
+    int n = lua_gettop(_lua);    /* number of arguments */
+    if (n<1 || lua_type(_lua, 1)!=LUA_TTABLE) return 0;
+
+    osg::Node* node  = lse->getObjectFromTable<osg::Node>(1);
+    if (!node)
+    {
+        OSG_NOTICE<<"Warning: Node::getParent() can only be called on a Node"<<std::endl;
+        return 0;
+    }
+
+    int index = 0;
+    if (n>=2 && lua_isnumber(_lua, 2))
+    {
+        index = static_cast<int>(lua_tonumber(_lua, 2));
+        if (index>=0 && index<static_cast<int>(node->getNumParents()))
+        {
+            lse->pushObject(node->getParent(0));
+            return 1;
+        }
+        else
+        {
+            OSG_NOTICE<<"Warning: Call to node:getParent(index) has an out of range index."<<std::endl;
+            return 0;
+        }
+    }
+    else
+    {
+        OSG_NOTICE<<"Warning: node:getParent() requires a integer parameter."<<std::endl;
+        return 0;
+    }
+}
+
+static int callGetNumParents(lua_State* _lua)
+{
+    const LuaScriptEngine* lse = reinterpret_cast<const LuaScriptEngine*>(lua_topointer(_lua, lua_upvalueindex(1)));
+    int n = lua_gettop(_lua);    /* number of arguments */
+    if (n<1 || lua_type(_lua, 1)!=LUA_TTABLE) return 0;
+
+    osg::Node* node  = lse->getObjectFromTable<osg::Node>(1);
+    if (!node)
+    {
+        OSG_NOTICE<<"Warning: Node::getNumParents() can only be called on a Node"<<std::endl;
+        return 0;
+    }
+
+    lua_pushnumber(_lua, node->getNumParents());
+    return 1;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
 //  Method calling support
 //
 static int callClassMethod(lua_State* _lua)
@@ -1629,7 +1686,7 @@ static int callClassMethod(lua_State* _lua)
             inputParameters.insert(inputParameters.begin(), lse->popParameterObject());
         }
 
-        if (lse->getPropertyInterface().run(object, compoundClassName, methodName, inputParameters, outputParameters))
+        if (lse->getClassInterface().run(object, compoundClassName, methodName, inputParameters, outputParameters))
         {
             for(osg::Parameters::iterator itr = outputParameters.begin();
                 itr != outputParameters.end();
@@ -1756,6 +1813,28 @@ static int readNodeFile(lua_State * _lua)
     return 0;
 }
 
+
+static int writeFile(lua_State * _lua)
+{
+    const LuaScriptEngine* lse = reinterpret_cast<const LuaScriptEngine*>(lua_topointer(_lua, lua_upvalueindex(1)));
+
+    int n = lua_gettop(_lua);    /* number of arguments */
+    if (n>=2 && lua_type(_lua, 1)==LUA_TTABLE && lua_type(_lua, 2)==LUA_TSTRING)
+    {
+        osg::Object* object  = lse->getObjectFromTable<osg::Object>(1);
+        std::string filename = lua_tostring(_lua, 2);
+        if (object)
+        {
+            osgDB::writeObjectFile(*object, filename);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
+
+
 LuaScriptEngine::LuaScriptEngine():
     osg::ScriptEngine("lua"),
     _lua(0),
@@ -1810,6 +1889,13 @@ void LuaScriptEngine::initialize()
     {
         lua_pushlightuserdata(_lua, this);
         lua_pushcclosure(_lua, readObjectFile, 1);
+        lua_setglobal(_lua, "readFile");
+    }
+
+    // provide global new method for reading Objects
+    {
+        lua_pushlightuserdata(_lua, this);
+        lua_pushcclosure(_lua, readObjectFile, 1);
         lua_setglobal(_lua, "readObjectFile");
     }
 
@@ -1825,6 +1911,13 @@ void LuaScriptEngine::initialize()
         lua_pushlightuserdata(_lua, this);
         lua_pushcclosure(_lua, readImageFile, 1);
         lua_setglobal(_lua, "readImageFile");
+    }
+
+    // provide global new method for read Images
+    {
+        lua_pushlightuserdata(_lua, this);
+        lua_pushcclosure(_lua, writeFile, 1);
+        lua_setglobal(_lua, "writeFile");
     }
 
     // Set up the __newindex and __index methods for looking up implementations of Object properties
@@ -2071,9 +2164,9 @@ public:
 int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string& propertyName) const
 {
     osgDB::BaseSerializer::Type type;
-    if (!_pi.getPropertyType(object, propertyName, type))
+    if (!_ci.getPropertyType(object, propertyName, type))
     {
-        if (_pi.hasMethod(object, propertyName))
+        if (_ci.hasMethod(object, propertyName))
         {
             lua_pushlightuserdata(_lua, const_cast<LuaScriptEngine*>(this));
             lua_pushstring(_lua, propertyName.c_str());
@@ -2104,7 +2197,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_BOOL):
         {
             bool value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 lua_pushboolean(_lua, value ? 1 : 0);
                 return 1;
@@ -2114,7 +2207,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_STRING):
         {
             std::string value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 lua_pushstring(_lua, value.c_str());
                 return 1;
@@ -2124,7 +2217,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_GLENUM):
         {
             GLenum value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 std::string enumString = lookUpGLenumString(value);
                 lua_pushstring(_lua, enumString.c_str());
@@ -2135,9 +2228,9 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_ENUM):
         {
             int value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
-                osgDB::BaseSerializer* serializer = _pi.getSerializer(object, propertyName, type);
+                osgDB::BaseSerializer* serializer = _ci.getSerializer(object, propertyName, type);
                 osgDB::IntLookup* lookup = serializer ? serializer->getIntLookup() : 0;
                 if (lookup)
                 {
@@ -2155,7 +2248,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_SHORT):
         {
             short value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 lua_pushinteger(_lua, value);
                 return 1;
@@ -2165,7 +2258,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_USHORT):
         {
             unsigned short value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 lua_pushinteger(_lua, value);
                 return 1;
@@ -2175,7 +2268,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_INT):
         {
             int value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 lua_pushinteger(_lua, value);
                 return 1;
@@ -2185,7 +2278,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_UINT):
         {
             unsigned int value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 lua_pushinteger(_lua, value);
                 return 1;
@@ -2195,7 +2288,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_FLOAT):
         {
             float value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 lua_pushnumber(_lua, value);
                 return 1;
@@ -2205,7 +2298,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_DOUBLE):
         {
             double value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 lua_pushnumber(_lua, value);
                 return 1;
@@ -2215,7 +2308,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_VEC2F):
         {
             osg::Vec2f value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2225,7 +2318,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_VEC3F):
         {
             osg::Vec3f value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2235,7 +2328,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_VEC4F):
         {
             osg::Vec4f value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2245,7 +2338,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_VEC2D):
         {
             osg::Vec2d value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2255,7 +2348,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_VEC3D):
         {
             osg::Vec3d value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2265,7 +2358,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_VEC4D):
         {
             osg::Vec4d value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2278,7 +2371,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_MATRIXF):
         {
             osg::Matrixf value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2291,7 +2384,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_MATRIXD):
         {
             osg::Matrixd value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2301,7 +2394,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_BOUNDINGBOXF):
         {
             osg::BoundingBoxf value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2311,7 +2404,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_BOUNDINGBOXD):
         {
             osg::BoundingBoxd value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2321,7 +2414,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_BOUNDINGSPHEREF):
         {
             osg::BoundingSpheref value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2331,7 +2424,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_BOUNDINGSPHERED):
         {
             osg::BoundingSphered value;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushValue(value);
                 return 1;
@@ -2347,7 +2440,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
         case(osgDB::BaseSerializer::RW_OBJECT):
         {
             osg::Object* value = 0;
-            if (_pi.getProperty(object, propertyName, value))
+            if (_ci.getProperty(object, propertyName, value))
             {
                 pushObject(value);
                 return 1;
@@ -2364,7 +2457,7 @@ int LuaScriptEngine::pushPropertyToStack(osg::Object* object, const std::string&
             break;
     }
 
-    OSG_NOTICE<<"LuaScriptEngine::pushPropertyToStack("<<object<<", "<<propertyName<<") property of type = "<<_pi.getTypeName(type)<<" error, not supported."<<std::endl;
+    OSG_NOTICE<<"LuaScriptEngine::pushPropertyToStack("<<object<<", "<<propertyName<<") property of type = "<<_ci.getTypeName(type)<<" error, not supported."<<std::endl;
     return 0;
 }
 
@@ -2669,7 +2762,7 @@ int LuaScriptEngine::pushDataToStack(SerializerScratchPad* ssp) const
             break;
     }
 
-    OSG_NOTICE<<"LuaScriptEngine::pushDataToStack() property of type = "<<_pi.getTypeName(ssp->dataType)<<" error, not supported."<<std::endl;
+    OSG_NOTICE<<"LuaScriptEngine::pushDataToStack() property of type = "<<_ci.getTypeName(ssp->dataType)<<" error, not supported."<<std::endl;
     return 0;
 }
 
@@ -2979,7 +3072,7 @@ int LuaScriptEngine::getDataFromStack(SerializerScratchPad* ssp, osgDB::BaseSeri
         default:
             break;
     }
-    OSG_NOTICE<<"LuaScriptEngine::getDataFromStack() property of type = "<<_pi.getTypeName(type)<<" not matched"<<std::endl;
+    OSG_NOTICE<<"LuaScriptEngine::getDataFromStack() property of type = "<<_ci.getTypeName(type)<<" not matched"<<std::endl;
     return 0;
 
 }
@@ -2988,7 +3081,7 @@ int LuaScriptEngine::getDataFromStack(SerializerScratchPad* ssp, osgDB::BaseSeri
 int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string& propertyName) const
 {
     osgDB::BaseSerializer::Type type;
-    if (!_pi.getPropertyType(object, propertyName, type))
+    if (!_ci.getPropertyType(object, propertyName, type))
     {
         if (lua_type(_lua,-1)==LUA_TFUNCTION)
         {
@@ -3023,12 +3116,12 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isboolean(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<bool>(lua_toboolean(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<bool>(lua_toboolean(_lua, -1)));
                 return 0;
             }
             else if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<bool>(lua_tonumber(_lua, -1)!=0));
+                _ci.setProperty(object, propertyName, static_cast<bool>(lua_tonumber(_lua, -1)!=0));
                 return 0;
             }
             break;
@@ -3037,7 +3130,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isstring(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, std::string(lua_tostring(_lua, -1)));
+                _ci.setProperty(object, propertyName, std::string(lua_tostring(_lua, -1)));
                 return 0;
             }
             break;
@@ -3046,7 +3139,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<GLenum>(lua_tonumber(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<GLenum>(lua_tonumber(_lua, -1)));
                 return 0;
             }
             else if (lua_isstring(_lua, -1))
@@ -3054,7 +3147,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
                 const char* enumString = lua_tostring(_lua, -1);
                 GLenum value = lookUpGLenumValue(enumString); //getValue("GL",enumString);
 
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             OSG_NOTICE<<"LuaScriptEngine::setPropertyFromStack("<<propertyName<<") osgDB::BaseSerializer::RW_GLENUM Failed"<<std::endl;
@@ -3064,18 +3157,18 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<int>(lua_tonumber(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<int>(lua_tonumber(_lua, -1)));
                 return 0;
             }
             else if (lua_isstring(_lua, -1))
             {
                 const char* enumString = lua_tostring(_lua, -1);
-                osgDB::BaseSerializer* serializer = _pi.getSerializer(object, propertyName, type);
+                osgDB::BaseSerializer* serializer = _ci.getSerializer(object, propertyName, type);
                 osgDB::IntLookup* lookup = serializer ? serializer->getIntLookup() : 0;
                 if (lookup)
                 {
                     int value = lookup->getValue(enumString);
-                    _pi.setProperty(object, propertyName, value);
+                    _ci.setProperty(object, propertyName, value);
                 }
                 return 0;
             }
@@ -3085,7 +3178,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<short>(lua_tonumber(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<short>(lua_tonumber(_lua, -1)));
                 return 0;
             }
             break;
@@ -3094,7 +3187,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<unsigned short>(lua_tonumber(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<unsigned short>(lua_tonumber(_lua, -1)));
                 return 0;
             }
             break;
@@ -3103,7 +3196,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<int>(lua_tonumber(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<int>(lua_tonumber(_lua, -1)));
                 return 0;
             }
             break;
@@ -3112,7 +3205,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<unsigned int>(lua_tonumber(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<unsigned int>(lua_tonumber(_lua, -1)));
                 return 0;
             }
             break;
@@ -3121,7 +3214,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<float>(lua_tonumber(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<float>(lua_tonumber(_lua, -1)));
                 return 0;
             }
             break;
@@ -3130,7 +3223,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isnumber(_lua, -1))
             {
-                _pi.setProperty(object, propertyName, static_cast<double>(lua_tonumber(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<double>(lua_tonumber(_lua, -1)));
                 return 0;
             }
             break;
@@ -3140,7 +3233,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Vec2f value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3150,7 +3243,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Vec3f value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3160,7 +3253,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Vec4f value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3170,7 +3263,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Vec2d value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3180,7 +3273,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Vec3d value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3190,7 +3283,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Vec4d value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3200,7 +3293,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Quat value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3210,7 +3303,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Plane value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3223,7 +3316,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Matrixd value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3236,7 +3329,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::Matrixd value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3246,7 +3339,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::BoundingBoxf value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3256,7 +3349,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::BoundingBoxd value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3266,7 +3359,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::BoundingSpheref value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3276,7 +3369,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             osg::BoundingSphered value;
             if (getValue(-1, value))
             {
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             break;
@@ -3294,7 +3387,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
 
                 if (value)
                 {
-                    _pi.setProperty(object, propertyName, value);
+                    _ci.setProperty(object, propertyName, value);
                     return 0;
                 }
                 else
@@ -3306,7 +3399,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
             {
                 OSG_NOTICE<<"Assigning property object (nil) to to object "<<object->className()<<"::"<<propertyName<<std::endl;
                 osg::Object* value = 0;
-                _pi.setProperty(object, propertyName, value);
+                _ci.setProperty(object, propertyName, value);
                 return 0;
             }
             else
@@ -3320,7 +3413,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         default:
             break;
     }
-    OSG_NOTICE<<"LuaScriptEngine::setPropertyFromStack("<<object<<", "<<propertyName<<") property of type = "<<_pi.getTypeName(type)<<" not implemented"<<std::endl;
+    OSG_NOTICE<<"LuaScriptEngine::setPropertyFromStack("<<object<<", "<<propertyName<<") property of type = "<<_ci.getTypeName(type)<<" not implemented"<<std::endl;
     return 0;
 }
 
@@ -4063,7 +4156,7 @@ void LuaScriptEngine::pushContainer(osg::Object* object, const std::string& prop
         lua_pushstring(_lua, "containerPropertyName"); lua_pushstring(_lua, propertyName.c_str()); lua_settable(_lua, -3);
 
         osgDB::BaseSerializer::Type type;
-        osgDB::BaseSerializer* bs = _pi.getSerializer(object, propertyName, type);
+        osgDB::BaseSerializer* bs = _ci.getSerializer(object, propertyName, type);
         osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(bs);
         osgDB::MapBaseSerializer* ms = dynamic_cast<osgDB::MapBaseSerializer*>(bs);
         if (vs)
@@ -4101,7 +4194,7 @@ void LuaScriptEngine::pushContainer(osg::Object* object, const std::string& prop
 
 void LuaScriptEngine::createAndPushObject(const std::string& compoundName) const
 {
-    osg::ref_ptr<osg::Object> object = _pi.createObject(compoundName);
+    osg::ref_ptr<osg::Object> object = _ci.createObject(compoundName);
     if (!object) OSG_NOTICE<<"Failed to create object "<<compoundName<<std::endl;
 
     pushObject(object.get());
@@ -4138,7 +4231,7 @@ void LuaScriptEngine::pushObject(osg::Object* object) const
 
         // check to see if Object "is a" vector
         osgDB::BaseSerializer::Type type;
-        osgDB::BaseSerializer* vs = _pi.getSerializer(object, "vector", type);
+        osgDB::BaseSerializer* vs = _ci.getSerializer(object, "vector", type);
         if (vs)
         {
             lua_pushstring(_lua, "containerPropertyName"); lua_pushstring(_lua, "vector"); lua_settable(_lua, -3);
@@ -4182,6 +4275,14 @@ void LuaScriptEngine::pushObject(osg::Object* object) const
             luaL_getmetatable(_lua, "LuaScriptEngine.Object");
             lua_setmetatable(_lua, -2);
         }
+        else if (dynamic_cast<osg::Node*>(object)!=0)
+        {
+            assignClosure("getParent", callGetParent);
+            assignClosure("getNumParents", callGetNumParents);
+
+            luaL_getmetatable(_lua, "LuaScriptEngine.Object");
+            lua_setmetatable(_lua, -2);
+        }
         else
         {
             luaL_getmetatable(_lua, "LuaScriptEngine.Object");
@@ -4196,7 +4297,7 @@ void LuaScriptEngine::pushObject(osg::Object* object) const
 
 void LuaScriptEngine::pushAndCastObject(const std::string& compoundClassName, osg::Object* object) const
 {
-    if (object && _pi.isObjectOfType(object, compoundClassName))
+    if (object && _ci.isObjectOfType(object, compoundClassName))
     {
         lua_newtable(_lua);
 

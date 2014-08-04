@@ -1428,23 +1428,40 @@ void ReaderWriterP3DXML::parseVolume(osgPresentation::SlideShowConstructor& cons
         }
     }
 
+    std::string vs;
+    if (getProperty(cur, "vs", vs) || getProperty(cur, "VolumeSettings", vs))
+    {
+        volumeData.volumeSettings = osgDB::readFile<osgVolume::VolumeSettings>(vs);
+        if (volumeData.volumeSettings.valid())
+        {
+            OSG_NOTICE<<"VolumeSetting read "<<vs<<" "<<volumeData.volumeSettings.get()<<std::endl;
+            volumeData.volumeSettings->setFilename(vs);
+            OSG_NOTICE<<" assigned name to VS "<<volumeData.volumeSettings->getFilename()<<std::endl;
+        }
+    }
+
+    if (!volumeData.volumeSettings)
+    {
+        OSG_NOTICE<<"VolumeSetting fallback has been created"<<std::endl;
+        volumeData.volumeSettings = new osgVolume::VolumeSettings;
+    }
 
     // check the rendering technique/shading model to use
     std::string technique;
     if (getProperty(cur, "technique", technique))
     {
-        if      (match(technique,"standard")) volumeData.shadingModel =  osgPresentation::SlideShowConstructor::VolumeData::Standard;
-        else if (match(technique,"mip")) volumeData.shadingModel =  osgPresentation::SlideShowConstructor::VolumeData::MaximumIntensityProjection;
-        else if (match(technique,"isosurface") || match(technique,"iso") ) volumeData.shadingModel =  osgPresentation::SlideShowConstructor::VolumeData::Isosurface;
-        else if (match(technique,"light")) volumeData.shadingModel =  osgPresentation::SlideShowConstructor::VolumeData::Light;
+        if      (match(technique,"standard")) volumeData.shadingModel =  osgVolume::VolumeSettings::Standard;
+        else if (match(technique,"mip")) volumeData.shadingModel =  osgVolume::VolumeSettings::MaximumIntensityProjection;
+        else if (match(technique,"isosurface") || match(technique,"iso") ) volumeData.shadingModel =  osgVolume::VolumeSettings::Isosurface;
+        else if (match(technique,"light")) volumeData.shadingModel =  osgVolume::VolumeSettings::Light;
     }
 
     std::string renderer;
     if (getProperty(cur, "renderer", renderer))
     {
-        if      (match(renderer,"FixedFunction")) volumeData.technique =  osgPresentation::SlideShowConstructor::VolumeData::FixedFunction;
-        else if (match(renderer,"RayTraced")) volumeData.technique =  osgPresentation::SlideShowConstructor::VolumeData::RayTraced;
-        else if (match(renderer,"MultiPass")) volumeData.technique =  osgPresentation::SlideShowConstructor::VolumeData::MultiPass;
+        if      (match(renderer,"FixedFunction")) volumeData.technique =  osgVolume::VolumeSettings::FixedFunction;
+        else if (match(renderer,"RayTraced")) volumeData.technique =  osgVolume::VolumeSettings::RayTraced;
+        else if (match(renderer,"MultiPass")) volumeData.technique =  osgVolume::VolumeSettings::MultiPass;
     }
 
     std::string hull;

@@ -1703,6 +1703,26 @@ public:
 #define REMOVE_SERIALIZER(PROP) \
     wrapper->markSerializerAsRemoved( #PROP );
 
+#define ADD_MAP_SERIALIZER(PROP, TYPE, KEYTYPE, ELEMENTTYPE) \
+    wrapper->addSerializer( new osgDB::MapSerializer< MyClass, TYPE >( \
+        #PROP, &MyClass::get##PROP, &MyClass::get##PROP, &MyClass::set##PROP, KEYTYPE, ELEMENTTYPE), osgDB::BaseSerializer::RW_MAP )
+
+#define ADD_METHOD_OBJECT( METHODNAME, METHODOBJECTCLASS ) wrapper->addMethodObject(METHODNAME, new METHODOBJECTCLASS());
+
+#define ADD_METHOD(METHODNAME) \
+    { \
+        struct MethodCaller : public osgDB::MethodObject \
+        { \
+            virtual bool run(void* objectPtr, osg::Parameters&, osg::Parameters&) const \
+            { \
+                MyClass* obj = reinterpret_cast<MyClass*>(objectPtr); \
+                obj->METHODNAME(); \
+                return true; \
+            } \
+        }; \
+        wrapper->addMethodObject(#METHODNAME, new MethodCaller()); \
+    }
+
 }
 
 #endif

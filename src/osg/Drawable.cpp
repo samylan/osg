@@ -216,8 +216,37 @@ void Drawable::flushDeletedDisplayLists(unsigned int contextID, double& availabl
 #endif
 }
 
+bool Drawable::UpdateCallback::run(osg::Object* object, osg::Object* data)
+{
+    osg::Drawable* drawable = dynamic_cast<osg::Drawable*>(object);
+    osg::NodeVisitor* nv = dynamic_cast<osg::NodeVisitor*>(data);
+    if (drawable && nv)
+    {
+        update(nv, drawable);
+        return true;
+    }
+    else
+    {
+        return traverse(object, data);
+    }
+}
+
+bool Drawable::EventCallback::run(osg::Object* object, osg::Object* data)
+{
+    osg::Drawable* drawable = dynamic_cast<osg::Drawable*>(object);
+    osg::NodeVisitor* nv = dynamic_cast<osg::NodeVisitor*>(data);
+    if (drawable && nv)
+    {
+        event(nv, drawable);
+        return true;
+    }
+    else
+    {
+        return traverse(object, data);
+    }
+}
+
 Drawable::Drawable()
-    :Object(true)
 {
     _boundingBoxComputed = false;
 
@@ -237,14 +266,10 @@ Drawable::Drawable()
     _supportsVertexBufferObjects = false;
     _useVertexBufferObjects = false;
     // _useVertexBufferObjects = true;
-
-    _numChildrenRequiringUpdateTraversal = 0;
-    _numChildrenRequiringEventTraversal = 0;
 }
 
 Drawable::Drawable(const Drawable& drawable,const CopyOp& copyop):
-    Object(drawable,copyop),
-    _parents(), // leave empty as parentList is managed by Geode
+    Node(drawable,copyop),
     _initialBound(drawable._initialBound),
     _computeBoundCallback(drawable._computeBoundCallback),
     _boundingBox(drawable._boundingBox),
@@ -254,11 +279,9 @@ Drawable::Drawable(const Drawable& drawable,const CopyOp& copyop):
     _useDisplayList(drawable._useDisplayList),
     _supportsVertexBufferObjects(drawable._supportsVertexBufferObjects),
     _useVertexBufferObjects(drawable._useVertexBufferObjects),
-    _updateCallback(drawable._updateCallback),
-    _numChildrenRequiringUpdateTraversal(drawable._numChildrenRequiringUpdateTraversal),
-    _eventCallback(drawable._eventCallback),
-    _numChildrenRequiringEventTraversal(drawable._numChildrenRequiringEventTraversal),
-    _cullCallback(drawable._cullCallback),
+    _drawableUpdateCallback(drawable._drawableUpdateCallback),
+    _drawableEventCallback(drawable._drawableEventCallback),
+    _drawableCullCallback(drawable._drawableCullCallback),
     _drawCallback(drawable._drawCallback)
 {
     setStateSet(copyop(drawable._stateset.get()));
@@ -266,9 +289,6 @@ Drawable::Drawable(const Drawable& drawable,const CopyOp& copyop):
 
 Drawable::~Drawable()
 {
-    // cleanly detatch any associated stateset (include remove parent links)
-    setStateSet(0);
-
     dirtyDisplayList();
 }
 
@@ -299,168 +319,6 @@ void Drawable::computeDataVariance()
     }
 
     setDataVariance(dynamic ? DYNAMIC : STATIC);
-}
-
-void Drawable::addParent(osg::Node* node)
-{
-    OpenThreads::ScopedPointerLock<OpenThreads::Mutex> lock(getRefMutex());
-
-    _parents.push_back(node);
-}
-
-void Drawable::removeParent(osg::Node* node)
-{
-    OpenThreads::ScopedPointerLock<OpenThreads::Mutex> lock(getRefMutex());
-
-    ParentList::iterator pitr = std::find(_parents.begin(),_parents.end(),node);
-    if (pitr!=_parents.end()) _parents.erase(pitr);
-}
-
-
-void Drawable::setStateSet(osg::StateSet* stateset)
-{
-    // do nothing if nothing changed.
-    if (_stateset==stateset) return;
-
-    // track whether we need to account for the need to do a update or event traversal.
-    int delta_update = 0;
-    int delta_event = 0;
-
-    // remove this node from the current statesets parent list
-    if (_stateset.valid())
-    {
-        _stateset->removeParent(this);
-        if (_stateset->requiresUpdateTraversal()) --delta_update;
-        if (_stateset->requiresEventTraversal()) --delta_event;
-    }
-
-    // set the stateset.
-    _stateset = stateset;
-
-    // add this node to the new stateset to the parent list.
-    if (_stateset.valid())
-    {
-        _stateset->addParent(this);
-        if (_stateset->requiresUpdateTraversal()) ++delta_update;
-        if (_stateset->requiresEventTraversal()) ++delta_event;
-    }
-
-
-    // only inform parents if change occurs and drawable doesn't already have an update callback
-    if (delta_update!=0 && !_updateCallback)
-    {
-        for(ParentList::iterator itr=_parents.begin();
-            itr!=_parents.end();
-            ++itr)
-        {
-            (*itr)->setNumChildrenRequiringUpdateTraversal( (*itr)->getNumChildrenRequiringUpdateTraversal()+delta_update );
-        }
-    }
-
-    // only inform parents if change occurs and drawable doesn't already have an event callback
-    if (delta_event!=0 && !_eventCallback)
-    {
-        for(ParentList::iterator itr=_parents.begin();
-            itr!=_parents.end();
-            ++itr)
-        {
-            (*itr)->setNumChildrenRequiringEventTraversal( (*itr)->getNumChildrenRequiringEventTraversal()+delta_event );
-        }
-    }
-
-
-}
-
-void Drawable::setNumChildrenRequiringUpdateTraversal(unsigned int num)
-{
-    // if no changes just return.
-    if (_numChildrenRequiringUpdateTraversal==num) return;
-
-    // note, if _updateCallback is set then the
-    // parents won't be affected by any changes to
-    // _numChildrenRequiringUpdateTraversal so no need to inform them.
-    if (!_updateCallback && !_parents.empty())
-    {
-        // need to pass on changes to parents.
-        int delta = 0;
-        if (_numChildrenRequiringUpdateTraversal>0) --delta;
-        if (num>0) ++delta;
-        if (delta!=0)
-        {
-            // the number of callbacks has changed, need to pass this
-            // on to parents so they know whether app traversal is
-            // required on this subgraph.
-            for(ParentList::iterator itr =_parents.begin();
-                itr != _parents.end();
-                ++itr)
-            {
-                (*itr)->setNumChildrenRequiringUpdateTraversal( (*itr)->getNumChildrenRequiringUpdateTraversal()+delta );
-            }
-
-        }
-    }
-
-    // finally update this objects value.
-    _numChildrenRequiringUpdateTraversal=num;
-
-}
-
-
-void Drawable::setNumChildrenRequiringEventTraversal(unsigned int num)
-{
-    // if no changes just return.
-    if (_numChildrenRequiringEventTraversal==num) return;
-
-    // note, if _eventCallback is set then the
-    // parents won't be affected by any changes to
-    // _numChildrenRequiringEventTraversal so no need to inform them.
-    if (!_eventCallback && !_parents.empty())
-    {
-        // need to pass on changes to parents.
-        int delta = 0;
-        if (_numChildrenRequiringEventTraversal>0) --delta;
-        if (num>0) ++delta;
-        if (delta!=0)
-        {
-            // the number of callbacks has changed, need to pass this
-            // on to parents so they know whether app traversal is
-            // required on this subgraph.
-            for(ParentList::iterator itr =_parents.begin();
-                itr != _parents.end();
-                ++itr)
-            {
-                (*itr)->setNumChildrenRequiringEventTraversal( (*itr)->getNumChildrenRequiringEventTraversal()+delta );
-            }
-
-        }
-    }
-
-    // finally Event this objects value.
-    _numChildrenRequiringEventTraversal=num;
-
-}
-
-osg::StateSet* Drawable::getOrCreateStateSet()
-{
-    if (!_stateset) setStateSet(new StateSet);
-    return _stateset.get();
-}
-
-void Drawable::dirtyBound()
-{
-    if (_boundingBoxComputed)
-    {
-        _boundingBoxComputed = false;
-
-        // dirty parent bounding sphere's to ensure that all are valid.
-        for(ParentList::iterator itr=_parents.begin();
-            itr!=_parents.end();
-            ++itr)
-        {
-            (*itr)->dirtyBound();
-        }
-
-    }
 }
 
 void Drawable::compileGLObjects(RenderInfo& renderInfo) const
@@ -500,9 +358,9 @@ void Drawable::setThreadSafeRefUnref(bool threadSafe)
     Object::setThreadSafeRefUnref(threadSafe);
 
     if (_stateset.valid()) _stateset->setThreadSafeRefUnref(threadSafe);
-    if (_updateCallback.valid()) _updateCallback->setThreadSafeRefUnref(threadSafe);
-    if (_eventCallback.valid()) _eventCallback->setThreadSafeRefUnref(threadSafe);
-    if (_cullCallback.valid()) _cullCallback->setThreadSafeRefUnref(threadSafe);
+    if (_drawableUpdateCallback.valid()) _drawableUpdateCallback->setThreadSafeRefUnref(threadSafe);
+    if (_drawableEventCallback.valid()) _drawableEventCallback->setThreadSafeRefUnref(threadSafe);
+    if (_drawableCullCallback.valid()) _drawableCullCallback->setThreadSafeRefUnref(threadSafe);
     if (_drawCallback.valid()) _drawCallback->setThreadSafeRefUnref(threadSafe);
 }
 
@@ -640,48 +498,6 @@ void Drawable::dirtyDisplayList()
 }
 
 
-void Drawable::setUpdateCallback(UpdateCallback* ac)
-{
-    if (_updateCallback==ac) return;
-
-    int delta = 0;
-    if (_updateCallback.valid()) --delta;
-    if (ac) ++delta;
-
-    _updateCallback = ac;
-
-    if (delta!=0 && !(_stateset.valid() && _stateset->requiresUpdateTraversal()))
-    {
-        for(ParentList::iterator itr=_parents.begin();
-            itr!=_parents.end();
-            ++itr)
-        {
-            (*itr)->setNumChildrenRequiringUpdateTraversal((*itr)->getNumChildrenRequiringUpdateTraversal()+delta);
-        }
-    }
-}
-
-void Drawable::setEventCallback(EventCallback* ac)
-{
-    if (_eventCallback==ac) return;
-
-    int delta = 0;
-    if (_eventCallback.valid()) --delta;
-    if (ac) ++delta;
-
-    _eventCallback = ac;
-
-    if (delta!=0 && !(_stateset.valid() && _stateset->requiresEventTraversal()))
-    {
-        for(ParentList::iterator itr=_parents.begin();
-            itr!=_parents.end();
-            ++itr)
-        {
-            (*itr)->setNumChildrenRequiringEventTraversal( (*itr)->getNumChildrenRequiringEventTraversal()+delta );
-        }
-    }
-}
-
 struct ComputeBound : public PrimitiveFunctor
 {
         ComputeBound()
@@ -785,7 +601,12 @@ struct ComputeBound : public PrimitiveFunctor
         BoundingBox     _bb;
 };
 
-BoundingBox Drawable::computeBound() const
+BoundingSphere Drawable::computeBound() const
+{
+    return BoundingSphere(getBoundingBox());
+}
+
+BoundingBox Drawable::computeBoundingBox() const
 {
     ComputeBound cb;
 

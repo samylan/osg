@@ -31,6 +31,7 @@
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Notify>
 #include <osg/io_utils>
+#include <osg/ValueObject>
 
 #include <osgUtil/TransformCallback>
 
@@ -41,6 +42,8 @@
 #include <osgDB/FileNameUtils>
 
 #include <osgWidget/PdfReader>
+
+#include <osgUI/Widget>
 
 #include <osgViewer/ViewerEventHandlers>
 
@@ -833,7 +836,7 @@ void SlideShowConstructor::addBullet(const std::string& bullet, PositionData& po
 
     text->setText(bullet);
 
-    osg::BoundingBox bb = text->getBound();
+    const osg::BoundingBox& bb = text->getBoundingBox();
 
     // note, this increment is only "correct" when text is on the plane of the slide..
     // will need to make this more general later.
@@ -882,7 +885,7 @@ void SlideShowConstructor::addParagraph(const std::string& paragraph, PositionDa
     }
     text->setText(paragraph);
 
-    osg::BoundingBox bb = text->getBound();
+    const osg::BoundingBox& bb = text->getBoundingBox();
 
     // note, this increment is only "correct" when text is on the plane of the slide..
     // will need to make this more general later.
@@ -2115,7 +2118,7 @@ void SlideShowConstructor::addModel(const std::string& filename, const PositionD
 
         subgraph = group;
 
-        osgDB::writeNodeFile(*subgraph, "output.osgt");
+        // osgDB::writeNodeFile(*subgraph, "output.osgt");
 
     }
 
@@ -2510,6 +2513,122 @@ protected:
     std::string  _source;
 };
 
+struct CollectVolumeSettingsVisitor : public osgVolume::PropertyVisitor, public osg::NodeVisitor
+{
+    CollectVolumeSettingsVisitor():
+        osgVolume::PropertyVisitor(false) {}
+
+    virtual void apply(osg::Node& node)
+    {
+        osgVolume::VolumeTile* tile = dynamic_cast<osgVolume::VolumeTile*>(&node);
+        if (tile)
+        {
+            OSG_NOTICE<<"Found Tile "<<tile<<std::endl;
+            tile->getLayer()->getProperty()->accept(*this);
+            return;
+        }
+
+        osgUI::Widget* widget = dynamic_cast<osgUI::Widget*>(&node);
+        if (widget)
+        {
+            OSG_NOTICE<<"Found Widget "<<widget<<std::endl;
+            _widgets.push_back(widget);
+            return;
+        }
+
+
+        node.traverse(*this);
+    }
+
+    virtual void apply(osgVolume::VolumeSettings& vs)
+    {
+        _vsList.push_back(&vs);
+    }
+
+    typedef std::vector< osg::ref_ptr<osgVolume::VolumeSettings> > VolumeSettingsList;
+    VolumeSettingsList _vsList;
+
+    typedef std::vector< osg::ref_ptr<osgUI::Widget> > WidgetList;
+    WidgetList _widgets;
+};
+
+struct VolumeSettingsCallback : public osgGA::GUIEventHandler
+{
+
+    VolumeSettingsCallback():
+        //_saveKey(19), // Ctril-S
+        //_editKey(05) // Ctrl-E
+        _saveKey('W'),
+        _editKey('E')
+    {
+    }
+
+    int _saveKey;
+    int _editKey;
+
+    bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter& aa, osg::Object* object, osg::NodeVisitor* nv)
+    {
+        if (ea.getHandled()) return false;
+
+        osg::Node* node = dynamic_cast<osg::Node*>(object);
+        if (!node)
+        {
+            OSG_NOTICE<<"Warning: VolumeSettingsCallback assigned to a node other than VolumeTile, cannot operate edit/save."<<std::endl;
+            return false;
+        }
+
+
+        if (ea.getEventType()==osgGA::GUIEventAdapter::KEYUP)
+        {
+
+            if (ea.getKey()==_saveKey)
+            {
+                CollectVolumeSettingsVisitor cvsv;
+                node->accept(cvsv);
+
+                for(CollectVolumeSettingsVisitor::VolumeSettingsList::iterator itr = cvsv._vsList.begin();
+                    itr != cvsv._vsList.end();
+                    ++itr)
+                {
+                    osgVolume::VolumeSettings* vs = itr->get();
+                    std::string filename = vs->getName();
+                    if (!filename.empty())
+                    {
+                        OSG_NOTICE<<"Save VolumeSettings "<<vs<<" to filename "<<filename<<std::endl;
+                        osgDB::writeObjectFile(*vs, filename);
+                    }
+                    else
+                    {
+                        OSG_NOTICE<<"VolumeSettings "<<vs<<" with blank filename, saving to 'no_filename_vs.osgt'"<<std::endl;
+                        osgDB::writeObjectFile(*vs, "no_filename_vs.osgt");
+                    }
+                }
+                return true;
+            }
+            if (ea.getKey()==_editKey)
+            {
+                OSG_NOTICE<<"Need to edit VolumeSettings "<<std::endl;
+
+                CollectVolumeSettingsVisitor cvsv;
+                node->accept(cvsv);
+
+                for(CollectVolumeSettingsVisitor::WidgetList::iterator itr = cvsv._widgets.begin();
+                    itr != cvsv._widgets.end();
+                    ++itr)
+                {
+                    osgUI::Widget* widget = itr->get();
+                    OSG_NOTICE<<"Toggling visibility of Widget "<<widget<<std::endl;
+
+                    widget->setVisible(!widget->getVisible());
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+
 void SlideShowConstructor::setUpVolumeScalarProperty(osgVolume::VolumeTile* tile, osgVolume::ScalarProperty* property, const std::string& source)
 {
     if (!source.empty())
@@ -2672,6 +2791,8 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
         volume->addChild(tile.get());
     }
 
+    osg::ref_ptr<osgVolume::VolumeSettings> vs = volumeData.volumeSettings;
+
     if (!layer)
     {
         if (!image) return;
@@ -2726,17 +2847,31 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
 
         tile->setLayer(layer.get());
 
+        osg::ref_ptr<osgVolume::CompositeProperty> groupPropetry = new osgVolume::CompositeProperty;
+
         osg::ref_ptr<osgVolume::SwitchProperty> sp = new osgVolume::SwitchProperty;
         sp->setActiveProperty(0);
+        groupPropetry->addProperty(sp.get());
 
 
-
-        osg::ref_ptr<osgVolume::AlphaFuncProperty> ap = new osgVolume::AlphaFuncProperty(0.1f);
+        osg::ref_ptr<osgVolume::AlphaFuncProperty> ap = vs.valid() ? vs->getCutoffProperty() : new osgVolume::AlphaFuncProperty(0.1f);
         setUpVolumeScalarProperty(tile.get(), ap.get(), volumeData.cutoffValue);
 
-        osg::ref_ptr<osgVolume::TransparencyProperty> tp = new osgVolume::TransparencyProperty(1.0f);
+        osg::ref_ptr<osgVolume::TransparencyProperty> tp = vs.valid() ? vs->getTransparencyProperty() : new osgVolume::TransparencyProperty(1.0f);
         setUpVolumeScalarProperty(tile.get(), tp.get(), volumeData.alphaValue);
 
+        osg::ref_ptr<osgVolume::SampleRatioProperty> sr = vs.valid() ? vs->getSampleRatioProperty() : new osgVolume::SampleRatioProperty(1.0);
+        setUpVolumeScalarProperty(tile.get(), sr.get(), volumeData.sampleRatioValue);
+
+        osg::ref_ptr<osgVolume::SampleRatioWhenMovingProperty> srm = vs.valid() ? vs->getSampleRatioWhenMovingProperty() : 0;
+        if (!volumeData.sampleRatioWhenMovingValue.empty())
+        {
+            srm = new osgVolume::SampleRatioWhenMovingProperty(0.5);
+            setUpVolumeScalarProperty(tile.get(), srm.get(), volumeData.sampleRatioWhenMovingValue);
+        }
+
+
+        // part of hull implementation.
         osg::ref_ptr<osgVolume::ExteriorTransparencyFactorProperty> etfp;
         if (!volumeData.exteriorTransparencyFactorValue.empty())
         {
@@ -2744,6 +2879,7 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
             setUpVolumeScalarProperty(tile.get(), etfp.get(), volumeData.exteriorTransparencyFactorValue);
         }
 
+        // deprecated, used by old RayTracedTechnique
         osg::ref_ptr<osgVolume::SampleDensityProperty> sd = new osgVolume::SampleDensityProperty(0.005);
         setUpVolumeScalarProperty(tile.get(), sd.get(), volumeData.sampleDensityValue);
 
@@ -2754,30 +2890,67 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
             setUpVolumeScalarProperty(tile.get(), sdm.get(), volumeData.sampleDensityWhenMovingValue);
         }
 
-
-        osg::ref_ptr<osgVolume::SampleRatioProperty> sr = new osgVolume::SampleRatioProperty(1.0);
-        setUpVolumeScalarProperty(tile.get(), sr.get(), volumeData.sampleRatioValue);
-
-        osg::ref_ptr<osgVolume::SampleRatioWhenMovingProperty> srm;
-        if (!volumeData.sampleRatioWhenMovingValue.empty())
-        {
-            srm = new osgVolume::SampleRatioWhenMovingProperty(0.5);
-            setUpVolumeScalarProperty(tile.get(), srm.get(), volumeData.sampleRatioWhenMovingValue);
-        }
-
         osg::ref_ptr<osgVolume::TransferFunctionProperty> tfp = volumeData.transferFunction.valid() ? new osgVolume::TransferFunctionProperty(volumeData.transferFunction.get()) : 0;
 
+        if (volumeData.volumeSettings.valid())
+        {
+            groupPropetry->addProperty(volumeData.volumeSettings.get());
+        }
+        else
+        {
+            if (ap.valid()) groupPropetry->addProperty(ap.get());
+            if (tp.valid()) groupPropetry->addProperty(tp.get());
+
+            if (sr.valid()) groupPropetry->addProperty(sr.get());
+            if (srm.valid()) groupPropetry->addProperty(srm.get());
+        }
+
+
+        if (sd.valid()) groupPropetry->addProperty(sd.get());
+        if (sdm.valid()) groupPropetry->addProperty(sdm.get());
+
+        if (tfp.valid()) groupPropetry->addProperty(tfp.get());
+        if (etfp.valid()) groupPropetry->addProperty(etfp.get());
+
+#if 1
+        {
+            // Standard
+            osgVolume::CompositeProperty* cp = new osgVolume::CompositeProperty;
+
+            sp->addProperty(cp);
+        }
+
+        {
+            // Light
+            sp->addProperty(new osgVolume::LightingProperty);
+        }
+
+        {
+            // Isosurface
+            osgVolume::IsoSurfaceProperty* isp = new osgVolume::IsoSurfaceProperty(0.1);
+            setUpVolumeScalarProperty(tile.get(), isp, volumeData.alphaValue);
+
+            sp->addProperty(isp);
+        }
+
+        {
+            // MaximumIntensityProjection
+            sp->addProperty(new osgVolume::MaximumIntensityProjectionProperty);
+        }
+
+        switch(volumeData.shadingModel)
+        {
+            case(osgVolume::VolumeSettings::Standard):                     sp->setActiveProperty(0); break;
+            case(osgVolume::VolumeSettings::Light):                        sp->setActiveProperty(1); break;
+            case(osgVolume::VolumeSettings::Isosurface):                   sp->setActiveProperty(2); break;
+            case(osgVolume::VolumeSettings::MaximumIntensityProjection):   sp->setActiveProperty(3); break;
+        }
+#else
         {
             // Standard
             osgVolume::CompositeProperty* cp = new osgVolume::CompositeProperty;
             cp->addProperty(ap.get());
             cp->addProperty(tp.get());
-            if (sd.valid()) cp->addProperty(sd.get());
-            if (sdm.valid()) cp->addProperty(sdm.get());
-            if (sr.valid()) cp->addProperty(sr.get());
-            if (srm.valid()) cp->addProperty(srm.get());
-            if (tfp.valid()) cp->addProperty(tfp.get());
-            if (etfp.valid()) cp->addProperty(etfp.get());
 
             sp->addProperty(cp);
         }
@@ -2836,23 +3009,27 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
 
         switch(volumeData.shadingModel)
         {
-            case(VolumeData::Standard):                     sp->setActiveProperty(0); break;
-            case(VolumeData::Light):                        sp->setActiveProperty(1); break;
-            case(VolumeData::Isosurface):                   sp->setActiveProperty(2); break;
-            case(VolumeData::MaximumIntensityProjection):   sp->setActiveProperty(3); break;
+            case(osgVolume::VolumeSettings::Standard):                     sp->setActiveProperty(0); break;
+            case(osgVolume::VolumeSettings::Light):                        sp->setActiveProperty(1); break;
+            case(osgVolume::VolumeSettings::Isosurface):                   sp->setActiveProperty(2); break;
+            case(osgVolume::VolumeSettings::MaximumIntensityProjection):   sp->setActiveProperty(3); break;
         }
+#endif
 
+#if 1
+        layer->addProperty(groupPropetry.get());
+#else
         layer->addProperty(sp.get());
-
+#endif
         switch(volumeData.technique)
         {
-            case(VolumeData::FixedFunction):
+            case(osgVolume::VolumeSettings::FixedFunction):
                 tile->setVolumeTechnique(new osgVolume::FixedFunctionTechnique);
                 break;
-            case(VolumeData::RayTraced):
+            case(osgVolume::VolumeSettings::RayTraced):
                 tile->setVolumeTechnique(new osgVolume::RayTracedTechnique);
                 break;
-            case(VolumeData::MultiPass):
+            case(osgVolume::VolumeSettings::MultiPass):
                 tile->setVolumeTechnique(new osgVolume::MultipassTechnique);
                 break;
         }
@@ -2882,10 +3059,16 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
 
 
     osg::ref_ptr<osg::Node> model = volume.get();
+    osg::ref_ptr<osg::Group> group = dynamic_cast<osg::Group*>(model.get());
 
     if (volumeData.useTabbedDragger || volumeData.useTrackballDragger)
     {
-        osg::ref_ptr<osg::Group> group = new osg::Group;
+        if (!group)
+        {
+            group = new osg::Group;
+            group->addChild(volume.get());
+            model = group.get();
+        }
 
         osg::ref_ptr<osgManipulator::Dragger> dragger;
         if (volumeData.useTabbedDragger)
@@ -2904,18 +3087,47 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
         dragger->addDraggerCallback(new DraggerVolumeTileCallback(tile.get(), tile->getLocator()));
         dragger->setMatrix(osg::Matrix::translate(0.5,0.5,0.5)*tile->getLocator()->getTransform());
 
-
         group->addChild(dragger.get());
 
-        //dragger->addChild(volume.get());
-
-        group->addChild(volume.get());
-
-        model = group.get();
     }
+
+
+
+    model->addEventCallback(new VolumeSettingsCallback());
 
     ModelData modelData;
     addModel(model.get(), positionData, modelData, scriptData);
+
+#if 0
+    osgUI::Widget* widget = vs.valid() ? osgDB::readFile<osgUI::Widget>("VolumeSettings.lua") : 0;
+    if (widget)
+    {
+        OSG_NOTICE<<"Addig widget"<<std::endl;
+
+        widget->setVisible(true);
+        vs->setName("VolumeSettings");
+        widget->getOrCreateUserDataContainer()->addUserObject(vs.get());
+
+        osg::Vec3 pos = convertSlideToModel(osg::Vec3(0.0f,0.0f,0.0f));
+
+        const osg::BoundingBox& bb = widget->getExtents();
+        float slide_scale = 0.5f*_slideWidth/(bb.xMax()-bb.xMin());
+
+        osg::MatrixTransform* transform = new osg::MatrixTransform;
+        transform->setDataVariance(osg::Object::DYNAMIC);
+        transform->setMatrix(osg::Matrix::rotate(osg::inDegrees(90.0f),osg::Vec3(1.0f,0.0f,0.0f)) * osg::Matrix::scale(slide_scale,slide_scale,slide_scale)*osg::Matrix::translate(pos));
+        transform->addChild(widget);
+
+#if 1
+        HUDTransform* hudTransform = new HUDTransform(_hudSettings.get());
+        hudTransform->addChild(transform);
+
+        addToCurrentLayer(hudTransform);
+#else
+        addToCurrentLayer(transform);
+#endif
+    }
+#endif
 }
 
 bool SlideShowConstructor::attachTexMat(osg::StateSet* stateset, const ImageData& imageData, float s, float t, bool textureRectangle)
