@@ -36,7 +36,7 @@ void TriangleStripVisitor::mergeTrianglesStrip(osg::Geometry& geometry)
                                  << " should result to " << nbtristripVertexes + nbtristrip*2
                                  << " after connection" << std::endl;
 
-        osg::DrawElementsUInt* ndw = new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLE_STRIP);
+        osg::DrawElementsUShort* ndw = new osg::DrawElementsUShort(osg::PrimitiveSet::TRIANGLE_STRIP);
         for (unsigned int i = 0 ; i < geometry.getPrimitiveSetList().size() ; ++ i) {
             osg::PrimitiveSet* ps = geometry.getPrimitiveSetList()[i];
             if (ps && ps->getMode() == osg::PrimitiveSet::TRIANGLE_STRIP) {

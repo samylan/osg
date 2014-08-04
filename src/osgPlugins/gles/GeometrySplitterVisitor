@@ -18,6 +18,7 @@
 #include <osg/ref_ptr>
 #include <osg/Geometry>
 #include <osg/PrimitiveSet>
+#include <osg/ValueObject>
 #include <osgUtil/MeshOptimizers>
 
 #include "GeometryArray"

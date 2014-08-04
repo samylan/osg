@@ -79,10 +79,10 @@ struct JSONObject : public JSONObjectBase
     void dumpVarintVector(std::vector<uint8_t>&, T const*, bool) const;
     template<typename T>
     void dumpVarintValue(std::vector<uint8_t>&, T const*, bool) const;
-    std::vector<uint8_t> varint_encoding(unsigned int value) const;
+    std::vector<uint8_t> varintEncoding(unsigned int value) const;
 
     // see https://developers.google.com/protocol-buffers/docs/encoding?hl=fr&csw=1#types
-    inline unsigned int to_varint_unsigned(int const v) const
+    inline unsigned int toVarintUnsigned(int const v) const
     { return (v << 1) ^ (v >> ((sizeof(v) << 3) - 1)); }
 
 };
@@ -225,7 +225,7 @@ struct JSONVertexArray : public JSONArray
                                                          WriteVisitor &visitor,
                                                          const std::string& filename,
                                                          std::string& encoding);
-    unsigned int writeData(const osg::Array* array, const std::string& filename) 
+    unsigned int writeData(const osg::Array* array, const std::string& filename)
     {
         std::ofstream myfile;
         myfile.open(filename.c_str(), std::ios::binary );
@@ -240,9 +240,17 @@ struct JSONVertexArray : public JSONArray
         str << JSONObjectBase::indent() << "\"Elements\": [ " << array[0];
         for (unsigned int i = 1; i < size; i++) {
             T v = array[i];
-            str << ", " <<v;
+            str << ", " << v;
         }
-        str << " ],";
+        str << " ]," << std::endl;
+    }
+
+    template <typename T, typename U> void writeInlineArray(std::ostream& str, unsigned int size, const T* array) {
+        str << JSONObjectBase::indent() << "\"Elements\": [ " << static_cast<U>(array[0]);
+        for (unsigned int i = 1; i < size; i++) {
+            str << ", " << static_cast<U>(array[i]);
+        }
+        str << " ]," << std::endl;
     }
 
     template <class T> void writeInlineArrayReal(std::ostream& str, unsigned int size, const T* array) {
@@ -251,7 +259,7 @@ struct JSONVertexArray : public JSONArray
             float v = array[i];
             if (osg::isNaN(v))
                 v = 0;
-            str << ", " <<v;
+            str << ", " << v;
         }
         str << " ]," << std::endl;
     }

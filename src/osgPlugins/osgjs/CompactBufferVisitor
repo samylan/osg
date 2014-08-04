@@ -1,4 +1,16 @@
-/*  -*-c++-*- */
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Sketchfab
+ *
+ * This application is open source and may be redistributed and/or modified
+ * freely and without restriction, both in commercial and non commercial
+ * applications, as long as this copyright notice is maintained.
+ *
+ * This application is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+*/
+
+#
 #ifndef COMPACT_BUFFER_VISITOR
 #define COMPACT_BUFFER_VISITOR
 
@@ -108,12 +120,12 @@ class CompactBufferVisitor : public GeometryUniqueVisitor {
             return maximum;
         }
 
-        bool isProcessed(osg::Object const* buffer) { return (_processed.find(buffer) != _processed.end()); }
-        void setProcessed(osg::Object const* source, osg::Object* compact)
-        { _processed.insert(std::pair<osg::Object const*, osg::Object*>(source, compact)); }
+        bool isProcessed(const osg::Object* buffer) { return (_processed.find(buffer) != _processed.end()); }
+        void setProcessed(const osg::Object* source, osg::Object* compact)
+        { _processed.insert(std::pair<const osg::Object*, osg::Object*>(source, compact)); }
 
-        osg::Object* getProcessedBuffer(osg::Object const* buffer) {
-            std::map<osg::Object const*, osg::Object*>::iterator it = _processed.find(buffer);
+        osg::Object* getProcessedBuffer(const osg::Object* buffer) {
+            std::map<const osg::Object*, osg::Object*>::iterator it = _processed.find(buffer);
             if(it == _processed.end()) {
                 return 0;
             }
@@ -122,7 +134,7 @@ class CompactBufferVisitor : public GeometryUniqueVisitor {
             }
         }
 
-        std::map<osg::Object const*, osg::Object*> _processed;
+        std::map<const osg::Object*, osg::Object*> _processed;
 };
 
 #endif

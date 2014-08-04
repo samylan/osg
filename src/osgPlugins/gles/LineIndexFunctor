@@ -1,4 +1,4 @@
-/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Sketchfab
  *
  * This application is open source and may be redistributed and/or modified
  * freely and without restriction, both in commercial and non commercial
@@ -27,7 +27,7 @@ public:
         _b = std::max<unsigned int>(a, b);
     }
 
-    bool operator<(Line const& e) {
+    bool operator<(const Line& e) {
         return _a < e._a || (_a == e._a && _b < e._b);
     }
 
@@ -35,7 +35,7 @@ public:
 };
 
 struct LineCompare {
-    bool operator()(Line const& lhs, Line const& rhs) {
+    bool operator()(const Line& lhs, const Line& rhs) {
         return lhs._a < rhs._a || (lhs._a == rhs._a && lhs._b < rhs._b);
     }
 };

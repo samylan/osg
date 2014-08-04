@@ -252,7 +252,7 @@ public:
 
 protected:
     osgDB::Options* handleFileWriterOption(const osgDB::Options* options,
-                                          std::string const& fileName) const
+                                           const std::string& fileName) const
     {
         std::string ext = osgDB::getLowerCaseFileExtension(fileName);
         std::string opt;
@@ -268,7 +268,7 @@ protected:
         return new osgDB::Options(opt);
     }
 
-    ReaderWriter* getReaderWriter(std::string const& fileName) const
+    ReaderWriter* getReaderWriter(const std::string& fileName) const
     {
         ref_ptr<osgDB::Registry> registry = osgDB::Registry::instance();
         std::string ext = osgDB::getLowerCaseFileExtension(fileName);

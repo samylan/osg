@@ -1,4 +1,4 @@
-/*  -*-c++-*- 
+/*  -*-c++-*-
  *  Copyright (C) 2010 Cedric Pinson <cedric.pinson@plopbyte.net>
  */
 
@@ -218,9 +218,9 @@ void JSONObject::dumpVarintVector(std::vector<uint8_t>& oss, T const* buffer, bo
     unsigned int n = buffer->getDataSize();
     for(typename T::const_iterator it = buffer->begin() ; it != buffer->end() ; ++ it) {
         for(unsigned int i = 0 ; i < n ; ++ i) {
-            unsigned int value = isUnsigned ? (*it)[i] : JSONObject::to_varint_unsigned((*it)[i]);
+            unsigned int value = isUnsigned ? (*it)[i] : JSONObject::toVarintUnsigned((*it)[i]);
 
-            std::vector<uint8_t> encoding = varint_encoding(value);
+            std::vector<uint8_t> encoding = varintEncoding(value);
             oss.insert(oss.end(), encoding.begin(), encoding.end());
         }
     }
@@ -229,15 +229,15 @@ void JSONObject::dumpVarintVector(std::vector<uint8_t>& oss, T const* buffer, bo
 template<typename T>
 void JSONObject::dumpVarintValue(std::vector<uint8_t>& oss, T const* buffer, bool isUnsigned) const {
     for(typename T::const_iterator it = buffer->begin() ; it != buffer->end() ; ++ it) {
-        unsigned int value = isUnsigned ? (*it) : JSONObject::to_varint_unsigned(*it);
+        unsigned int value = isUnsigned ? (*it) : JSONObject::toVarintUnsigned(*it);
 
-        std::vector<uint8_t> encoding = varint_encoding(value);
+        std::vector<uint8_t> encoding = varintEncoding(value);
         oss.insert(oss.end(), encoding.begin(), encoding.end());
     }
 }
 
 // varint encoding adapted from http://stackoverflow.com/questions/19758270/read-varint-from-linux-sockets
-std::vector<uint8_t> JSONObject::varint_encoding(unsigned int value) const
+std::vector<uint8_t> JSONObject::varintEncoding(unsigned int value) const
 {
     std::vector<uint8_t> buffer;
 
@@ -261,7 +261,7 @@ static void writeEntry(std::ostream& str, const std::string& key, JSONObject::JS
 
     if ( map.find(key) != map.end() &&
          map[ key ].valid() ) {
-        
+
         str << JSONObjectBase::indent() << '"' << key << '"' << ": ";
         map[ key ]->write(str, visitor);
         map.erase(key);
@@ -369,7 +369,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
     {
         osg::ref_ptr<osg::Vec4Array> converted = new osg::Vec4Array;
         converted->reserve(array->getNumElements());
-            
+
         const osg::Vec4ubArray* a = dynamic_cast<const osg::Vec4ubArray*>(array.get());
         for (unsigned int i = 0; i < a->getNumElements(); ++i) {
             converted->push_back(osg::Vec4( (*a)[i][0]/255.0,
@@ -461,7 +461,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
             {
                 const char* a = static_cast<const char*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();
-                writeInlineArray<char>(str, size, a);
+                writeInlineArray<char, short>(str, size, a); // using short to write readable numbers and not `char`s
             }
             break;
             case osg::Array::UByteArrayType:
@@ -471,7 +471,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
             {
                 const unsigned char* a = static_cast<const unsigned char*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();
-                writeInlineArray<unsigned char>(str, size, a);
+                writeInlineArray<unsigned char, unsigned short>(str, size, a); // using short to write readable numbers and not `char`s
             }
             break;
             case osg::Array::ShortArrayType:
@@ -549,7 +549,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
         osg::notify(osg::NOTICE) << "TypedArray " << type << " " << url.str() << " ";
         if (size/1024.0 < 1.0) {
             osg::notify(osg::NOTICE) << size << " bytes" << std::endl;
-        } else if (size/(1024.0*1024.0) < 1.0) { 
+        } else if (size/(1024.0*1024.0) < 1.0) {
             osg::notify(osg::NOTICE) << size/1024.0 << " kb" << std::endl;
         } else {
             osg::notify(osg::NOTICE) << size/(1024.0*1024.0) << " mb" << std::endl;
@@ -597,7 +597,7 @@ void JSONVec3Array::write(std::ostream& str,WriteVisitor& visitor)
 {
     str << "[ ";
     for (unsigned int i = 0; i < _array.size(); i++) {
-        if (_array[i].valid()) { 
+        if (_array[i].valid()) {
             _array[i]->write(str, visitor);
         } else {
             str << "undefined";
@@ -687,7 +687,7 @@ JSONObject* getDrawMode(GLenum mode)
     return result;
 }
 
-JSONDrawArray::JSONDrawArray(osg::DrawArrays& array) 
+JSONDrawArray::JSONDrawArray(osg::DrawArrays& array)
 {
     getMaps()["First"] = new JSONValue<int>(array.getFirst());
     getMaps()["Count"] = new JSONValue<int>(array.getCount());
