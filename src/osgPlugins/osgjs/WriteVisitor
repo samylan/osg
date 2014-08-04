@@ -206,7 +206,7 @@ public:
 
     void applyCallback(osg::Node& node, JSONObject* json) {
         JSONArray* updateCallbacks = new JSONArray;
-        osg::NodeCallback* nc = node.getUpdateCallback();
+        osg::Callback* nc = node.getUpdateCallback();
         while (nc) {
             osgAnimation::BasicAnimationManager* am = dynamic_cast<osgAnimation::BasicAnimationManager*>(nc);
             if (am) {

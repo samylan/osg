@@ -1,5 +1,5 @@
 #include "GeometrySplitterVisitor"
-
+#include <osg/ValueObject>
 
 void GeometrySplitterVisitor::apply(osg::Geometry& geometry) {
     GeometryIndexSplitter splitter(_maxIndexValue);
