@@ -83,6 +83,8 @@ void JSONObject::addChild(const std::string& type, JSONObject* child)
 
 bool JSONObject::isVarintableIntegerBuffer(osg::Array const* array) const
 {
+    // Return true for buffers representing integer values and that therefore
+    // can be binary encoded compactly using the varint protocol.
     // Note: as Byte/UByte array are already compact we do not consider
     //       them as compactable
     bool isInteger = false;

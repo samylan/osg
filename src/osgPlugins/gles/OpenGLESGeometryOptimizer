@@ -51,7 +51,7 @@ public:
     }
 
     void setMaxIndexValue(unsigned int s) { _maxIndexValue = s; }
-    void setWireframe(std::string const& s) {
+    void setWireframe(const std::string& s) {
         _wireframe = s;
         if(_wireframe == std::string("outline")) {
             // no use to build strip if we only want wireframe

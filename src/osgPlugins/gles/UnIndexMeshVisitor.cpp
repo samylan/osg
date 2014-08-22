@@ -124,5 +124,5 @@ void UnIndexMeshVisitor::apply(osg::Geometry& geom)
 
     arrayList.setToGeometry(geom);
     geom.setPrimitiveSetList(newPrimitives);
-    setProcessed(geom);
+    setProcessed(&geom);
 }

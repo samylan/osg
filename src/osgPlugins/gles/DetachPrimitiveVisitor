@@ -40,7 +40,7 @@ public:
             }
             setProcessed(detached);
         }
-        setProcessed(geometry);
+        setProcessed(&geometry);
     }
 
 

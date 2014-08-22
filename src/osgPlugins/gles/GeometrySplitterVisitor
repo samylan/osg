@@ -14,6 +14,7 @@
 #define GEOMETRY_SPLITTER_VISITOR
 
 #include <set>
+#include <algorithm>
 
 #include <osg/ref_ptr>
 #include <osg/Geometry>
@@ -24,38 +25,29 @@
 #include "GeometryArray"
 #include "GeometryUniqueVisitor"
 
-#include <iostream>
-
-
-class GeometrySplitterVisitor : public GeometryUniqueVisitor {
-public:
-    GeometrySplitterVisitor(unsigned int maxIndexValue = 65535) : _maxIndexValue(maxIndexValue)
-    {}
-
-    void apply(osg::Geometry& geometry);
-
-protected:
-    unsigned int _maxIndexValue;
-};
-
 
 class GeometryIndexSplitter
 {
 public:
-    GeometryIndexSplitter(unsigned int maxIndex) : _maxIndexToSplit(maxIndex) {}
+    typedef std::vector<osg::ref_ptr<osg::Geometry> > GeometryList;
+
+    GeometryIndexSplitter(unsigned int maxIndex) : _maxIndexToSplit(maxIndex)
+    {}
+
     bool split(osg::Geometry& geometry) {
-        // check indexes
-        if (!needToSplit(geometry)) {
+        if(!hasValidPrimitives(geometry) || !needToSplit(geometry)) {
+            _geometryList.push_back(&geometry); // remap geometry to itself
             return false;
         }
 
-        if(!hasValidPrimitives(geometry)) return false;
+        // keep bounding box data as user value if needed in subsequent processing
+        attachBufferBoundingBox(geometry);
+
 
         // copy it because we will modify vertex arrays
         osg::ref_ptr<osg::Geometry> processing = osg::clone(&geometry, osg::CopyOp::DEEP_COPY_ALL);
         osg::ref_ptr<osg::Geometry> reported;
-        bool doit = true;
-        while (doit) {
+        while (true) {
             reported = doSplit(*processing);
 
             // reduce vertex array if needed
@@ -65,16 +57,14 @@ public:
             _geometryList.push_back(processing);
 
             if (!reported.valid()) {
-                doit = false;
+                break;
             }
             else {
                 processing = reported;
                 reported = 0;
-                {
-                    // re order index elements
-                    osgUtil::VertexAccessOrderVisitor preTransform;
-                    preTransform.optimizeOrder(*processing);
-                }
+                // re order index elements
+                osgUtil::VertexAccessOrderVisitor preTransform;
+                preTransform.optimizeOrder(*processing);
             }
         }
 
@@ -86,20 +76,19 @@ public:
         return true;
     }
 
-    typedef std::vector<osg::ref_ptr<osg::Geometry> > GeometryList;
-
 protected:
-    bool hasValidPrimitives(osg::Geometry& geometry) {
-        for (unsigned int i = 0; i < geometry.getPrimitiveSetList().size(); i++) {
-            if (geometry.getPrimitiveSetList()[i]) {
-                if (!geometry.getPrimitiveSetList()[i]->getDrawElements()) {
+    bool hasValidPrimitives(osg::Geometry& geometry) const {
+        for (unsigned int i = 0; i < geometry.getNumPrimitiveSets(); ++ i) {
+            osg::PrimitiveSet* primitive = geometry.getPrimitiveSet(i);
+            if (primitive) {
+                if (!primitive->getDrawElements()) {
                     osg::notify(osg::INFO) << "can't split Geometry " << geometry.getName()
                                            << " (" << &geometry << ") contains non indexed primitives"
                                            << std::endl;
                     return false;
                 }
 
-                switch (geometry.getPrimitiveSetList()[i]->getMode()) {
+                switch (primitive->getMode()) {
                     case osg::PrimitiveSet::TRIANGLES:
                     case osg::PrimitiveSet::LINES:
                     case osg::PrimitiveSet::POINTS:
@@ -116,30 +105,81 @@ protected:
         return true;
     }
 
-    osg::Geometry* doSplit(osg::Geometry& geometry)
-    {
+    bool needToSplit(const osg::Geometry& geometry) const {
+        for(unsigned int i = 0; i < geometry.getNumPrimitiveSets(); ++ i) {
+            const osg::DrawElements* primitive = geometry.getPrimitiveSet(i)->getDrawElements();
+            if (needToSplit(*primitive)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool needToSplit(const osg::DrawElements& primitive) const {
+        for(unsigned int j = 0; j < primitive.getNumIndices(); j++) {
+            if (primitive.index(j) > _maxIndexToSplit){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void attachBufferBoundingBox(osg::Geometry& geometry) const {
+        // positions
+        setBufferBoundingBox(dynamic_cast<osg::Vec3Array*>(geometry.getVertexArray()));
+        // uvs
+        for(unsigned int i = 0 ; i < geometry.getNumTexCoordArrays() ; ++ i) {
+            setBufferBoundingBox(dynamic_cast<osg::Vec2Array*>(geometry.getTexCoordArray(i)));
+        }
+    }
+
+    template<typename T>
+    void setBufferBoundingBox(T* buffer) const {
+        if(!buffer) return;
+
+        typename T::ElementDataType bbl;
+        typename T::ElementDataType ufr;
+        const unsigned int dimension = buffer->getDataSize();
+
+        if(buffer->getNumElements()) {
+            for(unsigned int i = 0 ; i < dimension ; ++i) {
+                bbl[i] = ufr[i] = (*buffer->begin())[i];
+            }
+
+            for(typename T::const_iterator it = buffer->begin() + 1 ; it != buffer->end() ; ++ it) {
+                for(unsigned int i = 0 ; i < dimension ; ++ i) {
+                    bbl[i] = std::min(bbl[i], (*it)[i]);
+                    ufr[i] = std::max(ufr[i], (*it)[i]);
+                }
+            }
+
+            buffer->setUserValue("bbl", bbl);
+            buffer->setUserValue("ufr", ufr);
+        }
+    }
+
+    osg::Geometry* doSplit(osg::Geometry& geometry) const {
         osg::Geometry::PrimitiveSetList geomPrimitives;
         osg::Geometry::PrimitiveSetList wirePrimitives;
         osg::Geometry::PrimitiveSetList reportedPrimitives;
-        std::vector< osg::ref_ptr<osg::DrawElementsUInt> > primitivesToFix;
+        std::vector< osg::ref_ptr<osg::DrawElements> > primitivesToFix;
 
         osg::Geometry::PrimitiveSetList& primitives = geometry.getPrimitiveSetList();
         std::set<unsigned int> validIndices;
         osg::ref_ptr<osg::Geometry> reportGeometry;
 
         for (unsigned int i = 0; i < primitives.size(); i++) {
+            osg::DrawElements *primitive = primitives[i]->getDrawElements();
             bool isWireframe = false;
-            if(primitives[i]->getUserValue("wireframe", isWireframe)) {
-                wirePrimitives.push_back(primitives[i]);
+            if(primitive->getUserValue("wireframe", isWireframe)) {
+                wirePrimitives.push_back(primitive);
             }
-            else if (needToSplit(*(primitives[i]))) {
-                osg::DrawElementsUInt* deUInt = dynamic_cast<osg::DrawElementsUInt*>(primitives[i].get());
-                primitivesToFix.push_back(deUInt);
+            else if (needToSplit(*primitive)) {
+                primitivesToFix.push_back(primitive);
             }
             else {
-                geomPrimitives.push_back(primitives[i]);
-                validIndices.insert(dynamic_cast<osg::DrawElementsUInt*>(primitives[i].get())->begin(),
-                                    dynamic_cast<osg::DrawElementsUInt*>(primitives[i].get())->end());
+                geomPrimitives.push_back(primitive);
+                setValidIndices(validIndices, primitive);
             }
         }
 
@@ -149,27 +189,11 @@ protected:
 
             // filter all indices > _maxIndexValue in primitives
             for (unsigned int i = 0; i < primitivesToFix.size(); i++) {
-                osg::DrawElementsUInt* de = primitivesToFix[i];
-                if(!de) continue;
-
-                switch (de->getMode()) {
-                    case osg::PrimitiveSet::POINTS:
-                    case osg::PrimitiveSet::LINES:
-                    case osg::PrimitiveSet::TRIANGLES:
-                    {
-                        osg::DrawElementsUInt* fixed = de;
-                        osg::DrawElementsUInt* reported = removeLargeIndices(fixed);
-                        reportedPrimitives.push_back(reported);
-                        geomPrimitives.push_back(fixed);
-                        validIndices.insert(fixed->begin(), fixed->end());
-                    }
-                    break;
-                    default:
-                        osg::notify(osg::WARN) << "Warning primitive with mode '"
-                                               << de->getMode() << "' not handled in splitting"
-                                               << std::endl;
-                    break;
-                }
+                osg::DrawElements* source = primitivesToFix[i];
+                osg::DrawElements* large = removeLargeIndices(dynamic_cast<osg::DrawElementsUInt*>(source));
+                reportedPrimitives.push_back(large);
+                geomPrimitives.push_back(source);
+                setValidIndices(validIndices, source);
             }
         }
 
@@ -184,34 +208,13 @@ protected:
         return 0;
     }
 
-    bool needToSplit(osg::PrimitiveSet& p, unsigned int* index = 0) {
-        osg::DrawElements* de = p.getDrawElements();
-        if (!de) {
-            return false;
+    void setValidIndices(std::set<unsigned int>& indices, const osg::DrawElements* primitive) const {
+        for(unsigned int j = 0 ; j < primitive->getNumIndices() ; ++ j) {
+            indices.insert(primitive->index(j));
         }
-        for (unsigned int j = 0; j < de->getNumIndices(); j++) {
-            unsigned int idx = de->getElement(j);
-            if (idx > _maxIndexToSplit){
-                if (index) {
-                    (*index) = j;
-                }
-                return true;
-            }
-        }
-        return false;
     }
 
-    bool needToSplit(osg::Geometry& geom) {
-        for ( unsigned int i = 0; i < geom.getPrimitiveSetList().size(); i++) {
-            osg::PrimitiveSet* ps = geom.getPrimitiveSetList()[i];
-            if (needToSplit(*ps)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    osg::DrawElementsUInt* removeLargeIndices(osg::DrawElementsUInt* source) {
+    osg::DrawElements* removeLargeIndices(osg::DrawElementsUInt* source) const {
         osg::DrawElementsUInt* large = new osg::DrawElementsUInt(source->getMode());
         unsigned int primitive_size = 0;
         switch(source->getMode()) {
@@ -229,10 +232,10 @@ protected:
         for (int id = source->getNumPrimitives() - 1; id >= 0; -- id) {
             const unsigned int arrayIndex = id * primitive_size;
             for(unsigned int i = 0 ; i < primitive_size ; ++ i) {
-                if(source->getElement(arrayIndex + i) > _maxIndexToSplit) {
+                if(source->index(arrayIndex + i) > _maxIndexToSplit) {
                     // add primitive in the large DrawElements
                     for(unsigned int j = 0 ; j < primitive_size ; ++ j) {
-                        large->addElement(source->getElement(arrayIndex + j));
+                        large->addElement(source->index(arrayIndex + j));
                     }
                     // remove primitive from source DrawElements
                     for(int j = primitive_size - 1 ; j >= 0 ; -- j) {
@@ -247,38 +250,44 @@ protected:
 
     // keep wireframe data associated to the solid geometry
     void extractWireframePrimitive(osg::Geometry::PrimitiveSetList& lines,
-                                   std::set<unsigned int> const& indices,
+                                   const std::set<unsigned int>& indices,
                                    osg::Geometry::PrimitiveSetList& primitives,
-                                   osg::Geometry::PrimitiveSetList& reported) {
-        if(indices.empty()) return;
+                                   osg::Geometry::PrimitiveSetList& reported) const {
+        if(indices.empty()) {
+            return;
+        }
 
         for(unsigned int i = 0 ; i < lines.size() ; ++ i) {
-            osg::DrawElementsUInt* line = dynamic_cast<osg::DrawElementsUInt*>(lines[i].get());
+            const osg::DrawElementsUInt* line = dynamic_cast<osg::DrawElementsUInt*>(lines[i].get());
             if(!line || line->getMode() != osg::PrimitiveSet::LINES) {
                 osg::notify(osg::INFO) << "Primitive with bad mode flagged as wireframe. Skipping."
                                        << std::endl;
             }
-            osg::ref_ptr<osg::DrawElementsUInt> wireframe = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES);
+            osg::ref_ptr<osg::DrawElementsUInt> small = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES);
+            osg::ref_ptr<osg::DrawElementsUInt> large = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES);
 
-            for (int id = line->getNumPrimitives() - 1; id >= 0; -- id) {
+            for (unsigned int id = 0 ; id < line->getNumPrimitives() ; ++ id) {
                 unsigned int arrayIndex = id * 2;
-                unsigned int a = line->getElement(arrayIndex),
-                             b = line->getElement(arrayIndex + 1);
+                unsigned int a = line->index(arrayIndex),
+                             b = line->index(arrayIndex + 1);
                 if(indices.find(a) != indices.end() && indices.find(b) != indices.end()) {
-                    wireframe->addElement(a);
-                    wireframe->addElement(b);
-                    line->erase(line->begin() + arrayIndex + 1);
-                    line->erase(line->begin() + arrayIndex);
+                    small->addElement(a);
+                    small->addElement(b);
+                }
+                else {
+                    large->addElement(a);
+                    large->addElement(b);
                 }
             }
 
-            if(wireframe->size()) {
-                wireframe->setUserValue("wireframe", true);
-                primitives.push_back(wireframe);
+            if(small->size()) {
+                small->setUserValue("wireframe", true);
+                primitives.push_back(small);
             }
 
-            if(line->size()) {
-                reported.push_back(line);
+            if(large->size()) {
+                large->setUserValue("wireframe", true);
+                reported.push_back(large);
             }
         }
     }
@@ -286,6 +295,53 @@ protected:
 public:
     const unsigned int _maxIndexToSplit;
     GeometryList _geometryList;
+};
+
+
+
+class GeometrySplitterVisitor : public GeometryUniqueVisitor {
+public:
+    typedef std::vector< osg::ref_ptr<osg::Geometry> > GeometryList;
+
+    GeometrySplitterVisitor(unsigned int maxIndexValue = 65535) : _maxIndexValue(maxIndexValue)
+    {}
+
+    void apply(osg::Geode& geode) {
+        GeometryUniqueVisitor::apply(geode);
+        GeometryList remapped;
+        for(unsigned int i = 0 ; i < geode.getNumDrawables() ; ++ i) {
+            osg::Geometry* geometry = geode.getDrawable(i)->asGeometry();
+            if(geometry) {
+                std::map<osg::Geometry*, GeometryList>::iterator lookup = _split.find(geometry);
+                if(lookup != _split.end() && !lookup->second.empty()) {
+                    remapped.insert(remapped.end(), lookup->second.begin(), lookup->second.end());
+                }
+            }
+        }
+        // remove all drawables
+        geode.removeDrawables(0, geode.getNumDrawables());
+        for(unsigned int i = 0 ; i < remapped.size() ; ++ i) {
+            geode.addDrawable(remapped[i]);
+        }
+    }
+
+    void apply(osg::Geometry& geometry) {
+        GeometryIndexSplitter splitter(_maxIndexValue);
+        splitter.split(geometry);
+        setProcessed(&geometry, splitter._geometryList);
+    }
+
+protected:
+    bool isProcessed(osg::Geometry* node) {
+        return _split.find(node) != _split.end();
+    }
+
+    void setProcessed(osg::Geometry* node, const GeometryList& list) {
+        _split.insert(std::pair<osg::Geometry*, GeometryList>(node, GeometryList(list)));
+    }
+
+    unsigned int _maxIndexValue;
+    std::map<osg::Geometry*, GeometryList> _split;
 };
 
 #endif

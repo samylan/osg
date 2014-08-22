@@ -251,23 +251,6 @@ public:
     }
 
 protected:
-    osgDB::Options* handleFileWriterOption(const osgDB::Options* options,
-                                           const std::string& fileName) const
-    {
-        std::string ext = osgDB::getLowerCaseFileExtension(fileName);
-        std::string opt;
-        if(options) {
-            opt = options->getOptionString();
-        }
-
-        if(ext == std::string("osgt") && opt.find("Ascii") == std::string::npos)
-            opt += " Ascii";
-        if(ext == std::string("osgx") && opt.find("XML") == std::string::npos)
-            opt += " XML";
-
-        return new osgDB::Options(opt);
-    }
-
     ReaderWriter* getReaderWriter(const std::string& fileName) const
     {
         ref_ptr<osgDB::Registry> registry = osgDB::Registry::instance();
