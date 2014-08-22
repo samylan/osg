@@ -1,7 +1,6 @@
 SET(TARGET_SRC
     ReaderWriterGLES.cpp
     OpenGLESGeometryOptimizer.cpp
-    GeometrySplitterVisitor.cpp
     TriangleStripVisitor.cpp
     IndexMeshVisitor.cpp
     UnIndexMeshVisitor.cpp)
