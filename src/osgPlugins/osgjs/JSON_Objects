@@ -225,6 +225,7 @@ struct JSONVertexArray : public JSONArray
                                                          WriteVisitor &visitor,
                                                          const std::string& filename,
                                                          std::string& encoding);
+
     unsigned int writeData(const osg::Array* array, const std::string& filename)
     {
         std::ofstream myfile;
