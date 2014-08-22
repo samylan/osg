@@ -46,16 +46,8 @@ protected:
         return _processed.find(node) != _processed.end();
     }
 
-    bool isProcessed(osg::Geometry& node) {
-        return _processed.find(&node) != _processed.end();
-    }
-
     void setProcessed(osg::Geometry* node) {
         _processed.insert(node);
-    }
-
-    void setProcessed(osg::Geometry& node) {
-        _processed.insert(&node);
     }
 
     std::set<osg::Geometry*> _processed;

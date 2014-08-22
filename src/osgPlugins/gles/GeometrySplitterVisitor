@@ -247,7 +247,7 @@ protected:
 
     // keep wireframe data associated to the solid geometry
     void extractWireframePrimitive(osg::Geometry::PrimitiveSetList& lines,
-                                   std::set<unsigned int> const& indices,
+                                   const std::set<unsigned int>& indices,
                                    osg::Geometry::PrimitiveSetList& primitives,
                                    osg::Geometry::PrimitiveSetList& reported) {
         if(indices.empty()) return;

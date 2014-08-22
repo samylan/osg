@@ -284,7 +284,7 @@ void IndexMeshVisitor::apply(osg::Geometry& geom) {
     }
 
     geom.setPrimitiveSetList(new_primitives);
-    setProcessed(geom);
+    setProcessed(&geom);
 }
 
 

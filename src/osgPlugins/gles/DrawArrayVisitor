@@ -78,7 +78,7 @@ public:
 
         dst.setToGeometry(geometry);
         geometry.setPrimitiveSetList(newGeometry->getPrimitiveSetList());
-        setProcessed(geometry);
+        setProcessed(&geometry);
     }
 };
 

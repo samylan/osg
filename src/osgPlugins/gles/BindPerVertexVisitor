@@ -48,7 +48,7 @@ public:
             geometry.setFogCoordBinding(osg::Geometry::BIND_PER_VERTEX);
         }
 
-        setProcessed(geometry);
+        setProcessed(&geometry);
     };
 
 protected:
