@@ -22,16 +22,12 @@
 #include <osgAnimation/AnimationManagerBase>
 #include <osgAnimation/BasicAnimationManager>
 
-#include <sstream>
-#include <cassert>
-#include <map>
-#include "TangentSpace"
-#include "JSON_Objects"
+#include <vector>
 
-#include "GeometryOperation"
+#include "JSON_Objects"
 #include "Animation"
+#include "CompactBufferVisitor"
 #include "WriteVisitor"
-#include "UnIndexMeshVisitor"
 
 
 
@@ -39,41 +35,26 @@ using namespace osg;
 
 
 
-// the idea is to create true Geometry if skeleton with RigGeometry
-struct FakeUpdateVisitor : public osgUtil::UpdateVisitor
-{
-    FakeUpdateVisitor() {
-        setFrameStamp(new osg::FrameStamp());
-    }
-};
-
 class ReaderWriterJSON : public osgDB::ReaderWriter
 {
 public:
 
      struct OptionsStruct {
-         bool generateTangentSpace;
-         int tangentSpaceTextureUnit;
-         bool disableTriStrip;
-         bool disableMergeTriStrip;
-         int triStripCacheSize;
-         bool useDrawArray;
-         bool enableWireframe;
+         int resizeTextureUpToPowerOf2;
          bool useExternalBinaryArray;
          bool mergeAllBinaryFiles;
+         bool disableCompactBuffer;
          bool inlineImages;
+         bool varint;
+         std::vector<std::string> useSpecificBuffer;
 
          OptionsStruct() {
-             generateTangentSpace = false;
-             tangentSpaceTextureUnit = 0;
-             disableTriStrip = false;
-             disableMergeTriStrip = false;
-             triStripCacheSize = 16;
-             useDrawArray = false;
-             enableWireframe = false;
+             resizeTextureUpToPowerOf2 = 0;
              useExternalBinaryArray = false;
              mergeAllBinaryFiles = false;
+             disableCompactBuffer = false;
              inlineImages = false;
+             varint = false;
          }
     };
 
@@ -81,24 +62,22 @@ public:
     ReaderWriterJSON()
     {
         supportsExtension("osgjs","OpenSceneGraph Javascript implementation format");
-        supportsExtension("unindex","Unindex the geometry");
-        supportsOption("generateTangentSpace","Build tangent space to each geometry");
-        supportsOption("tangentSpaceTextureUnit=<unit>","Specify on wich texture unit normal map is");
-        supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
-        supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
-        supportsOption("disableTriStrip","disable generation of tristrip");
-        supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
-        supportsOption("enableWireframe","create a wireframe geometry for each triangles geometry");
+        supportsOption("resizeTextureUpToPowerOf2=<int>","Specify the maximum power of 2 allowed dimension for texture. Using 0 will disable the functionality and no image resizing will occur.");
         supportsOption("useExternalBinaryArray","create binary files for vertex arrays");
         supportsOption("mergeAllBinaryFiles","merge all binary files into one to avoid multi request on a server");
         supportsOption("inlineImages","insert base64 encoded images instead of referring to them");
+        supportsOption("varint","Use varint encoding to serialize integer buffers");
+        supportsOption("useSpecificBuffer=uservalue1,uservalue2","uses specific buffers for unshared buffers attached to geometries having a specified user value");
+        supportsOption("disableCompactBuffer","keep source types and do not try to optimize buffers size");
     }
-        
+
     virtual const char* className() const { return "OSGJS json Writer"; }
 
     virtual ReadResult readNode(const std::string& fileName, const Options* options) const;
 
-    virtual WriteResult writeNode(const Node& node, const std::string& fileName, const osgDB::ReaderWriter::Options* options) const
+    virtual WriteResult writeNode(const Node& node,
+                                  const std::string& fileName,
+                                  const osgDB::ReaderWriter::Options* options) const
     {
         std::string ext = osgDB::getFileExtension(fileName);
         if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
@@ -117,7 +96,9 @@ public:
         return WriteResult("Unable to open file for output");
     }
 
-    virtual WriteResult writeNode(const Node& node, std::ostream& fout, const osgDB::ReaderWriter::Options* options) const
+    virtual WriteResult writeNode(const Node& node,
+                                  std::ostream& fout,
+                                  const osgDB::ReaderWriter::Options* options) const
     {
         if (!fout) {
             return WriteResult("Unable to write to output stream");
@@ -132,36 +113,10 @@ public:
     {
         // process regular model
         osg::ref_ptr<osg::Node> model = osg::clone(&node);
-        //osgDB::writeNodeFile(*model, "cloned.osg");
-        FakeUpdateVisitor fakeUpdateVisitor;
-        model->accept(fakeUpdateVisitor);
 
-        GeometryWireframeVisitor wireframer;
-        if (options.enableWireframe) {
-            model->accept(wireframer);
-        }
-
-
-//        StatsVisitor sceneStats;
-//        model->accept(sceneStats);
-//        sceneStats.dump();
-
-        OpenGLESGeometryOptimizerVisitor visitor;
-
-        // generated in model when indexed
-        if (options.generateTangentSpace) {
-            visitor.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
-        }
-            
-        visitor.setUseDrawArray(options.useDrawArray);
-        visitor.setTripStripCacheSize(options.triStripCacheSize);
-        visitor.setDisableTriStrip(options.disableTriStrip);
-        visitor.setDisableMergeTriStrip(options.disableMergeTriStrip);
-        model->accept(visitor);
-
-        if (!options.enableWireframe) {
-            osg::notify(osg::NOTICE) << "SceneNbTriangles:" << visitor._sceneNbTriangles << std::endl;
-            osg::notify(osg::NOTICE) << "SceneNbVertexes:" << visitor._sceneNbVertexes << std::endl;
+        if(!options.disableCompactBuffer) {
+            CompactBufferVisitor compact;
+            model->accept(compact);
         }
 
         WriteVisitor writer;
@@ -171,6 +126,12 @@ public:
             writer.useExternalBinaryArray(options.useExternalBinaryArray);
             writer.mergeAllBinaryFiles(options.mergeAllBinaryFiles);
             writer.inlineImages(options.inlineImages);
+            writer.setMaxTextureDimension(options.resizeTextureUpToPowerOf2);
+            writer.setVarint(options.varint);
+            for(std::vector<std::string>::const_iterator specificBuffer = options.useSpecificBuffer.begin() ;
+                specificBuffer != options.useSpecificBuffer.end() ; ++ specificBuffer) {
+                writer.addSpecificBuffer(*specificBuffer);
+            }
             model->accept(writer);
             if (writer._root.valid()) {
                 writer.write(fout);
@@ -203,61 +164,56 @@ public:
                 {
                     pre_equals = opt.substr(0,found);
                     post_equals = opt.substr(found+1);
-                } 
+                }
                 else
                 {
                     pre_equals = opt;
                 }
 
-                if (pre_equals == "useDrawArray")
-                {
-                    localOptions.useDrawArray = true;
-                }
-                if (pre_equals == "enableWireframe")
-                {
-                    localOptions.enableWireframe = true;
-                }
-                if (pre_equals == "disableMergeTriStrip")
-                {
-                    localOptions.disableMergeTriStrip = true;
-                }
-                if (pre_equals == "disableTriStrip")
-                {
-                    localOptions.disableTriStrip = true;
-                }                
-                if (pre_equals == "generateTangentSpace")
-                {
-                    localOptions.generateTangentSpace = true;
-                }
-                if (pre_equals == "useExternalBinaryArray") 
+                if (pre_equals == "useExternalBinaryArray")
                 {
                     localOptions.useExternalBinaryArray = true;
                 }
-                if (pre_equals == "mergeAllBinaryFiles") 
+                if (pre_equals == "mergeAllBinaryFiles")
                 {
                     localOptions.mergeAllBinaryFiles = true;
+                }
+                if (pre_equals == "disableCompactBuffer")
+                {
+                    localOptions.disableCompactBuffer = true;
                 }
 
                 if (pre_equals == "inlineImages")
                 {
                     localOptions.inlineImages = true;
                 }
+                if (pre_equals == "varint")
+                {
+                    localOptions.varint = true;
+                }
 
-                if (post_equals.length()>0)
-                {    
-                    if (pre_equals == "tangentSpaceTextureUnit") {
-                        localOptions.tangentSpaceTextureUnit = atoi(post_equals.c_str());
+                if (pre_equals == "resizeTextureUpToPowerOf2" && post_equals.length() > 0)
+                {
+                    int value = atoi(post_equals.c_str());
+                    localOptions.resizeTextureUpToPowerOf2 = osg::Image::computeNearestPowerOfTwo(value);
+                }
+
+                if (pre_equals == "useSpecificBuffer" && !post_equals.empty())
+                {
+                    size_t stop_pos = 0, start_pos = 0;
+                    while((stop_pos = post_equals.find(",", start_pos)) != std::string::npos) {
+                        localOptions.useSpecificBuffer.push_back(post_equals.substr(start_pos,
+                                                                                    stop_pos - start_pos));
+                        start_pos = stop_pos + 1;
+                        ++ stop_pos;
                     }
-                    if (pre_equals == "triStripCacheSize") {
-                        localOptions.triStripCacheSize = atoi(post_equals.c_str());
-                    }
+                    localOptions.useSpecificBuffer.push_back(post_equals.substr(start_pos,
+                                                                                post_equals.length() - start_pos));
                 }
             }
         }
         return localOptions;
     }
-protected:
-
 };
 
 osgDB::ReaderWriter::ReadResult ReaderWriterJSON::readNode(const std::string& file, const Options* options) const
@@ -274,13 +230,6 @@ osgDB::ReaderWriter::ReadResult ReaderWriterJSON::readNode(const std::string& fi
     osg::Node *node = osgDB::readNodeFile( fileName, options );
     if (!node)
         return ReadResult::FILE_NOT_HANDLED;
-
-
-    if (ext == "unindex") {
-        UnIndexMeshVisitor unindex;
-        node->accept(unindex);
-        return node;
-    }
 
     return ReadResult::FILE_NOT_HANDLED;
 }

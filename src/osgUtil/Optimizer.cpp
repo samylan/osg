@@ -1099,6 +1099,12 @@ bool CollectLowestTransformsVisitor::removeTransforms(osg::Node* nodeWeCannotRem
         titr!=_transformMap.end();
         ++titr)
     {
+        if (titr->first==0)
+        {
+            OSG_NOTICE<<"Warning: CollectLowestTransformsVisitor::removeTransforms() error, encountered a NULL Transform pointer"<<std::endl;
+            break;
+        }
+
         if (titr->second._canBeApplied)
         {
             if (titr->first!=nodeWeCannotRemove)
@@ -1580,7 +1586,7 @@ void Optimizer::CombineLODsVisitor::apply(osg::LOD& lod)
             {
                 if (isOperationPermissibleForObject(&lod))
                 {
-                    _groupList.insert(lod.getParent(i));
+                    _groupList.insert(lod.getParent(i)->asGroup());
                 }
             }
         }
@@ -1888,35 +1894,40 @@ bool Optimizer::MergeGeometryVisitor::mergeGeode(osg::Geode& geode)
         // OSG_NOTICE<<"Before "<<geode.getNumDrawables()<<std::endl;
 
         typedef std::vector<osg::Geometry*>                         DuplicateList;
+        typedef std::vector< osg::ref_ptr<osg::Drawable> >          DrawableList;
         typedef std::map<osg::Geometry*,DuplicateList,LessGeometry> GeometryDuplicateMap;
 
         typedef std::vector<DuplicateList> MergeList;
 
         GeometryDuplicateMap geometryDuplicateMap;
-        osg::Geode::DrawableList standardDrawables;
+        DrawableList standardDrawables;
 
         unsigned int i;
         for(i=0;i<geode.getNumDrawables();++i)
         {
-            osg::Geometry* geom = geode.getDrawable(i)->asGeometry();
-            if (geom)
+            osg::Drawable* drawable = geode.getDrawable(i);
+            if (drawable)
             {
-                //geom->computeCorrectBindingsAndArraySizes();
-
-                if (!geometryContainsSharedArrays(*geom) &&
-                      geom->getDataVariance()!=osg::Object::DYNAMIC &&
-                      isOperationPermissibleForObject(geom))
+                osg::Geometry* geom = drawable->asGeometry();
+                if (geom)
                 {
-                    geometryDuplicateMap[geom].push_back(geom);
+                    //geom->computeCorrectBindingsAndArraySizes();
+
+                    if (!geometryContainsSharedArrays(*geom) &&
+                        geom->getDataVariance()!=osg::Object::DYNAMIC &&
+                        isOperationPermissibleForObject(geom))
+                    {
+                        geometryDuplicateMap[geom].push_back(geom);
+                    }
+                    else
+                    {
+                        standardDrawables.push_back(drawable);
+                    }
                 }
                 else
                 {
-                    standardDrawables.push_back(geode.getDrawable(i));
+                    standardDrawables.push_back(drawable);
                 }
-            }
-            else
-            {
-                standardDrawables.push_back(geode.getDrawable(i));
             }
         }
 
@@ -2003,10 +2014,10 @@ bool Optimizer::MergeGeometryVisitor::mergeGeode(osg::Geode& geode)
             unsigned int numVertices(duplicateList.front()->getVertexArray() ? duplicateList.front()->getVertexArray()->getNumElements() : 0);
             DuplicateList::iterator eachGeom(duplicateList.begin()+1);
             // until all geometries have been checked or _targetMaximumNumberOfVertices is reached
-            for (;eachGeom!=duplicateList.end(); ++eachGeom)
+            for(;eachGeom!=duplicateList.end(); ++eachGeom)
             {
                 unsigned int numAddVertices((*eachGeom)->getVertexArray() ? (*eachGeom)->getVertexArray()->getNumElements() : 0);
-                if (numVertices+numAddVertices<_targetMaximumNumberOfVertices)
+                if ((numVertices+numAddVertices)>_targetMaximumNumberOfVertices)
                 {
                     break;
                 }
@@ -2017,7 +2028,7 @@ bool Optimizer::MergeGeometryVisitor::mergeGeode(osg::Geode& geode)
             }
 
             // push back if bellow the limit
-            if (numVertices<_targetMaximumNumberOfVertices)
+            if (eachGeom==duplicateList.end())
             {
                 if (duplicateList.size()>1) needToDoMerge = true;
                 mergeList.push_back(duplicateList);
@@ -2037,18 +2048,20 @@ bool Optimizer::MergeGeometryVisitor::mergeGeode(osg::Geode& geode)
         if (needToDoMerge)
         {
             // first take a reference to all the drawables to prevent them being deleted prematurely
-            osg::Geode::DrawableList keepDrawables;
+            typedef std::vector< osg::ref_ptr<osg::Drawable> >          DrawableList;
+            DrawableList keepDrawables;
             keepDrawables.resize(geode.getNumDrawables());
             for(i=0; i<geode.getNumDrawables(); ++i)
             {
-                keepDrawables[i] = geode.getDrawable(i);
+                osg::Drawable* drawable = geode.getDrawable(i);
+                if (drawable) keepDrawables[i] = geode.getDrawable(i);
             }
 
             // now clear the drawable list of the Geode so we don't have to remove items one by one (which is slow)
             geode.removeDrawables(0, geode.getNumDrawables());
 
             // add back in the standard drawables which arn't possible to merge.
-            for(osg::Geode::DrawableList::iterator sitr = standardDrawables.begin();
+            for(DrawableList::iterator sitr = standardDrawables.begin();
                 sitr != standardDrawables.end();
                 ++sitr)
             {
@@ -2876,7 +2889,7 @@ bool Optimizer::SpatializeGroupsVisitor::divide(osg::Geode* geode, unsigned int 
     unsigned int i;
     for(i=0; i<geode->getNumDrawables(); ++i)
     {
-        bb.expandBy(geode->getDrawable(i)->getBound().center());
+        bb.expandBy(geode->getDrawable(i)->getBoundingBox().center());
     }
 
     float radius = bb.radius();

@@ -37,6 +37,7 @@ SET(TARGET_H
     ${HEADER_PATH}/buffered_value
     ${HEADER_PATH}/BufferIndexBinding
     ${HEADER_PATH}/BufferObject
+    ${HEADER_PATH}/Callback
     ${HEADER_PATH}/Camera
     ${HEADER_PATH}/CameraView
     ${HEADER_PATH}/ClampColor
@@ -231,6 +232,7 @@ SET(TARGET_SRC
     BlendFunc.cpp
     BufferIndexBinding.cpp
     BufferObject.cpp
+    Callback.cpp
     Camera.cpp
     CameraView.cpp
     ClampColor.cpp
@@ -298,7 +300,6 @@ SET(TARGET_SRC
     #    Matrix_implementation.cpp
     MatrixTransform.cpp
     Multisample.cpp
-    NodeCallback.cpp
     Node.cpp
     NodeTrackerCallback.cpp
     NodeVisitor.cpp

@@ -81,7 +81,7 @@ struct WriteVisitor : public osg::NodeVisitor
             }
         }
 
-        osg::BoundingBox bb = geom->getBound();
+        osg::BoundingBox bb = geom->getBoundingBox();
         double normalize = 0;
         osg::Vec3 dim = bb._max-bb._min;
         for (int i = 0; i < 3; ++i)
@@ -90,7 +90,7 @@ struct WriteVisitor : public osg::NodeVisitor
 
         osg::notify(osg::NOTICE) << "min " << bb._min << " max " << bb._max << std::endl;
         osg::notify(osg::NOTICE) << "size " <<dim << std::endl;
-        
+
         osg::ref_ptr<osg::Image> image = new osg::Image();
         image->allocateImage(_textureWidth, _textureHeight, 1,GL_RGBA, GL_UNSIGNED_BYTE);
         int nbVertexes = 0;
@@ -144,7 +144,7 @@ public:
     {
         supportsExtension("vert2text32","convert vertexes of model to 4 rgba encoded (x,y,z,w) in a texture of 4*512 x 256 - support 131072 vertexes + color");
     }
-        
+
     virtual const char* className() const { return "vert2text32 writer"; }
 
 

@@ -1,4 +1,4 @@
-/*  -*-c++-*- 
+/*  -*-c++-*-
  *  Copyright (C) 2010 Cedric Pinson <cedric.pinson@plopbyte.net>
  */
 
@@ -53,18 +53,19 @@ void JSONNode::write(std::ostream& str, WriteVisitor& visitor)
     writeOrder(str, order, visitor);
 }
 
-JSONObject::JSONObject(const unsigned int id)
+JSONObject::JSONObject(const unsigned int id, const std::string& bufferName)
 {
     _uniqueID = id;
+    _bufferName = bufferName;
     _maps["UniqueID"] = new JSONValue<unsigned int>(id);
 }
 
-JSONObject::JSONObject() 
+JSONObject::JSONObject()
 {
     _uniqueID = -1;
 }
 
-void JSONObject::addUniqueID() 
+void JSONObject::addUniqueID()
 {
     _uniqueID = JSONObject::uniqueID++;
     _maps["UniqueID"] = new JSONValue<unsigned int>(_uniqueID);
@@ -80,6 +81,181 @@ void JSONObject::addChild(const std::string& type, JSONObject* child)
     getMaps()["Children"]->asArray()->getArray().push_back(jsonObject);
 }
 
+bool JSONObject::isVarintableIntegerBuffer(osg::Array const* array) const
+{
+    // Return true for buffers representing integer values and that therefore
+    // can be binary encoded compactly using the varint protocol.
+    // Note: as Byte/UByte array are already compact we do not consider
+    //       them as compactable
+    bool isInteger = false;
+    switch(static_cast<int>(array->getType()))
+    {
+        case osg::Array::IntArrayType:
+            isInteger = (dynamic_cast<osg::IntArray const*>(array) != NULL);
+            break;
+        case osg::Array::ShortArrayType:
+            isInteger = (dynamic_cast<osg::ShortArray const*>(array) != NULL);
+            break;
+
+        case osg::Array::UIntArrayType:
+            isInteger = (dynamic_cast<osg::UIntArray const*>(array) != NULL);
+            break;
+        case osg::Array::UShortArrayType:
+            isInteger = (dynamic_cast<osg::UShortArray const*>(array) != NULL);
+            break;
+
+        case osg::Array::Vec2iArrayType:
+            isInteger = (dynamic_cast<osg::Vec2iArray const*>(array) != NULL);
+            break;
+        case osg::Array::Vec3iArrayType:
+            isInteger = (dynamic_cast<osg::Vec3iArray const*>(array) != NULL);
+            break;
+        case osg::Array::Vec4iArrayType:
+            isInteger = (dynamic_cast<osg::Vec4iArray const*>(array) != NULL);
+            break;
+
+        case osg::Array::Vec2uiArrayType:
+            isInteger = (dynamic_cast<osg::Vec2uiArray const*>(array) != NULL);
+            break;
+        case osg::Array::Vec3uiArrayType:
+            isInteger = (dynamic_cast<osg::Vec3uiArray const*>(array) != NULL);
+            break;
+        case osg::Array::Vec4uiArrayType:
+            isInteger = (dynamic_cast<osg::Vec4uiArray const*>(array) != NULL);
+            break;
+
+        case osg::Array::Vec2sArrayType:
+            isInteger = (dynamic_cast<osg::Vec2sArray const*>(array) != NULL);
+            break;
+        case osg::Array::Vec3sArrayType:
+            isInteger = (dynamic_cast<osg::Vec3sArray const*>(array) != NULL);
+            break;
+        case osg::Array::Vec4sArrayType:
+            isInteger = (dynamic_cast<osg::Vec4sArray const*>(array) != NULL);
+            break;
+
+        case osg::Array::Vec2usArrayType:
+            isInteger = (dynamic_cast<osg::Vec2usArray const*>(array) != NULL);
+            break;
+        case osg::Array::Vec3usArrayType:
+            isInteger = (dynamic_cast<osg::Vec3usArray const*>(array) != NULL);
+            break;
+        case osg::Array::Vec4usArrayType:
+            isInteger = (dynamic_cast<osg::Vec4usArray const*>(array) != NULL);
+            break;
+
+        default:
+            isInteger = false;
+            break;
+    }
+    return isInteger;
+}
+
+void JSONObject::encodeArrayAsVarintBuffer(osg::Array const* array, std::vector<uint8_t>& buffer) const
+{
+    switch(static_cast<int>(array->getType()))
+    {
+        case osg::Array::IntArrayType:
+            dumpVarintValue<osg::IntArray>(buffer, dynamic_cast<osg::IntArray const*>(array), false);
+            break;
+        case osg::Array::ShortArrayType:
+            dumpVarintValue<osg::ShortArray>(buffer, dynamic_cast<osg::ShortArray const*>(array), false);
+            break;
+
+        case osg::Array::UIntArrayType:
+            dumpVarintValue<osg::UIntArray>(buffer, dynamic_cast<osg::UIntArray const*>(array), true);
+            break;
+        case osg::Array::UShortArrayType:
+            dumpVarintValue<osg::UShortArray>(buffer, dynamic_cast<osg::UShortArray const*>(array), true);
+            break;
+
+        case osg::Array::Vec2iArrayType:
+            dumpVarintVector<osg::Vec2iArray>(buffer, dynamic_cast<osg::Vec2iArray const*>(array), false);
+            break;
+        case osg::Array::Vec3iArrayType:
+            dumpVarintVector<osg::Vec3iArray>(buffer, dynamic_cast<osg::Vec3iArray const*>(array), false);
+            break;
+        case osg::Array::Vec4iArrayType:
+            dumpVarintVector<osg::Vec4iArray>(buffer, dynamic_cast<osg::Vec4iArray const*>(array), false);
+            break;
+
+        case osg::Array::Vec2sArrayType:
+            dumpVarintVector<osg::Vec2sArray>(buffer, dynamic_cast<osg::Vec2sArray const*>(array), false);
+            break;
+        case osg::Array::Vec3sArrayType:
+            dumpVarintVector<osg::Vec3sArray>(buffer, dynamic_cast<osg::Vec3sArray const*>(array), false);
+            break;
+        case osg::Array::Vec4sArrayType:
+            dumpVarintVector<osg::Vec4sArray>(buffer, dynamic_cast<osg::Vec4sArray const*>(array), false);
+            break;
+
+
+        case osg::Array::Vec2uiArrayType:
+            dumpVarintVector<osg::Vec2uiArray>(buffer, dynamic_cast<osg::Vec2uiArray const*>(array), true);
+            break;
+        case osg::Array::Vec3uiArrayType:
+            dumpVarintVector<osg::Vec3uiArray>(buffer, dynamic_cast<osg::Vec3uiArray const*>(array), true);
+            break;
+        case osg::Array::Vec4uiArrayType:
+            dumpVarintVector<osg::Vec4uiArray>(buffer, dynamic_cast<osg::Vec4uiArray const*>(array), true);
+            break;
+
+        case osg::Array::Vec2usArrayType:
+            dumpVarintVector<osg::Vec2usArray>(buffer, dynamic_cast<osg::Vec2usArray const*>(array), true);
+            break;
+        case osg::Array::Vec3usArrayType:
+            dumpVarintVector<osg::Vec3usArray>(buffer, dynamic_cast<osg::Vec3usArray const*>(array), true);
+            break;
+        case osg::Array::Vec4usArrayType:
+            dumpVarintVector<osg::Vec4usArray>(buffer, dynamic_cast<osg::Vec4usArray const*>(array), true);
+            break;
+
+        default:
+            break;
+    }
+}
+
+template<typename T>
+void JSONObject::dumpVarintVector(std::vector<uint8_t>& oss, T const* buffer, bool isUnsigned) const {
+    unsigned int n = buffer->getDataSize();
+    for(typename T::const_iterator it = buffer->begin() ; it != buffer->end() ; ++ it) {
+        for(unsigned int i = 0 ; i < n ; ++ i) {
+            unsigned int value = isUnsigned ? (*it)[i] : JSONObject::toVarintUnsigned((*it)[i]);
+
+            std::vector<uint8_t> encoding = varintEncoding(value);
+            oss.insert(oss.end(), encoding.begin(), encoding.end());
+        }
+    }
+}
+
+template<typename T>
+void JSONObject::dumpVarintValue(std::vector<uint8_t>& oss, T const* buffer, bool isUnsigned) const {
+    for(typename T::const_iterator it = buffer->begin() ; it != buffer->end() ; ++ it) {
+        unsigned int value = isUnsigned ? (*it) : JSONObject::toVarintUnsigned(*it);
+
+        std::vector<uint8_t> encoding = varintEncoding(value);
+        oss.insert(oss.end(), encoding.begin(), encoding.end());
+    }
+}
+
+// varint encoding adapted from http://stackoverflow.com/questions/19758270/read-varint-from-linux-sockets
+std::vector<uint8_t> JSONObject::varintEncoding(unsigned int value) const
+{
+    std::vector<uint8_t> buffer;
+
+    do {
+        uint8_t next_byte = value & 0x7F;
+        value >>= 7;
+        if (value) {
+            next_byte |= 0x80;
+        }
+        buffer.push_back(next_byte);
+    }
+    while (value);
+
+    return buffer;
+}
+
 static void writeEntry(std::ostream& str, const std::string& key, JSONObject::JSONMap& map, WriteVisitor& visitor)
 {
     if (key.empty())
@@ -87,7 +263,7 @@ static void writeEntry(std::ostream& str, const std::string& key, JSONObject::JS
 
     if ( map.find(key) != map.end() &&
          map[ key ].valid() ) {
-        
+
         str << JSONObjectBase::indent() << '"' << key << '"' << ": ";
         map[ key ]->write(str, visitor);
         map.erase(key);
@@ -98,6 +274,7 @@ static void writeEntry(std::ostream& str, const std::string& key, JSONObject::JS
         }
     }
 }
+
 void JSONObject::writeOrder(std::ostream& str, const std::vector<std::string>& order, WriteVisitor& visitor)
 {
     str << "{" << std::endl;
@@ -125,24 +302,38 @@ void JSONObject::write(std::ostream& str, WriteVisitor& visitor)
 }
 
 
-std::pair<unsigned int,unsigned int> JSONVertexArray::writeMergeData(const osg::Array* array, WriteVisitor &visitor)
+std::pair<unsigned int,unsigned int> JSONVertexArray::writeMergeData(const osg::Array* array,
+                                                                     WriteVisitor &visitor,
+                                                                     const std::string& filename,
+                                                                     std::string& encoding)
 {
-    if (!visitor._mergeBinaryFile.is_open()) {
-        std::string filename = visitor.getBinaryFilename();
-        visitor._mergeBinaryFile.open(filename.c_str(), std::ios::binary );
+    std::ofstream& output = visitor.getBufferFile(filename);
+    unsigned int offset = output.tellp();
+
+    if(visitor._varint && isVarintableIntegerBuffer(array))
+    {
+        std::vector<uint8_t> varintByteBuffer;
+        encodeArrayAsVarintBuffer(array, varintByteBuffer);
+        output.write((char*)&varintByteBuffer[0], varintByteBuffer.size() * sizeof(uint8_t));
+        encoding = std::string("varint");
     }
-    unsigned int offset = visitor._mergeBinaryFile.tellp();
-    const char* b = static_cast<const char*>(array->getDataPointer());
-    visitor._mergeBinaryFile.write(b, array->getTotalDataSize());
-    unsigned int fsize = visitor._mergeBinaryFile.tellp(); 
+    else
+    {
+        const char* b = static_cast<const char*>(array->getDataPointer());
+        size_t totalDataSize = array->getTotalDataSize();
+        output.write(b, totalDataSize);
+    }
+
+    unsigned int fsize = output.tellp();
 
     // pad to 4 bytes
-    unsigned int diff = fsize - (fsize/4) * 4;
-    if (diff > 0) {
-        char* buffer = "FF00FF00";
-        visitor._mergeBinaryFile.write(b, diff);
+    unsigned int remainder = fsize % 4;
+    if (remainder) {
+        unsigned int null = 0;
+        output.write((char*) (&null), 4 - remainder);
+        fsize = output.tellp();
     }
-    return std::pair<unsigned int, unsigned int>(offset, fsize-offset);
+    return std::pair<unsigned int, unsigned int>(offset, fsize - offset);
 }
 
 void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
@@ -155,14 +346,18 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
 
     std::stringstream url;
     if (visitor._useExternalBinaryArray) {
+        std::string bufferName = getBufferName();
+        if(bufferName.empty())
+            bufferName = visitor.getBinaryFilename();
+
         if (visitor._mergeAllBinaryFiles)
-            url << visitor.getBinaryFilename();
+            url << bufferName;
         else
             url << basename << "_" << _uniqueID << ".bin";
     }
 
     std::string type;
-        
+
     osg::ref_ptr<const osg::Array> array = _arrayData;
 
     switch (array->getType()) {
@@ -176,7 +371,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
     {
         osg::ref_ptr<osg::Vec4Array> converted = new osg::Vec4Array;
         converted->reserve(array->getNumElements());
-            
+
         const osg::Vec4ubArray* a = dynamic_cast<const osg::Vec4ubArray*>(array.get());
         for (unsigned int i = 0; i < a->getNumElements(); ++i) {
             converted->push_back(osg::Vec4( (*a)[i][0]/255.0,
@@ -188,8 +383,40 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
         type = "Float32Array";
     }
     break;
+    case osg::Array::UByteArrayType:
+    case osg::Array::Vec2ubArrayType:
+    case osg::Array::Vec3ubArrayType:
+        type = "Uint8Array";
+        break;
     case osg::Array::UShortArrayType:
+    case osg::Array::Vec2usArrayType:
+    case osg::Array::Vec3usArrayType:
+    case osg::Array::Vec4usArrayType:
         type = "Uint16Array";
+        break;
+    case osg::Array::UIntArrayType:
+    case osg::Array::Vec2uiArrayType:
+    case osg::Array::Vec3uiArrayType:
+    case osg::Array::Vec4uiArrayType:
+        type = "Uint32Array";
+        break;
+    case osg::Array::ByteArrayType:
+    case osg::Array::Vec2bArrayType:
+    case osg::Array::Vec3bArrayType:
+    case osg::Array::Vec4bArrayType:
+        type = "Int8Array";
+        break;
+    case osg::Array::ShortArrayType:
+    case osg::Array::Vec2sArrayType:
+    case osg::Array::Vec3sArrayType:
+    case osg::Array::Vec4sArrayType:
+        type = "Int16Array";
+        break;
+    case osg::Array::IntArrayType:
+    case osg::Array::Vec2iArrayType:
+    case osg::Array::Vec3iArrayType:
+    case osg::Array::Vec4iArrayType:
+        type = "Int32Array";
         break;
     default:
         osg::notify(osg::WARN) << "Array of type " << array->getType() << " not supported" << std::endl;
@@ -236,22 +463,17 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
             {
                 const char* a = static_cast<const char*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();
-                writeInlineArray<char>(str, size, a);
+                writeInlineArray<char, short>(str, size, a); // using short to write readable numbers and not `char`s
             }
             break;
             case osg::Array::UByteArrayType:
+            case osg::Array::Vec2ubArrayType:
+            case osg::Array::Vec3ubArrayType:
             case osg::Array::Vec4ubArrayType:
             {
                 const unsigned char* a = static_cast<const unsigned char*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();
-                writeInlineArray<unsigned char>(str, size, a);
-            }
-            break;
-            case osg::Array::UShortArrayType:
-            {
-                const unsigned short* a = static_cast<const unsigned short*>(array->getDataPointer());
-                unsigned int size = array->getNumElements() * array->getDataSize();
-                writeInlineArray<unsigned short>(str, size, a);
+                writeInlineArray<unsigned char, unsigned short>(str, size, a); // using short to write readable numbers and not `char`s
             }
             break;
             case osg::Array::ShortArrayType:
@@ -264,7 +486,20 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
                 writeInlineArray<short>(str, size, a);
             }
             break;
+            case osg::Array::UShortArrayType:
+            case osg::Array::Vec2usArrayType:
+            case osg::Array::Vec3usArrayType:
+            case osg::Array::Vec4usArrayType:
+            {
+                const unsigned short* a = static_cast<const unsigned short*>(array->getDataPointer());
+                unsigned int size = array->getNumElements() * array->getDataSize();
+                writeInlineArray<unsigned short>(str, size, a);
+            }
+            break;
             case osg::Array::IntArrayType:
+            case osg::Array::Vec2iArrayType:
+            case osg::Array::Vec3iArrayType:
+            case osg::Array::Vec4iArrayType:
             {
                 const int* a = static_cast<const int*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();
@@ -272,6 +507,9 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
             }
             break;
             case osg::Array::UIntArrayType:
+            case osg::Array::Vec2uiArrayType:
+            case osg::Array::Vec3uiArrayType:
+            case osg::Array::Vec4uiArrayType:
             {
                 const unsigned int* a = static_cast<const unsigned int*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();
@@ -294,10 +532,17 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
         unsigned int size;
         if (_mergeAllBinaryFiles) {
             std::pair<unsigned int, unsigned int> result;
-            result = writeMergeData(array.get(), visitor);
+            std::string encoding;
+            result = writeMergeData(array.get(), visitor, url.str(), encoding);
             unsigned int offset = result.first;
             size = result.second;
-            str << JSONObjectBase::indent() << "\"Offset\": " << offset << std::endl;
+            if(!encoding.empty()) {
+                str << JSONObjectBase::indent() << "\"Offset\": " << offset << "," << std::endl;
+                str << JSONObjectBase::indent() << "\"Encoding\": \"" << encoding << "\"" << std::endl;
+            }
+            else {
+                str << JSONObjectBase::indent() << "\"Offset\": " << offset << std::endl;
+            }
         } else {
             size = writeData(array.get(), url.str());
             str << JSONObjectBase::indent() << "\"Offset\": " << 0 << std::endl;
@@ -306,7 +551,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
         osg::notify(osg::NOTICE) << "TypedArray " << type << " " << url.str() << " ";
         if (size/1024.0 < 1.0) {
             osg::notify(osg::NOTICE) << size << " bytes" << std::endl;
-        } else if (size/(1024.0*1024.0) < 1.0) { 
+        } else if (size/(1024.0*1024.0) < 1.0) {
             osg::notify(osg::NOTICE) << size/1024.0 << " kb" << std::endl;
         } else {
             osg::notify(osg::NOTICE) << size/(1024.0*1024.0) << " mb" << std::endl;
@@ -354,7 +599,7 @@ void JSONVec3Array::write(std::ostream& str,WriteVisitor& visitor)
 {
     str << "[ ";
     for (unsigned int i = 0; i < _array.size(); i++) {
-        if (_array[i].valid()) { 
+        if (_array[i].valid()) {
             _array[i]->write(str, visitor);
         } else {
             str << "undefined";
@@ -444,7 +689,7 @@ JSONObject* getDrawMode(GLenum mode)
     return result;
 }
 
-JSONDrawArray::JSONDrawArray(osg::DrawArrays& array) 
+JSONDrawArray::JSONDrawArray(osg::DrawArrays& array)
 {
     getMaps()["First"] = new JSONValue<int>(array.getFirst());
     getMaps()["Count"] = new JSONValue<int>(array.getCount());

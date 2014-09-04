@@ -134,27 +134,7 @@ State::~State()
     //_texCoordArrayList.clear();
 
     //_vertexAttribArrayList.clear();
-
-    // OSG_NOTICE<<"State::~State()"<<this<<std::endl;
-    for(AppliedProgramObjectSet::iterator itr = _appliedProgramObjectSet.begin();
-        itr != _appliedProgramObjectSet.end();
-        ++itr)
-    {
-        (*itr)->removeObserver(this);
-    }
 }
-
-void State::objectDeleted(void* object)
-{
-    const Program::PerContextProgram* ppcp = reinterpret_cast<const Program::PerContextProgram*>(object);
-    AppliedProgramObjectSet::iterator itr = _appliedProgramObjectSet.find(ppcp);
-    if (itr != _appliedProgramObjectSet.end())
-    {
-        // OSG_NOTICE<<"Removing _appliedProgramObjectSet entry "<<ppcp<<std::endl;
-        _appliedProgramObjectSet.erase(itr);
-    }
-}
-
 
 void State::releaseGLObjects()
 {
@@ -208,7 +188,6 @@ void State::releaseGLObjects()
 
 void State::reset()
 {
-
 #if 1
     for(ModeMap::iterator mitr=_modeMap.begin();
         mitr!=_modeMap.end();
@@ -289,17 +268,6 @@ void State::reset()
     _currentShaderCompositionUniformList.clear();
 
     _lastAppliedProgramObject = 0;
-
-    for(AppliedProgramObjectSet::iterator apitr=_appliedProgramObjectSet.begin();
-        apitr!=_appliedProgramObjectSet.end();
-        ++apitr)
-    {
-        (*apitr)->resetAppliedUniforms();
-        (*apitr)->removeObserver(this);
-    }
-
-    _appliedProgramObjectSet.clear();
-
 
     // what about uniforms??? need to clear them too...
     // go through all active Unfirom's, setting to change to force update,
@@ -1423,9 +1391,6 @@ bool State::convertVertexShaderSourceToOsgBuiltIns(std::string& source) const
 
     OSG_INFO<<"++Before Converted source "<<std::endl<<source<<std::endl<<"++++++++"<<std::endl;
 
-    // replace ftransform as it only works with built-ins
-    State_Utils::replace(source, "ftransform()", "gl_ModelViewProjectionMatrix * gl_Vertex");
-
     // find the first legal insertion point for replacement declarations. GLSL requires that nothing
     // precede a "#verson" compiler directive, so we must insert new declarations after it.
     std::string::size_type declPos = source.rfind( "#version " );
@@ -1440,22 +1405,31 @@ bool State::convertVertexShaderSourceToOsgBuiltIns(std::string& source) const
         declPos = 0;
     }
 
-    State_Utils::replaceAndInsertDeclaration(source, declPos, _vertexAlias._glName,         _vertexAlias._osgName,         _vertexAlias._declaration);
-    State_Utils::replaceAndInsertDeclaration(source, declPos, _normalAlias._glName,         _normalAlias._osgName,         _normalAlias._declaration);
-    State_Utils::replaceAndInsertDeclaration(source, declPos, _colorAlias._glName,          _colorAlias._osgName,          _colorAlias._declaration);
-    State_Utils::replaceAndInsertDeclaration(source, declPos, _secondaryColorAlias._glName, _secondaryColorAlias._osgName, _secondaryColorAlias._declaration);
-    State_Utils::replaceAndInsertDeclaration(source, declPos, _fogCoordAlias._glName,       _fogCoordAlias._osgName,       _fogCoordAlias._declaration);
-    for (size_t i=0; i<_texCoordAliasList.size(); i++)
+    if (_useVertexAttributeAliasing)
     {
-        const VertexAttribAlias& texCoordAlias = _texCoordAliasList[i];
-        State_Utils::replaceAndInsertDeclaration(source, declPos, texCoordAlias._glName, texCoordAlias._osgName, texCoordAlias._declaration);
+        State_Utils::replaceAndInsertDeclaration(source, declPos, _vertexAlias._glName,         _vertexAlias._osgName,         _vertexAlias._declaration);
+        State_Utils::replaceAndInsertDeclaration(source, declPos, _normalAlias._glName,         _normalAlias._osgName,         _normalAlias._declaration);
+        State_Utils::replaceAndInsertDeclaration(source, declPos, _colorAlias._glName,          _colorAlias._osgName,          _colorAlias._declaration);
+        State_Utils::replaceAndInsertDeclaration(source, declPos, _secondaryColorAlias._glName, _secondaryColorAlias._osgName, _secondaryColorAlias._declaration);
+        State_Utils::replaceAndInsertDeclaration(source, declPos, _fogCoordAlias._glName,       _fogCoordAlias._osgName,       _fogCoordAlias._declaration);
+        for (size_t i=0; i<_texCoordAliasList.size(); i++)
+        {
+            const VertexAttribAlias& texCoordAlias = _texCoordAliasList[i];
+            State_Utils::replaceAndInsertDeclaration(source, declPos, texCoordAlias._glName, texCoordAlias._osgName, texCoordAlias._declaration);
+        }
     }
 
-    // replace built in uniform
-    State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ModelViewMatrix", "osg_ModelViewMatrix", "uniform mat4 ");
-    State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ModelViewProjectionMatrix", "osg_ModelViewProjectionMatrix", "uniform mat4 ");
-    State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ProjectionMatrix", "osg_ProjectionMatrix", "uniform mat4 ");
-    State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_NormalMatrix", "osg_NormalMatrix", "uniform mat3 ");
+    if (_useModelViewAndProjectionUniforms)
+    {
+        // replace ftransform as it only works with built-ins
+        State_Utils::replace(source, "ftransform()", "gl_ModelViewProjectionMatrix * gl_Vertex");
+
+        // replace built in uniform
+        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ModelViewMatrix", "osg_ModelViewMatrix", "uniform mat4 ");
+        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ModelViewProjectionMatrix", "osg_ModelViewProjectionMatrix", "uniform mat4 ");
+        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ProjectionMatrix", "osg_ProjectionMatrix", "uniform mat4 ");
+        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_NormalMatrix", "osg_NormalMatrix", "uniform mat3 ");
+    }
 
     OSG_INFO<<"-------- Converted source "<<std::endl<<source<<std::endl<<"----------------"<<std::endl;
 
@@ -1760,14 +1734,6 @@ void State::print(std::ostream& fout) const
             fout<<"  }"<<std::endl;
         }
         fout<<"}"<<std::endl;
-
-#if 0
-        TextureModeMapList                                              _textureModeMapList;
-        TextureAttributeMapList                                         _textureAttributeMapList;
-
-        AppliedProgramObjectSet                                         _appliedProgramObjectSet;
-        const Program::PerContextProgram*                               _lastAppliedProgramObject;
-#endif
 
 
         fout<<"StateSetStack _stateSetStack {"<<std::endl;

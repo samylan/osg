@@ -415,7 +415,7 @@ Registry::Registry()
     addFileExtensionAlias("cid",    "freetype");  // Postscript CID-Fonts
     addFileExtensionAlias("cff",    "freetype");  // OpenType
     addFileExtensionAlias("cef",    "freetype");  // OpenType
-    addFileExtensionAlias("fon",    "freetype");  // Windows bitmap fonts
+    addFileExtensionAlias("fon",    "freetype");  // Windows bitmap fonts
     addFileExtensionAlias("fnt",    "freetype");  // Windows bitmap fonts
     addFileExtensionAlias("text3d", "freetype"); // use 3D Font instead of 2D Font
 
@@ -970,6 +970,18 @@ struct Registry::ReadShaderFunctor : public Registry::ReadFunctor
     virtual ReadFunctor* cloneType(const std::string& filename, const Options* options) const { return new ReadShaderFunctor(filename, options); }
 };
 
+struct Registry::ReadScriptFunctor : public Registry::ReadFunctor
+{
+    ReadScriptFunctor(const std::string& filename, const Options* options):ReadFunctor(filename,options) {}
+
+    virtual ReaderWriter::ReadResult doRead(ReaderWriter& rw)const  { return rw.readScript(_filename, _options); }
+    virtual bool isValid(ReaderWriter::ReadResult& readResult) const { return readResult.validScript(); }
+    virtual bool isValid(osg::Object* object) const { return dynamic_cast<osg::Script*>(object)!=0;  }
+
+    virtual ReadFunctor* cloneType(const std::string& filename, const Options* options) const { return new ReadScriptFunctor(filename, options); }
+};
+
+
 void Registry::addArchiveExtension(const std::string ext)
 {
     for(ArchiveExtensionList::iterator aitr=_archiveExtList.begin();
@@ -1041,7 +1053,7 @@ std::string Registry::findDataFileImplementation(const std::string& filename, co
 
         if(fileExists(simpleFileName))
         {
-            OSG_DEBUG << "FindFileInPath(" << filename << "): returning " << filename << std::endl;
+            OSG_DEBUG << "FindFileInPath(" << filename << "): returning " << simpleFileName << std::endl;
             return simpleFileName;
         }
 
@@ -1250,9 +1262,21 @@ ReaderWriter::ReadResult Registry::readImplementation(const ReadFunctor& readFun
         ReaderWriter::ReadResult rr = read(readFunctor);
         if (rr.validObject())
         {
-            // update cache with new entry.
-            OSG_INFO<<"Adding to object cache "<<file<<std::endl;
-            addEntryToObjectCache(file,rr.getObject());
+            // search AGAIN for entry in the object cache.
+            {
+                OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
+                ObjectCache::iterator oitr = _objectCache.find(file);
+                if (oitr != _objectCache.end())
+                {
+                    OSG_INFO << "returning cached instanced of " << file << std::endl;
+                    if (readFunctor.isValid(oitr->second.first.get())) return ReaderWriter::ReadResult(oitr->second.first.get(), ReaderWriter::ReadResult::FILE_LOADED_FROM_CACHE);
+                    else return ReaderWriter::ReadResult("Error file does not contain an osg::Object");
+                }
+                // update cache with new entry.
+                OSG_INFO<<"Adding to object cache "<<file<<std::endl;
+                //addEntryToObjectCache(file,rr.getObject()); //copy implementation: we already have the _objectCacheMutex lock
+                _objectCache[file] = ObjectTimeStampPair(rr.getObject(), 0.0);
+            }
         }
         else
         {
@@ -1559,6 +1583,60 @@ ReaderWriter::WriteResult Registry::writeShaderImplementation(const Shader& shad
     if (results.empty())
     {
         return ReaderWriter::WriteResult("Warning: Could not find plugin to write shader to file \""+fileName+"\".");
+    }
+
+    // sort the results so the most relevant (i.e. ERROR_IN_WRITING_FILE is more relevant than FILE_NOT_FOUND) results get placed at the end of the results list.
+    std::sort(results.begin(), results.end());
+    ReaderWriter::WriteResult result = results.back();
+
+    if (result.message().empty())
+    {
+        switch(result.status())
+        {
+            case(ReaderWriter::WriteResult::FILE_NOT_HANDLED): result.message() = "Warning: Write to \""+fileName+"\" not supported."; break;
+            case(ReaderWriter::WriteResult::ERROR_IN_WRITING_FILE): result.message() = "Warning: Error in writing to \""+fileName+"\"."; break;
+            default: break;
+        }
+    }
+
+    return result;
+}
+
+ReaderWriter::ReadResult Registry::readScriptImplementation(const std::string& fileName,const Options* options)
+{
+    return readImplementation(ReadScriptFunctor(fileName, options),Options::CACHE_IMAGES);
+}
+
+ReaderWriter::WriteResult Registry::writeScriptImplementation(const Script& image,const std::string& fileName,const Options* options)
+{
+    // record the errors reported by readerwriters.
+    typedef std::vector<ReaderWriter::WriteResult> Results;
+    Results results;
+
+    // first attempt to load the file from existing ReaderWriter's
+    AvailableReaderWriterIterator itr(_rwList, _pluginMutex);
+    for(;itr.valid();++itr)
+    {
+        ReaderWriter::WriteResult rr = itr->writeScript(image,fileName,options);
+        if (rr.success()) return rr;
+        else results.push_back(rr);
+    }
+
+    // now look for a plug-in to save the file.
+    std::string libraryName = createLibraryNameForFile(fileName);
+    if (loadLibrary(libraryName)==LOADED)
+    {
+        for(;itr.valid();++itr)
+        {
+            ReaderWriter::WriteResult rr = itr->writeScript(image,fileName,options);
+            if (rr.success()) return rr;
+            else results.push_back(rr);
+        }
+    }
+
+    if (results.empty())
+    {
+        return ReaderWriter::WriteResult("Warning: Could not find plugin to write image to file \""+fileName+"\".");
     }
 
     // sort the results so the most relevant (i.e. ERROR_IN_WRITING_FILE is more relevant than FILE_NOT_FOUND) results get placed at the end of the results list.

@@ -4,7 +4,6 @@
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
 #include <osg/UserDataContainer>
-#include <osg/ValueObject>
 #include <osg/TextureRectangle>
 #include <osg/Texture2D>
 #include <osg/Texture1D>
@@ -12,98 +11,16 @@
 #include <osg/BlendFunc>
 #include <osgSim/ShapeAttribute>
 
-static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
-    switch (mode) {
-    case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
-    case osg::BlendFunc::DST_COLOR: return new JSONValue<std::string>("DST_COLOR");
-    case osg::BlendFunc::ONE: return new JSONValue<std::string>("ONE");                      
-    case osg::BlendFunc::ONE_MINUS_DST_ALPHA: return new JSONValue<std::string>("ONE_MINUS_DST_ALPHA");      
-    case osg::BlendFunc::ONE_MINUS_DST_COLOR: return new JSONValue<std::string>("ONE_MINUS_DST_COLOR");      
-    case osg::BlendFunc::ONE_MINUS_SRC_ALPHA: return new JSONValue<std::string>("ONE_MINUS_SRC_ALPHA");      
-    case osg::BlendFunc::ONE_MINUS_SRC_COLOR: return new JSONValue<std::string>("ONE_MINUS_SRC_COLOR");      
-    case osg::BlendFunc::SRC_ALPHA: return new JSONValue<std::string>("SRC_ALPHA");                
-    case osg::BlendFunc::SRC_ALPHA_SATURATE: return new JSONValue<std::string>("SRC_ALPHA_SATURATE");       
-    case osg::BlendFunc::SRC_COLOR: return new JSONValue<std::string>("SRC_COLOR");                
-    case osg::BlendFunc::CONSTANT_COLOR: return new JSONValue<std::string>("CONSTANT_COLOR");           
-    case osg::BlendFunc::ONE_MINUS_CONSTANT_COLOR: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_COLOR"); 
-    case osg::BlendFunc::CONSTANT_ALPHA: return new JSONValue<std::string>("CONSTANT_ALPHA");           
-    case osg::BlendFunc::ONE_MINUS_CONSTANT_ALPHA: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_ALPHA"); 
-    case osg::BlendFunc::ZERO: return new JSONValue<std::string>("ZERO");                     
-    default:
-        return new JSONValue<std::string>("ONE");
-    }
-    return new JSONValue<std::string>("ONE");
-}
-
-static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
-{
-    switch(mode) {
-    case GL_LINEAR:
-        return new JSONValue<std::string>("LINEAR");
-    case GL_LINEAR_MIPMAP_LINEAR:
-        return new JSONValue<std::string>("LINEAR_MIPMAP_LINEAR");
-    case GL_LINEAR_MIPMAP_NEAREST:
-        return new JSONValue<std::string>("LINEAR_MIPMAP_NEAREST");
-    case GL_NEAREST:
-        return new JSONValue<std::string>("NEAREST");
-    case GL_NEAREST_MIPMAP_LINEAR:
-        return new JSONValue<std::string>("NEAREST_MIPMAP_LINEAR");
-    case GL_NEAREST_MIPMAP_NEAREST:
-        return new JSONValue<std::string>("NEAREST_MIPMAP_NEAREST");
-    default:
-        return 0;
-    }
-    return 0;
-}
-
 #include "Base64"
 
-JSONObject* createImage(osg::Image* image, bool inlineImages)
-{
-    if (!image) {
-        osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
-        return new JSONValue<std::string>("/unknown.png");
-    } else {
-        if (!image->getFileName().empty()) {
-            int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
-            int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
-            bool needToResize = false;
-            if (new_s != image->s()) needToResize = true;
-            if (new_t != image->t()) needToResize = true;
-            
-            if (needToResize) {
-                // resize and rewrite image file
-                // CP: TODO resize should be done from external
-                image->ensureValidSizeForTexturing(2048); // 32768
-                osgDB::writeImageFile(*image, image->getFileName());
-            }
-        } else {
-            // no image file so use this inline name image and create a file
-            std::stringstream ss;
-            ss << (long int)image << ".png"; // write the pointer location
-            std::string filename = ss.str();
-            if (osgDB::writeImageFile(*image, filename)) {
-                image->setFileName(filename);
-            }
-        }
 
-        if (!image->getFileName().empty()) { // means that everything went ok
-            if (inlineImages) {
 
-                std::ifstream in(osgDB::findDataFile(image->getFileName()).c_str());
-                if (in.is_open())
-                {
-                    std::stringstream out;
-                    out << "data:image/" << osgDB::getLowerCaseFileExtension(image->getFileName()) << ";base64,";
-                    base64::encode(std::istreambuf_iterator<char>(in),
-                                   std::istreambuf_iterator<char>(),
-                                   std::ostreambuf_iterator<char>(out), false);
-
-                    return new JSONValue<std::string>(out.str());
-
-                }
-            }
-            return new JSONValue<std::string>(image->getFileName());
+osg::Array* getTangentSpaceArray(osg::Geometry& geometry) {
+    for(unsigned int i = 0 ; i < geometry.getNumVertexAttribArrays() ; ++ i) {
+        osg::Array* attribute = geometry.getVertexAttribArray(i);
+        bool isTangentArray = false;
+        if(attribute && attribute->getUserValue("tangent", isTangentArray) && isTangentArray) {
+            return attribute;
         }
     }
     return 0;
@@ -166,31 +83,91 @@ void translateObject(JSONObject* json, osg::Object* osg)
         jsonUDC->getMaps()["Values"] = jsonUDCArray;
         for (unsigned int i = 0; i < osg->getUserDataContainer()->getNumUserObjects(); i++) {
             osg::Object* o = osg->getUserDataContainer()->getUserObject(i);
-            typedef osg::TemplateValueObject<std::string> ValueObject;
+            std::string name, value;
+            getStringifiedUserValue(o, name, value);
+            if(!name.empty() && !value.empty())
             {
-                ValueObject* uv = dynamic_cast<ValueObject* >(o);
-                if (uv) {
-                    JSONObject* jsonEntry = new JSONObject();
-                    jsonEntry->getMaps()["Name"] = new JSONValue<std::string>(uv->getName());
-                    jsonEntry->getMaps()["Value"] = new JSONValue<std::string>(uv->getValue());
-                    jsonUDCArray->getArray().push_back(jsonEntry);
-                }
+                JSONObject* jsonEntry = new JSONObject();
+                jsonEntry->getMaps()["Name"] = new JSONValue<std::string>(name);
+                jsonEntry->getMaps()["Value"] = new JSONValue<std::string>(value);
+                jsonUDCArray->getArray().push_back(jsonEntry);
             }
 
-            {
-                osgSim::ShapeAttributeList* uv = dynamic_cast<osgSim::ShapeAttributeList* >(o);
-#if 0
-                osg::notify(osg::NOTICE) << o->getName() << std::endl;        
-                osg::notify(osg::NOTICE) << o->className() << std::endl;
-                if (uv) {
-                    osg::notify(osg::NOTICE) << "osgSim::ShapeAttributeList" << std::endl;
-                }
-#endif
-            }
-            
         }
         json->getMaps()["UserDataContainer"] = jsonUDC;
     }
+}
+
+
+void getStringifiedUserValue(osg::Object* o, std::string& name, std::string& value) {
+    if(getStringifiedUserValue<std::string>(o, name, value)) return;
+    if(getStringifiedUserValue<char>(o, name, value)) return;
+    if(getStringifiedUserValue<bool>(o, name, value)) return;
+    if(getStringifiedUserValue<short>(o, name, value)) return;
+    if(getStringifiedUserValue<unsigned short>(o, name, value)) return;
+    if(getStringifiedUserValue<int>(o, name, value)) return;
+    if(getStringifiedUserValue<unsigned int>(o, name, value)) return;
+    if(getStringifiedUserValue<float>(o, name, value)) return;
+    if(getStringifiedUserValue<double>(o, name, value)) return;
+}
+
+
+template<typename T>
+bool getStringifiedUserValue(osg::Object* o, std::string& name, std::string& value) {
+    osg::TemplateValueObject<T>* vo = dynamic_cast< osg::TemplateValueObject<T>* >(o);
+    if (vo) {
+        std::ostringstream oss;
+        oss << vo->getValue();
+        name = vo->getName();
+        value = oss.str();
+        return true;
+    }
+    return false;
+}
+
+
+static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
+    switch (mode) {
+    case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
+    case osg::BlendFunc::DST_COLOR: return new JSONValue<std::string>("DST_COLOR");
+    case osg::BlendFunc::ONE: return new JSONValue<std::string>("ONE");
+    case osg::BlendFunc::ONE_MINUS_DST_ALPHA: return new JSONValue<std::string>("ONE_MINUS_DST_ALPHA");
+    case osg::BlendFunc::ONE_MINUS_DST_COLOR: return new JSONValue<std::string>("ONE_MINUS_DST_COLOR");
+    case osg::BlendFunc::ONE_MINUS_SRC_ALPHA: return new JSONValue<std::string>("ONE_MINUS_SRC_ALPHA");
+    case osg::BlendFunc::ONE_MINUS_SRC_COLOR: return new JSONValue<std::string>("ONE_MINUS_SRC_COLOR");
+    case osg::BlendFunc::SRC_ALPHA: return new JSONValue<std::string>("SRC_ALPHA");
+    case osg::BlendFunc::SRC_ALPHA_SATURATE: return new JSONValue<std::string>("SRC_ALPHA_SATURATE");
+    case osg::BlendFunc::SRC_COLOR: return new JSONValue<std::string>("SRC_COLOR");
+    case osg::BlendFunc::CONSTANT_COLOR: return new JSONValue<std::string>("CONSTANT_COLOR");
+    case osg::BlendFunc::ONE_MINUS_CONSTANT_COLOR: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_COLOR");
+    case osg::BlendFunc::CONSTANT_ALPHA: return new JSONValue<std::string>("CONSTANT_ALPHA");
+    case osg::BlendFunc::ONE_MINUS_CONSTANT_ALPHA: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_ALPHA");
+    case osg::BlendFunc::ZERO: return new JSONValue<std::string>("ZERO");
+    default:
+        return new JSONValue<std::string>("ONE");
+    }
+    return new JSONValue<std::string>("ONE");
+}
+
+static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
+{
+    switch(mode) {
+    case GL_LINEAR:
+        return new JSONValue<std::string>("LINEAR");
+    case GL_LINEAR_MIPMAP_LINEAR:
+        return new JSONValue<std::string>("LINEAR_MIPMAP_LINEAR");
+    case GL_LINEAR_MIPMAP_NEAREST:
+        return new JSONValue<std::string>("LINEAR_MIPMAP_NEAREST");
+    case GL_NEAREST:
+        return new JSONValue<std::string>("NEAREST");
+    case GL_NEAREST_MIPMAP_LINEAR:
+        return new JSONValue<std::string>("NEAREST_MIPMAP_LINEAR");
+    case GL_NEAREST_MIPMAP_NEAREST:
+        return new JSONValue<std::string>("NEAREST_MIPMAP_NEAREST");
+    default:
+        return 0;
+    }
+    return 0;
 }
 
 static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
@@ -214,7 +191,68 @@ static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
     return 0;
 }
 
-JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array)
+
+JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDimension, const std::string &baseName)
+{
+    if (!image) {
+        osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
+        return new JSONValue<std::string>("/unknown.png");
+    } else {
+        std::string modelDir = osgDB::getFilePath(baseName);
+        if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
+            if(maxTextureDimension) {
+                int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
+                int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
+
+                bool notValidPowerOf2 = false;
+                if (new_s != image->s() || image->s() > maxTextureDimension) notValidPowerOf2 = true;
+                if (new_t != image->t() || image->t() > maxTextureDimension) notValidPowerOf2 = true;
+
+                if (notValidPowerOf2) {
+                    image->ensureValidSizeForTexturing(maxTextureDimension);
+                    if(osgDB::isAbsolutePath(image->getFileName()))
+                        osgDB::writeImageFile(*image, image->getFileName());
+                    else
+                        osgDB::writeImageFile(*image,
+                                              osgDB::concatPaths(modelDir,
+                                                                 image->getFileName()));
+                }
+            }
+        } else {
+            // no image file so use this inline name image and create a file
+            std::stringstream ss;
+            ss << osgDB::getFilePath(baseName) << osgDB::getNativePathSeparator();
+            ss << (long int)image << ".inline_conv_generated.png"; // write the pointer location
+            std::string filename = ss.str();
+            if (osgDB::writeImageFile(*image, filename)) {
+                image->setFileName(filename);
+            }
+        }
+
+        if (!image->getFileName().empty()) { // means that everything went ok
+            if (inlineImages) {
+
+                std::ifstream in(osgDB::findDataFile(image->getFileName()).c_str());
+                if (in.is_open())
+                {
+                    std::stringstream out;
+                    out << "data:image/" << osgDB::getLowerCaseFileExtension(image->getFileName()) << ";base64,";
+                    base64::encode(std::istreambuf_iterator<char>(in),
+                                   std::istreambuf_iterator<char>(),
+                                   std::ostreambuf_iterator<char>(out), false);
+
+                    return new JSONValue<std::string>(out.str());
+
+                }
+            }
+            return new JSONValue<std::string>(image->getFileName());
+        }
+    }
+    return 0;
+}
+
+
+JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array, osg::Geometry* geom)
 {
     if (_maps.find(array) != _maps.end())
         return _maps[array]->getShadowObject();
@@ -222,14 +260,13 @@ JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array)
     osg::ref_ptr<JSONBufferArray> json = new JSONBufferArray(array);
     json->addUniqueID();
     _maps[array] = json;
+    if(geom && _mergeAllBinaryFiles) {
+        setBufferName(json, geom);
+    }
     return json;
 }
 
-
-
-
-
-JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de)
+JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Geometry* geom)
 {
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
@@ -237,10 +274,13 @@ JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de)
     JSONDrawElements<osg::DrawElementsUInt>* json = new JSONDrawElements<osg::DrawElementsUInt>(*de);
     json->addUniqueID();
     _maps[de] = json;
+    if(geom && _mergeAllBinaryFiles) {
+        setBufferName(json, geom);
+    }
     return json;
 }
 
-JSONObject* WriteVisitor::createJSONDrawElementsUShort(osg::DrawElementsUShort* de)
+JSONObject* WriteVisitor::createJSONDrawElementsUShort(osg::DrawElementsUShort* de, osg::Geometry* geom)
 {
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
@@ -248,10 +288,13 @@ JSONObject* WriteVisitor::createJSONDrawElementsUShort(osg::DrawElementsUShort* 
     JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de);
     json->addUniqueID();
     _maps[de] = json;
+    if(geom && _mergeAllBinaryFiles) {
+        setBufferName(json, geom);
+    }
     return json;
 }
 
-JSONObject* WriteVisitor::createJSONDrawElementsUByte(osg::DrawElementsUByte* de)
+JSONObject* WriteVisitor::createJSONDrawElementsUByte(osg::DrawElementsUByte* de, osg::Geometry* geom)
 {
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
@@ -259,11 +302,14 @@ JSONObject* WriteVisitor::createJSONDrawElementsUByte(osg::DrawElementsUByte* de
     JSONDrawElements<osg::DrawElementsUByte>* json = new JSONDrawElements<osg::DrawElementsUByte>(*de);
     json->addUniqueID();
     _maps[de] = json;
+    if(geom && _mergeAllBinaryFiles) {
+        setBufferName(json, geom);
+    }
     return json;
 }
 
 // use to convert draw array quads to draw elements triangles
-JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray)
+JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray, osg::Geometry* geom)
 {
     if (_maps.find(drawArray) != _maps.end())
         return _maps[drawArray]->getShadowObject();
@@ -288,10 +334,13 @@ JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray)
     JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de);
     json->addUniqueID();
     _maps[drawArray] = json;
-    return json; 
+    if(geom && _mergeAllBinaryFiles) {
+        setBufferName(json, geom);
+    }
+    return json;
 }
 
-JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da)
+JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da, osg::Geometry* geom)
 {
     if (_maps.find(da) != _maps.end())
         return _maps[da]->getShadowObject();
@@ -299,10 +348,13 @@ JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da)
     osg::ref_ptr<JSONDrawArray> json = new JSONDrawArray(*da);
     json->addUniqueID();
     _maps[da] = json;
+    if(geom && _mergeAllBinaryFiles) {
+        setBufferName(json, geom);
+    }
     return json;
 }
 
-JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da)
+JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da, osg::Geometry* geom)
 {
     if (_maps.find(da) != _maps.end())
         return _maps[da]->getShadowObject();
@@ -310,6 +362,9 @@ JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da)
     osg::ref_ptr<JSONDrawArrayLengths> json = new JSONDrawArrayLengths(*da);
     json->addUniqueID();
     _maps[da] = json;
+    if(geom && _mergeAllBinaryFiles) {
+        setBufferName(json, geom);
+    }
     return json;
 }
 
@@ -319,8 +374,8 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
     if (_maps.find(geom) != _maps.end())
         return _maps[geom]->getShadowObject();
 
-    if (needToSplit(*geom))
-        error();
+    //if (needToSplit(*geom))
+    //    error();
 
     osg::ref_ptr<JSONObject> json = new JSONNode;
     json->addUniqueID();
@@ -334,12 +389,12 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
     osg::ref_ptr<JSONObject> attributes = new JSONObject;
 
     int nbVertexes = geom->getVertexArray()->getNumElements();
-            
+
     if (geom->getVertexArray()) {
-        attributes->getMaps()["Vertex"] = createJSONBufferArray(geom->getVertexArray());
+        attributes->getMaps()["Vertex"] = createJSONBufferArray(geom->getVertexArray(), geom);
     }
     if (geom->getNormalArray()) {
-        attributes->getMaps()["Normal"] = createJSONBufferArray(geom->getNormalArray());
+        attributes->getMaps()["Normal"] = createJSONBufferArray(geom->getNormalArray(), geom);
         int nb = geom->getNormalArray()->getNumElements();
         if (nbVertexes != nb) {
             osg::notify(osg::FATAL) << "Fatal nb normals " << nb << " != " << nbVertexes << std::endl;
@@ -347,21 +402,21 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
         }
     }
     if (geom->getColorArray()) {
-        attributes->getMaps()["Color"] = createJSONBufferArray(geom->getColorArray());
+        attributes->getMaps()["Color"] = createJSONBufferArray(geom->getColorArray(), geom);
         int nb = geom->getColorArray()->getNumElements();
         if (nbVertexes != nb) {
             osg::notify(osg::FATAL) << "Fatal nb colors " << nb << " != " << nbVertexes << std::endl;
             error();
         }
     }
-            
+
     std::stringstream ss;
     for ( int i = 0; i < 32; i++) {
         ss.str("");
         ss << "TexCoord" << i;
         //osg::notify(osg::NOTICE) << ss.str() << std::endl;
         if (geom->getTexCoordArray(i)) {
-            attributes->getMaps()[ss.str()] = createJSONBufferArray(geom->getTexCoordArray(i));
+            attributes->getMaps()[ss.str()] = createJSONBufferArray(geom->getTexCoordArray(i), geom);
             int nb = geom->getTexCoordArray(i)->getNumElements();
             if (nbVertexes != nb) {
                 osg::notify(osg::FATAL) << "Fatal nb tex coord " << i << " " << nb << " != " << nbVertexes << std::endl;
@@ -369,20 +424,13 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
             }
         }
     }
-    if (geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)) {
-        attributes->getMaps()["Tangent"] = createJSONBufferArray(geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX));
-        int nb = geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)->getNumElements();
+
+    osg::Array* tangents = getTangentSpaceArray(*geom);
+    if (tangents) {
+        attributes->getMaps()["Tangent"] = createJSONBufferArray(tangents, geom);
+        int nb = tangents->getNumElements();
         if (nbVertexes != nb) {
             osg::notify(osg::FATAL) << "Fatal nb tangent " << nb << " != " << nbVertexes << std::endl;
-            error();
-        }
-    }
-
-    if (geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)) {
-        attributes->getMaps()["Bitangent"] = createJSONBufferArray(geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX));
-        int nb = geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)->getNumElements();
-        if (nbVertexes != nb) {
-            osg::notify(osg::FATAL) << "Fatal nb bitangent " << nb << " != " << nbVertexes << std::endl;
             error();
         }
     }
@@ -392,37 +440,37 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
     if (!geom->getPrimitiveSetList().empty()) {
         osg::ref_ptr<JSONArray> primitives = new JSONArray();
         for (unsigned int i = 0; i < geom->getPrimitiveSetList().size(); ++i) {
-
             osg::ref_ptr<JSONObject> obj = new JSONObject;
-            if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType) {
-                osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*>((geom->getPrimitiveSetList()[i].get()));
+            osg::PrimitiveSet* primitive = geom->getPrimitiveSetList()[i];
+            if(!primitive) continue;
+
+            if (primitive->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType) {
+                osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*>((primitive));
                 primitives->getArray().push_back(obj);
                 if (da->getMode() == GL_QUADS) {
-                    obj->getMaps()["DrawElementsUShort"] = createJSONDrawElements(da);
+                    obj->getMaps()["DrawElementsUShort"] = createJSONDrawElements(da, geom);
                 } else {
-                    obj->getMaps()["DrawArrays"] = createJSONDrawArray(da);
+                    obj->getMaps()["DrawArrays"] = createJSONDrawArray(da, geom);
                 }
-
-            } else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUIntPrimitiveType) {
-                osg::DrawElementsUInt* da = dynamic_cast<osg::DrawElementsUInt*>((geom->getPrimitiveSetList()[i].get()));
+            } else if (primitive->getType() == osg::PrimitiveSet::DrawElementsUIntPrimitiveType) {
+                osg::DrawElementsUInt* da = dynamic_cast<osg::DrawElementsUInt*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawElementsUShort"] = createJSONDrawElementsUInt(da);
+                obj->getMaps()["DrawElementsUInt"] = createJSONDrawElementsUInt(da, geom);
 
-            }  else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUShortPrimitiveType) {
-                osg::DrawElementsUShort* da = dynamic_cast<osg::DrawElementsUShort*>((geom->getPrimitiveSetList()[i].get()));
+            }  else if (primitive->getType() == osg::PrimitiveSet::DrawElementsUShortPrimitiveType) {
+                osg::DrawElementsUShort* da = dynamic_cast<osg::DrawElementsUShort*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawElementsUShort"] = createJSONDrawElementsUShort(da);
+                obj->getMaps()["DrawElementsUShort"] = createJSONDrawElementsUShort(da, geom);
 
-            }  else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawElementsUBytePrimitiveType) {
-                osg::DrawElementsUByte* da = dynamic_cast<osg::DrawElementsUByte*>((geom->getPrimitiveSetList()[i].get()));
+            }  else if (primitive->getType() == osg::PrimitiveSet::DrawElementsUBytePrimitiveType) {
+                osg::DrawElementsUByte* da = dynamic_cast<osg::DrawElementsUByte*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawElementsUShort"] = createJSONDrawElementsUByte(da);
+                obj->getMaps()["DrawElementsUByte"] = createJSONDrawElementsUByte(da, geom);
 
-            }  else if (geom->getPrimitiveSetList()[i]->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) {
-                osg::DrawArrayLengths* dal = dynamic_cast<osg::DrawArrayLengths*>((geom->getPrimitiveSetList()[i].get()));
+            }  else if (primitive->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) {
+                osg::DrawArrayLengths* dal = dynamic_cast<osg::DrawArrayLengths*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawArrayLengths"] = createJSONDrawArrayLengths(dal);
-
+                obj->getMaps()["DrawArrayLengths"] = createJSONDrawArrayLengths(dal, geom);
             } else {
                 osg::notify(osg::WARN) << "Primitive Type " << geom->getPrimitiveSetList()[i]->getType() << " not supported, skipping" << std::endl;
             }
@@ -537,12 +585,13 @@ JSONObject* WriteVisitor::createJSONLight(osg::Light* light)
     return jsonLight.release();
 }
 
-template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, bool inlineImages)
+template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, bool inlineImages,
+                                                      int maxTextureDimension, const std::string &baseName = "")
 {
     T* text = dynamic_cast<T*>( texture);
     if (text) {
         translateObject(jsonTexture,text);
-        JSONObject* image = createImage(text->getImage(), inlineImages);
+        JSONObject* image = createImage(text->getImage(), inlineImages, maxTextureDimension, baseName);
         if (image)
             jsonTexture->getMaps()["File"] = image;
         return jsonTexture;
@@ -603,7 +652,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
         ss << i;
         std::string str = ss.str();
         // We need to convert first from osg format to osgjs format.
-        osg::ref_ptr<osg::Node> n = osgDB::readNodeFile(plod->getFileName(i));
+        osg::ref_ptr<osg::Node> n = osgDB::readNodeFile(plod->getFileName(i)+".gles");
         if (n)
         {
             std::string filename(osgDB::getStrippedName(plod->getFileName(i))+".osgjs");
@@ -640,21 +689,24 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
 
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture, this->_inlineImages,
+                                                                 this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture, this->_inlineImages,
+                                                                 this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture,_inlineImages);
+        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture, this->_inlineImages,
+                                                                        this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
@@ -755,7 +807,7 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
         obj->getMaps()["osg.BlendColor"] = createJSONBlendColor(blendColor);
         attributeList->getArray().push_back(obj);
     }
-    
+
 
     if (!attributeList->getArray().empty()) {
         jsonStateSet->getMaps()["AttributeList"] = attributeList;

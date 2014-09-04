@@ -1912,16 +1912,15 @@ char **get_words(FILE *fp, int *nwords, char **orig_line)
   str[BIG_STRING-1] = '\0';
 
   for (ptr = str, ptr2 = str_copy; *ptr != '\0'; ptr++, ptr2++) {
-      *ptr2 = *ptr;
-      if (*ptr == '\t' || *ptr == '\r' ) {
-          *ptr = ' ';
-          *ptr2 = ' ';
-      }
-      else if (*ptr == '\n') {
-          *ptr = ' ';
-          *ptr2 = '\0';
-          break;
-      }
+    *ptr2 = *ptr;
+    if (*ptr == '\t') {
+      *ptr = ' ';
+      *ptr2 = ' ';
+    }
+    else if (*ptr == '\n' || *ptr == '\r') {
+      *ptr = ' ';
+      *ptr2 = '\0';
+    }
   }
 
   /* find the words in the line */

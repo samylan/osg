@@ -2,14 +2,8 @@
 #define OSG2_BINARYSTREAMOPERATOR
 
 #include <osgDB/StreamOperator>
+#include <osg/Types>
 #include <vector>
-
-#if defined(_MSC_VER)
-typedef unsigned __int32 uint32_t;
-typedef __int32 int32_t;
-#else
-#include <stdint.h>
-#endif
 
 
 class BinaryOutputIterator : public osgDB::OutputIterator
@@ -90,13 +84,14 @@ public:
             }
             else if ( mark._name=="}" && _beginPositions.size()>0 )
             {
-                int pos = _out->tellp(), beginPos = _beginPositions.back();
+                std::streampos pos = _out->tellp(), beginPos = _beginPositions.back();
                 _beginPositions.pop_back();
-                _out->seekp( beginPos, std::ios_base::beg );
+                _out->seekp( beginPos );
 
-                int size = pos - beginPos;
+                std::streampos size64 = pos - beginPos;
+                int size = (int) size64;
                 _out->write( (char*)&size, osgDB::INT_SIZE );
-                _out->seekp( pos, std::ios_base::beg );
+                _out->seekp( pos );
             }
         }
     }
@@ -106,9 +101,9 @@ public:
 
     virtual void writeWrappedString( const std::string& str )
     { writeString( str ); }
-    
+
 protected:
-    std::vector<int> _beginPositions;
+    std::vector<std::streampos> _beginPositions;
 };
 
 class BinaryInputIterator : public osgDB::InputIterator
@@ -257,20 +252,21 @@ public:
 
     virtual void readWrappedString( std::string& str )
     { readString( str ); }
-    
+
     virtual void advanceToCurrentEndBracket()
     {
         if ( _supportBinaryBrackets && _beginPositions.size()>0 )
         {
-            int pos = _beginPositions.back() + _blockSizes.back();
-            _in->seekg( pos, std::ios_base::beg );
+            std::streampos position(_beginPositions.back());
+            position += _blockSizes.back();
+            _in->seekg( position );
             _beginPositions.pop_back();
             _blockSizes.pop_back();
         }
     }
 
 protected:
-    std::vector<int> _beginPositions;
+    std::vector<std::streampos> _beginPositions;
     std::vector<int> _blockSizes;
 };
 

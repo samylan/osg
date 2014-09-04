@@ -50,7 +50,7 @@ struct WriteVisitor : public osg::NodeVisitor
             }
         }
 
-        osg::BoundingBox bb = geom->getBound();
+        osg::BoundingBox bb = geom->getBoundingBox();
         double normalize = 0;
         osg::Vec3 dim = bb._max-bb._min;
         for (int i = 0; i < 3; ++i)
@@ -59,7 +59,7 @@ struct WriteVisitor : public osg::NodeVisitor
 
         osg::notify(osg::NOTICE) << "min " << bb._min << " max " << bb._max << std::endl;
         osg::notify(osg::NOTICE) << "size " <<dim << std::endl;
-        
+
         osg::ref_ptr<osg::Image> low = new osg::Image();
         low->allocateImage(_textureWidth, _textureHeight, 1,GL_RGBA, GL_UNSIGNED_BYTE);
 
@@ -128,7 +128,7 @@ public:
     {
         supportsExtension("vst","VST");
     }
-        
+
     virtual const char* className() const { return "VST Writer"; }
 
 
