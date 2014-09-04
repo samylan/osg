@@ -159,7 +159,6 @@ IF(DYNAMIC_OPENSCENEGRAPH)
     ADD_SUBDIRECTORY(osgwidgettable)
     ADD_SUBDIRECTORY(osgwidgetwindow)
     ADD_SUBDIRECTORY(osguserdata)
-    add_subdirectory(testosgjs)
 
     # GL3/GL4 example
     ADD_SUBDIRECTORY(osgsimplegl3)
