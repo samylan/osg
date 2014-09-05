@@ -11,6 +11,7 @@
 #include <osg/Endian>
 #include <osg/Projection>
 #include <osg/MatrixTransform>
+#include <osg/PagedLOD>
 #include <osg/PositionAttitudeTransform>
 #include <osgAnimation/BasicAnimationManager>
 #include <osg/LightSource>
@@ -157,6 +158,7 @@ public:
         return getBinaryFilename(name);
     }
 
+    JSONObject* createJSONPagedLOD(osg::PagedLOD* plod);
     JSONObject* createJSONStateSet(osg::StateSet* ss);
     JSONObject* createJSONTexture(osg::Texture* sa);
     JSONObject* createJSONMaterial(osg::Material* sa);
@@ -188,6 +190,7 @@ public:
     void initJsonObjectFromNode(osg::Node& node, JSONObject& json) {
         translateObject(&json, &node);
     }
+
 
     void createJSONStateSet(JSONObject* json, osg::StateSet* ss) {
         JSONObject* json_stateset = createJSONStateSet(ss);
@@ -301,6 +304,31 @@ public:
 
         initJsonObjectFromNode(node, *json);
 
+        _parents.push_back(json);
+        traverse(node);
+        _parents.pop_back();
+    }
+
+    void apply(osg::PagedLOD& node)
+    {
+        JSONObject* parent = getParent();
+        if (_maps.find(&node) != _maps.end()) {
+            parent->addChild("osg.PagedLOD", _maps[&node]->getShadowObject());
+            return;
+        }
+
+        osg::ref_ptr<JSONObject> json = createJSONPagedLOD(&node);
+        json->addUniqueID();
+        _maps[&node] = json;
+        parent->addChild("osg.PagedLOD", json);
+
+
+        applyCallback(node, json);
+
+
+        createJSONStateSet(node, json);
+
+        initJsonObjectFromNode(node, *json);
         _parents.push_back(json);
         traverse(node);
         _parents.pop_back();

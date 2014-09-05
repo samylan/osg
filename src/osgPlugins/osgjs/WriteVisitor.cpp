@@ -1,6 +1,7 @@
 #include "WriteVisitor"
 #include <osgDB/WriteFile>
 #include <osgDB/FileUtils>
+#include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
 #include <osg/UserDataContainer>
 #include <osg/TextureRectangle>
@@ -596,6 +597,74 @@ template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSO
         return jsonTexture;
     }
     return 0;
+}
+
+JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
+{
+    if (!plod) { return 0; }
+
+    if (_maps.find(plod) != _maps.end()) {
+         return _maps[plod]->getShadowObject();
+    }
+
+    osg::ref_ptr<JSONObject> jsonPlod = new JSONNode;
+    jsonPlod->addUniqueID();
+    _maps[plod] = jsonPlod;
+
+
+    // Center Mode
+    osg::ref_ptr<JSONValue<std::string> > centerMode = new JSONValue<std::string>("USE_BOUNDING_SPHERE_CENTER");
+    if (plod->getCenterMode() == osg::LOD::USER_DEFINED_CENTER) {
+        centerMode = new JSONValue<std::string>("USER_DEFINED_CENTER");
+    } else if (plod->getCenterMode() == osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED){
+        centerMode = new JSONValue<std::string>("UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED");
+    }
+    jsonPlod->getMaps()["CenterMode"] = centerMode;
+    // User defined center and radius
+    jsonPlod->getMaps()["UserCenter"] = new JSONVec4Array(osg::Vec4(plod->getCenter().x(), plod->getCenter().y(),plod->getCenter().z(), plod->getRadius()));
+
+
+    // Range Mode
+    osg::ref_ptr<JSONValue<std::string> > rangeMode = new JSONValue<std::string>("DISTANCE_FROM_EYE_POINT");
+    if (plod->getRangeMode() == osg::LOD::PIXEL_SIZE_ON_SCREEN) {
+        rangeMode = new JSONValue<std::string>("PIXEL_SIZE_ON_SCREEN");
+    }
+    jsonPlod->getMaps()["RangeMode"] = rangeMode;
+    // Range List
+    //osg::ref_ptr<JSONArray> rangeList = new JSONArray;
+    JSONObject* rangeObject = new JSONObject;
+    for (int i =0; i< plod->getRangeList().size(); i++)
+    {
+        std::stringstream ss;
+        ss << "Range ";
+        ss << i;
+        std::string str = ss.str();
+        rangeObject->getMaps()[str] =  new JSONVec2Array(osg::Vec2(plod->getRangeList()[i].first, plod->getRangeList()[i].second));
+    }
+    jsonPlod->getMaps()["RangeList"] = rangeObject;
+    // File List
+
+    JSONObject* fileObject = new JSONObject;
+    for (int i =0; i< plod->getNumFileNames(); i++)
+    {
+        std::stringstream ss;
+        ss << "File ";
+        ss << i;
+        std::string str = ss.str();
+        // We need to convert first from osg format to osgjs format.
+        osg::ref_ptr<osg::Node> n = osgDB::readNodeFile(plod->getFileName(i)+".gles");
+        if (n)
+        {
+            std::string filename(osgDB::getStrippedName(plod->getFileName(i))+".osgjs");
+            osgDB::writeNodeFile(*n,filename);
+            fileObject->getMaps()[str] =  new JSONValue<std::string>(filename);
+        }
+        else
+            fileObject->getMaps()[str] =  new JSONValue<std::string>("");
+     }
+    jsonPlod->getMaps()["RangeDataList"] = fileObject;
+
+    return jsonPlod;
 }
 
 JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
