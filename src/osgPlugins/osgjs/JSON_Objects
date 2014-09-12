@@ -19,6 +19,9 @@
 #include <fstream>
 #include <iostream>
 
+#ifdef WIN32
+  #include <cstdint>
+#endif
 
 class WriteVisitor;
 
