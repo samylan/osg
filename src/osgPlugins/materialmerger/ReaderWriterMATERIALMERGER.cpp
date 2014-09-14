@@ -17,11 +17,15 @@ class StateSetComparator : public std::binary_function<osg::StateSet*, osg::Stat
         }
 };
 
+
 class MaterialMerger : public osg::NodeVisitor
 {
+public:
+  typedef std::map<osg::StateSet*, std::vector<osg::Geometry*>, StateSetComparator> NodesMap;
+
 protected:
     // geometries sorted by stateset
-	std::map<osg::StateSet*, std::vector<osg::Geometry*>, StateSetComparator> nodes;
+  NodesMap nodes;
 
 public:
     MaterialMerger()
@@ -60,7 +64,7 @@ public:
         osg::Group* root = new osg::Group();
         osgUtil::Optimizer optimizer;
 
-        for(std::map<osg::StateSet*, std::vector<osg::Geometry*> >::iterator it = nodes.begin(); it != nodes.end(); it++)
+        for(NodesMap::iterator it = nodes.begin(); it != nodes.end(); it++)
         {
             // one geode per stateset
             osg::Group* group = new osg::Group();
