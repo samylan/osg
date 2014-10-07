@@ -1,4 +1,7 @@
+#include <limits>
+
 #include "OpenGLESGeometryOptimizer"
+#include "glesUtil"
 
 #include "AnimationVisitor"
 #include "BindPerVertexVisitor"
@@ -11,6 +14,8 @@
 #include "TriangleStripVisitor"
 #include "UnIndexMeshVisitor"
 #include "WireframeVisitor"
+
+const unsigned glesUtil::Remapper::invalidIndex = std::numeric_limits<unsigned>::max();
 
 
 osg::Node* OpenGLESGeometryOptimizer::optimize(osg::Node& node) {

@@ -24,6 +24,7 @@
 
 #include "GeometryArray"
 #include "GeometryUniqueVisitor"
+#include "glesUtil"
 
 
 class GeometryIndexSplitter
@@ -63,7 +64,7 @@ public:
                 processing = reported;
                 reported = 0;
                 // re order index elements
-                osgUtil::VertexAccessOrderVisitor preTransform;
+                glesUtil::VertexAccessOrderVisitor preTransform;
                 preTransform.optimizeOrder(*processing);
             }
         }
