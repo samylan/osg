@@ -2,6 +2,8 @@
 #define GLES_UTIL
 
 #include <vector>
+#include <algorithm>
+
 #include <osg/Array>
 #include <osg/ref_ptr>
 #include <osgUtil/MeshOptimizers>
@@ -278,6 +280,20 @@ namespace glesUtil {
 
     class VertexAccessOrderVisitor : osgUtil::VertexAccessOrderVisitor
     {
+        struct OrderByPrimitiveMode
+        {
+            inline bool operator() (const osg::PrimitiveSet* prim1, const osg::PrimitiveSet* prim2)
+            {
+                if(prim1 && prim2) {
+                    return prim1->getMode() >= prim2->getMode();
+                }
+                else if(prim1) {
+                    return true;
+                }
+                return false;
+            }
+        } order_by_primitive_mode;
+
     public:
         void optimizeOrder(Geometry& geom)
         {
@@ -285,6 +301,10 @@ namespace glesUtil {
             if (!vertArray || !vertArray->getNumElements())
                 return;
             Geometry::PrimitiveSetList& primSets = geom.getPrimitiveSetList();
+
+            // sort primitives: first triangles, then lines and finally points
+            std::sort(primSets.begin(), primSets.end(), order_by_primitive_mode);
+
             glesUtil::VertexReorder vr(vertArray->getNumElements());
             for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
                      end = primSets.end();
