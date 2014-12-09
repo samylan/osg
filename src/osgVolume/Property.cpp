@@ -19,12 +19,14 @@
 using namespace osgVolume;
 
 
-Property::Property()
+Property::Property():
+    _modifiedCount(0)
 {
 }
 
 Property::Property(const Property& property,const osg::CopyOp& copyop):
-    osg::Object(property,copyop)
+    osg::Object(property,copyop),
+    _modifiedCount(0)
 {
 }
 
@@ -49,6 +51,7 @@ CompositeProperty::CompositeProperty(const CompositeProperty& compositeProperty,
 void CompositeProperty::clear()
 {
     _properties.clear();
+    dirty();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -136,6 +139,7 @@ AlphaFuncProperty::AlphaFuncProperty(const AlphaFuncProperty& afp,const osg::Cop
 
 void AlphaFuncProperty::setValue(float v)
 {
+    dirty();
     _uniform->set(v);
     _alphaFunc->setReferenceValue(v);
 }
@@ -310,40 +314,34 @@ class CycleSwitchVisitor : public osgVolume::PropertyVisitor
         CycleSwitchVisitor(int delta):
             PropertyVisitor(false),
             _delta(delta),
-            _switchModified(true) {}
+            _switchModified(false) {}
+
+        virtual void apply(VolumeSettings& vs)
+        {
+            int newValue = static_cast<int>(vs.getShadingModel())+_delta;
+            if (newValue<0) newValue = VolumeSettings::MaximumIntensityProjection;
+            else if (newValue>VolumeSettings::MaximumIntensityProjection) newValue = 0;
+            vs.setShadingModel(static_cast<VolumeSettings::ShadingModel>(newValue));
+            OSG_NOTICE<<"CycleSwitchVisitor::apply(VolumeSettings&) "<<newValue<<std::endl;
+
+            _switchModified = true;
+
+            PropertyVisitor::apply(vs);
+        }
 
         virtual void apply(SwitchProperty& sp)
         {
-            if (sp.getNumProperties()>=2)
+            if (sp.getNumProperties()>1)
             {
-                if (_delta>0)
-                {
-                    int newValue = sp.getActiveProperty()+_delta;
-                    if (newValue<static_cast<int>(sp.getNumProperties()))
-                    {
-                        sp.setActiveProperty(newValue);
-                    }
-                    else
-                    {
-                        sp.setActiveProperty(0);
-                    }
+                int newValue = static_cast<int>(sp.getActiveProperty())+_delta;
+                if (newValue >= static_cast<int>(sp.getNumProperties())) newValue = 0;
+                if (newValue < 0) newValue = sp.getNumProperties()-1;
 
-                    _switchModified = true;
-                }
-                else // _delta<0
-                {
-                    int newValue = sp.getActiveProperty()+_delta;
-                    if (newValue>=0)
-                    {
-                        sp.setActiveProperty(newValue);
-                    }
-                    else
-                    {
-                        sp.setActiveProperty(sp.getNumProperties()-1);
-                    }
+                sp.setActiveProperty(newValue);
 
-                    _switchModified = true;
-                }
+                OSG_NOTICE<<"CycleSwitchVisitor::apply(SwitchProperty&) "<<newValue<<std::endl;
+
+                _switchModified = true;
             }
 
             PropertyVisitor::apply(sp);
@@ -387,6 +385,8 @@ PropertyAdjustmentCallback::PropertyAdjustmentCallback(const PropertyAdjustmentC
 
 bool PropertyAdjustmentCallback::handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&, osg::Object* object, osg::NodeVisitor*)
 {
+    if (ea.getHandled()) return false;
+
     osgVolume::VolumeTile* tile = dynamic_cast<osgVolume::VolumeTile*>(object);
     osgVolume::Layer* layer = tile ? tile->getLayer() : 0;
     osgVolume::Property* property = layer ? layer->getProperty() : 0;

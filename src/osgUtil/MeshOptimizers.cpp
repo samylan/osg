@@ -980,7 +980,7 @@ struct CacheRecorder : public TriangleIndexFunctor<CacheRecordOperator>
 void VertexCacheMissVisitor::doGeometry(Geometry& geom)
 {
     Array* vertArray = geom.getVertexArray();
-    if (!vertArray)
+    if (!vertArray || vertArray->getNumElements()==0)
         return;
     Geometry::PrimitiveSetList& primSets = geom.getPrimitiveSetList();
     CacheRecorder recorder(_cacheSize);
@@ -1122,7 +1122,7 @@ inline void reorderDrawElements(DE& drawElements,
 void VertexAccessOrderVisitor::optimizeOrder(Geometry& geom)
 {
     Array* vertArray = geom.getVertexArray();
-    if (!vertArray)
+    if (!vertArray || vertArray->getNumElements()==0)
         return;
     Geometry::PrimitiveSetList& primSets = geom.getPrimitiveSetList();
     VertexReorder vr(vertArray->getNumElements());

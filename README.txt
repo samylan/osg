@@ -43,13 +43,12 @@ OpenSceneGraph's CMake build can be found at:
     http://www.openscenegraph.org/projects/osg/wiki/Build/CMake
 
 Under unices (i.e. Linux, IRIX, Solaris, Free-BSD, HP-Ux, AIX, OSX)
-use the cmake or ccmake command-line utils, or use the included tiny
-configure script that'll run cmake for you.  The configure script
-simply runs 'cmake . -DCMAKE_BUILD_TYPE=Release' to ensure that you
-get the best performance from your final libraries/applications.
+use the cmake or ccmake command-line utils. Note that cmake . defaults
+to building Release to ensure that you get the best performance from
+your final libraries/applications.
 
     cd OpenSceneGraph
-    ./configure
+    cmake .
     make
     sudo make install
 
@@ -62,7 +61,7 @@ directory alongside the OpenSceneGraph use:
 
     mkdir build
     cd build
-    cmake ../OpenSceneGraph -DCMAKE_BUILD_TYPE=Release
+    cmake ../OpenSceneGraph
     make
     sudo make install
 

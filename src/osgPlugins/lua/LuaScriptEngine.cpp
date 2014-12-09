@@ -2778,7 +2778,7 @@ int LuaScriptEngine::getDataFromStack(SerializerScratchPad* ssp, osgDB::BaseSeri
         {
             if (lua_isboolean(_lua, pos))
             {
-                ssp->set(static_cast<bool>(lua_toboolean(_lua, pos)));
+                ssp->set(static_cast<bool>(lua_toboolean(_lua, pos)!=0));
                 return 0;
             }
             else if (lua_isnumber(_lua, pos))
@@ -3116,7 +3116,7 @@ int LuaScriptEngine::setPropertyFromStack(osg::Object* object, const std::string
         {
             if (lua_isboolean(_lua, -1))
             {
-                _ci.setProperty(object, propertyName, static_cast<bool>(lua_toboolean(_lua, -1)));
+                _ci.setProperty(object, propertyName, static_cast<bool>(lua_toboolean(_lua, -1)!=0));
                 return 0;
             }
             else if (lua_isnumber(_lua, -1))
@@ -4343,3 +4343,40 @@ void LuaScriptEngine::assignClosure(const char* name, lua_CFunction fn) const
     lua_pushcclosure(_lua, fn, 1);
     lua_settable(_lua, -3);
 }
+
+void LuaScriptEngine::addPaths(const osgDB::FilePathList& paths)
+{
+    lua_getglobal( _lua, "package" );
+
+    lua_getfield( _lua, -1, "path" );
+    std::string  path = lua_tostring( _lua, -1 );
+    lua_pop( _lua, 1 );
+
+    OSG_NOTICE<<"LuaScriptEngine::addPaths() original package.path = "<<path<<std::endl;
+
+
+    for(osgDB::FilePathList::const_iterator itr = paths.begin();
+        itr != paths.end();
+        ++itr)
+    {
+        OSG_NOTICE<<"  Appending path ["<<*itr<<"]"<<std::endl;
+
+        path.append( ";" );
+        path.append( *itr );
+        path.append( "/?.lua" );
+    }
+
+    OSG_NOTICE<<"   path after = "<<path<<std::endl;
+
+    lua_pushstring( _lua, path.c_str() );
+    lua_setfield( _lua, -2, "path" );
+
+    lua_pop( _lua, 1 ); // return stack to orignal
+}
+
+void LuaScriptEngine::addPaths(const osgDB::Options* options)
+{
+    if (!options) return;
+    addPaths(options->getDatabasePathList());
+}
+

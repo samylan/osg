@@ -195,7 +195,11 @@ class OSG_EXPORT StateAttribute : public Object
 
             PATCH_PARAMETER,
 
-            FRAME_BUFFER_OBJECT
+            FRAME_BUFFER_OBJECT,
+
+            VERTEX_ATTRIB_DIVISOR,
+
+            CAPABILITY = 100
         };
 
         /** Simple pairing between an attribute type and the member within that attribute type group.*/

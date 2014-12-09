@@ -64,7 +64,7 @@ GLBufferObject::GLBufferObject(unsigned int contextID, BufferObject* bufferObjec
 {
     assign(bufferObject);
 
-    _extensions = GLBufferObject::getExtensions(contextID, true);
+    _extensions = GL2Extensions::Get(contextID, true);
 
     if (glObjectID==0)
     {
@@ -222,13 +222,13 @@ void GLBufferObject::compileBuffer()
                 for(osg::Image::DataIterator img_itr(image); img_itr.valid(); ++img_itr)
                 {
                     //OSG_NOTICE<<"Copying to buffer object using DataIterator, offset="<<offset<<", size="<<img_itr.size()<<", data="<<(void*)img_itr.data()<<std::endl;
-                    _extensions->glBufferSubData(_profile._target, (GLintptrARB)offset, (GLsizeiptrARB)img_itr.size(), img_itr.data());
+                    _extensions->glBufferSubData(_profile._target, (GLintptr)offset, (GLsizeiptr)img_itr.size(), img_itr.data());
                     offset += img_itr.size();
                 }
             }
             else
             {
-                _extensions->glBufferSubData(_profile._target, (GLintptrARB)entry.offset, (GLsizeiptrARB)entry.dataSize, entry.dataSource->getDataPointer());
+                _extensions->glBufferSubData(_profile._target, (GLintptr)entry.offset, (GLsizeiptr)entry.dataSize, entry.dataSource->getDataPointer());
             }
         }
     }
@@ -264,6 +264,7 @@ void GLBufferObject::setBufferDataHasBeenRead(const osg::BufferData* bd)
     ++entry.numRead;
 }
 
+#if 0
 //////////////////////////////////////////////////////////////////////////////
 //
 //  Extension support
@@ -448,6 +449,7 @@ void GLBufferObject::Extensions::glTexBuffer( GLenum target, GLenum internalForm
     if ( _glTexBuffer ) _glTexBuffer( target, internalFormat, buffer );
     else OSG_WARN<<"Error: glTexBuffer not supported by OpenGL driver\n";
 }
+#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -1679,7 +1681,7 @@ void PixelDataBufferObject::bindBufferInWriteMode(State& state)
 //--------------------------------------------------------------------------------
 void PixelDataBufferObject::unbindBuffer(unsigned int contextID) const
 {
-    GLBufferObject::Extensions* extensions = GLBufferObject::getExtensions(contextID,true);
+    GL2Extensions* extensions = GL2Extensions::Get(contextID, true);
 
     switch(_mode[contextID])
     {

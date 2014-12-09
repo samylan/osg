@@ -30,16 +30,20 @@ SET(TARGET_H
     ${HEADER_PATH}/Billboard
     ${HEADER_PATH}/BlendColor
     ${HEADER_PATH}/BlendEquation
+    ${HEADER_PATH}/BlendEquationi
     ${HEADER_PATH}/BlendFunc
+    ${HEADER_PATH}/BlendFunci
     ${HEADER_PATH}/BoundingBox
     ${HEADER_PATH}/BoundingSphere
     ${HEADER_PATH}/BoundsChecking
     ${HEADER_PATH}/buffered_value
     ${HEADER_PATH}/BufferIndexBinding
     ${HEADER_PATH}/BufferObject
+    ${HEADER_PATH}/BufferTemplate
     ${HEADER_PATH}/Callback
     ${HEADER_PATH}/Camera
     ${HEADER_PATH}/CameraView
+    ${HEADER_PATH}/Capability
     ${HEADER_PATH}/ClampColor
     ${HEADER_PATH}/ClearNode
     ${HEADER_PATH}/ClipNode
@@ -47,6 +51,7 @@ SET(TARGET_H
     ${HEADER_PATH}/ClusterCullingCallback
     ${HEADER_PATH}/CollectOccludersVisitor
     ${HEADER_PATH}/ColorMask
+    ${HEADER_PATH}/ColorMaski
     ${HEADER_PATH}/ColorMatrix
     ${HEADER_PATH}/ComputeBoundsVisitor
     ${HEADER_PATH}/ConvexPlanarOccluder
@@ -206,10 +211,11 @@ SET(TARGET_H
     ${HEADER_PATH}/Vec4ub
     ${HEADER_PATH}/Vec4ui
     ${HEADER_PATH}/Vec4us
-    ${HEADER_PATH}/Version
+    ${HEADER_PATH}/VertexAttribDivisor
     ${HEADER_PATH}/VertexProgram
     ${HEADER_PATH}/View
     ${HEADER_PATH}/Viewport
+    ${OPENSCENEGRAPH_VERSION_HEADER}
     ${OPENSCENEGRAPH_CONFIG_HEADER}
     ${OPENSCENEGRAPH_OPENGL_HEADER}
 )
@@ -229,10 +235,13 @@ SET(TARGET_SRC
     Billboard.cpp
     BlendColor.cpp
     BlendEquation.cpp
+    BlendEquationi.cpp
     BlendFunc.cpp
+    BlendFunci.cpp
     BufferIndexBinding.cpp
     BufferObject.cpp
     Callback.cpp
+    Capability.cpp
     Camera.cpp
     CameraView.cpp
     ClampColor.cpp
@@ -242,6 +251,7 @@ SET(TARGET_SRC
     ClusterCullingCallback.cpp
     CollectOccludersVisitor.cpp
     ColorMask.cpp
+    ColorMaski.cpp
     ColorMatrix.cpp
     ComputeBoundsVisitor.cpp
     ConvexPlanarOccluder.cpp
@@ -364,6 +374,7 @@ SET(TARGET_SRC
     Uniform.cpp
     UserDataContainer.cpp
     Version.cpp
+    VertexAttribDivisor.cpp
     VertexProgram.cpp
     View.cpp
     Viewport.cpp

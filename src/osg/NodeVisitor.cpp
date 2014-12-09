@@ -76,9 +76,14 @@ NodeVisitor::~NodeVisitor()
     // if (_traversalVisitor) detach from _traversalVisitor;
 }
 
+void NodeVisitor::apply(Node& node)
+{
+    traverse(node);
+}
+
 void NodeVisitor::apply(Drawable& drawable)
 {
-    // It all ends here...
+    apply(static_cast<Node&>(drawable));
 }
 
 void NodeVisitor::apply(Geometry& drawable)
@@ -86,14 +91,9 @@ void NodeVisitor::apply(Geometry& drawable)
     apply(static_cast<Drawable&>(drawable));
 }
 
-void NodeVisitor::apply(Node& node)
-{
-    traverse(node);
-}
-
 void NodeVisitor::apply(Geode& node)
 {
-    apply(static_cast<Node&>(node));
+    apply(static_cast<Group&>(node));
 }
 
 void NodeVisitor::apply(Billboard& node)

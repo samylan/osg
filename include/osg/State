@@ -15,6 +15,7 @@
 #define OSG_STATE 1
 
 #include <osg/Export>
+#include <osg/GL2Extensions>
 #include <osg/StateSet>
 #include <osg/Matrix>
 #include <osg/Uniform>
@@ -150,6 +151,37 @@ class OSG_EXPORT State : public Referenced
         inline unsigned int getContextID() const { return _contextID; }
 
 
+        // ExtensionMap contains GL Extentsions objects used by StateAttribue to call OpenGL extensions/advanced features
+        typedef std::map<const std::type_info*, osg::ref_ptr<osg::Referenced> > ExtensionMap;
+        ExtensionMap _extensionMap;
+
+        /** Get a specific GL extensions object, initialize if not already present.
+          * Note, must only be called from a the graphics context thread associated with this osg::State. */
+        template<typename T>
+        T* get()
+        {
+            const std::type_info* id(&typeid(T));
+            osg::ref_ptr<osg::Referenced>& ptr = _extensionMap[id];
+            if (!ptr)
+            {
+                ptr = new T(_contextID);
+            }
+            return static_cast<T*>(ptr.get());
+        }
+
+        /** Get a specific GL extensions object if it already exists in the extension map.
+          * Note, safe to call outwith a the graphics context thread associated with this osg::State.
+          * Returns NULL if the desired extension object has not been created yet.*/
+        template<typename T>
+        const T* get() const
+        {
+            const std::type_info* id(&typeid(T));
+            ExtensionMap::const_iterator itr = _extensionMap.find(id);
+            if (itr==_extensionMap.end()) return 0;
+            else return itr->second.get();
+        }
+
+
         /* Set whether shader composition is enabled.*/
         void setShaderCompositionEnabled(bool flag) { _shaderCompositionEnabled = flag; }
 
@@ -256,7 +288,7 @@ class OSG_EXPORT State : public Referenced
         typedef std::vector<VertexAttribAlias> VertexAttribAliasList;
 
         /** Reset the vertex attribute aliasing to osg's default. This method needs to be called before render anything unless you really know what you're doing !*/
-        void resetVertexAttributeAlias(bool compactAliasing=true);
+        void resetVertexAttributeAlias(bool compactAliasing=true, unsigned int numTextureUnits=8);
 
         /** Set the vertex attribute aliasing for "vertex". This method needs to be called before render anything unless you really know what you're doing !*/
         void setVertexAlias(const VertexAttribAlias& alias) { _vertexAlias = alias; }
@@ -1103,12 +1135,12 @@ class OSG_EXPORT State : public Referenced
             }
             else
             {
-                if (setClientActiveTextureUnit(unit))
-                {
-                    if ( unit >= _texCoordArrayList.size()) _texCoordArrayList.resize(unit+1);
-                    EnabledArrayPair& eap = _texCoordArrayList[unit];
+                if ( unit >= _texCoordArrayList.size()) _texCoordArrayList.resize(unit+1);
+                EnabledArrayPair& eap = _texCoordArrayList[unit];
 
-                    if (eap._enabled || eap._dirty)
+                if (eap._enabled || eap._dirty)
+                {
+                    if(setClientActiveTextureUnit(unit))
                     {
                         eap._lazy_disable = false;
                         eap._enabled = false;
@@ -1908,6 +1940,8 @@ class OSG_EXPORT State : public Referenced
         BindBufferProc              _glBindBuffer;
         DrawArraysInstancedProc     _glDrawArraysInstanced;
         DrawElementsInstancedProc   _glDrawElementsInstanced;
+
+        osg::ref_ptr<GL2Extensions> _gl2Extentsions;
 
         unsigned int                                            _dynamicObjectCount;
         osg::ref_ptr<DynamicObjectRenderingCompletedCallback>   _completeDynamicObjectRenderingCallback;
@@ -2741,6 +2775,10 @@ inline bool State::setActiveTextureUnit( unsigned int unit )
     }
     return true;
 }
+
+// forward declare speciailization of State::get() method
+template<> inline GL2Extensions* State::get<GL2Extensions>() { return _gl2Extentsions.get(); }
+template<> inline const GL2Extensions* State::get<GL2Extensions>() const { return _gl2Extentsions.get(); }
 
 }
 

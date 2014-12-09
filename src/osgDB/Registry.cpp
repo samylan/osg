@@ -247,6 +247,9 @@ Registry::Registry()
         _fileCache = new FileCache(fileCachePath);
     }
 
+    // assign ObjectCache.
+    _objectCache = new ObjectCache;
+
     _createNodeFromImage = false;
     _openingLibrary = false;
 
@@ -424,6 +427,9 @@ Registry::Registry()
     // addFileExtensionAlias("pfa",   "freetype");  // type2 ascii
 
 
+    // TransferFunction head
+    addFileExtensionAlias("tf-255", "tf");
+
     // portable bitmap, greyscale and colour/pixmap image formats
     addFileExtensionAlias("pbm", "pnm");
     addFileExtensionAlias("pgm", "pnm");
@@ -482,6 +488,8 @@ void Registry::destruct()
     // even some issue with objects be allocated by a plugin that is
     // maintained after that plugin is deleted...  Robert Osfield, Jan 2004.
     clearObjectCache();
+    _fileCache = 0;
+
     clearArchiveCache();
 
 
@@ -1237,46 +1245,46 @@ ReaderWriter::ReadResult Registry::readImplementation(const ReadFunctor& readFun
 {
     std::string file(readFunctor._filename);
 
-    bool useObjectCache=false;
+    bool useObjectCache = false;
+    const Options* options = readFunctor._options;
+    ObjectCache* optionsCache = options ? options->getObjectCache() : 0;
+
     //Note CACHE_ARCHIVES has a different object that it caches to so it will never be used here
-    if (cacheHint!=Options::CACHE_ARCHIVES)
+    if ((optionsCache || _objectCache.valid()) && cacheHint!=Options::CACHE_ARCHIVES)
     {
-        const Options* options=readFunctor._options;
-        useObjectCache=options ? (options->getObjectCacheHint()&cacheHint)!=0: false;
+        useObjectCache= options ? (options->getObjectCacheHint()&cacheHint)!=0: false;
     }
 
     if (useObjectCache)
     {
         // search for entry in the object cache.
+        osg::ref_ptr<osg::Object> object = optionsCache ? optionsCache->getRefFromObjectCache(file) : 0;
+
+        if (!object && _objectCache.valid()) object = _objectCache->getRefFromObjectCache(file);
+
+        if (object.valid())
         {
-            OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-            ObjectCache::iterator oitr=_objectCache.find(file);
-            if (oitr!=_objectCache.end())
-            {
-                OSG_INFO<<"returning cached instanced of "<<file<<std::endl;
-                if (readFunctor.isValid(oitr->second.first.get())) return ReaderWriter::ReadResult(oitr->second.first.get(), ReaderWriter::ReadResult::FILE_LOADED_FROM_CACHE);
-                else return ReaderWriter::ReadResult("Error file does not contain an osg::Object");
-            }
+            if (readFunctor.isValid(object.get())) return ReaderWriter::ReadResult(object.get(), ReaderWriter::ReadResult::FILE_LOADED_FROM_CACHE);
+            else return ReaderWriter::ReadResult("Error file does not contain an osg::Object");
         }
 
         ReaderWriter::ReadResult rr = read(readFunctor);
         if (rr.validObject())
         {
             // search AGAIN for entry in the object cache.
+            object = _objectCache->getRefFromObjectCache(file);
+            if (object.valid())
             {
-                OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-                ObjectCache::iterator oitr = _objectCache.find(file);
-                if (oitr != _objectCache.end())
+                if (readFunctor.isValid(object.get())) return ReaderWriter::ReadResult(object.get(), ReaderWriter::ReadResult::FILE_LOADED_FROM_CACHE);
+                else
                 {
-                    OSG_INFO << "returning cached instanced of " << file << std::endl;
-                    if (readFunctor.isValid(oitr->second.first.get())) return ReaderWriter::ReadResult(oitr->second.first.get(), ReaderWriter::ReadResult::FILE_LOADED_FROM_CACHE);
-                    else return ReaderWriter::ReadResult("Error file does not contain an osg::Object");
+                    return ReaderWriter::ReadResult("Error file does not contain an osg::Object");
                 }
-                // update cache with new entry.
-                OSG_INFO<<"Adding to object cache "<<file<<std::endl;
-                //addEntryToObjectCache(file,rr.getObject()); //copy implementation: we already have the _objectCacheMutex lock
-                _objectCache[file] = ObjectTimeStampPair(rr.getObject(), 0.0);
             }
+
+            // update cache with new entry.
+            if (optionsCache) optionsCache->addEntryToObjectCache(file, rr.getObject(), 0.0);
+            else if (_objectCache.valid()) _objectCache->addEntryToObjectCache(file, rr.getObject(), 0.0);
         }
         else
         {
@@ -1658,76 +1666,38 @@ ReaderWriter::WriteResult Registry::writeScriptImplementation(const Script& imag
 
 void Registry::addEntryToObjectCache(const std::string& filename, osg::Object* object, double timestamp)
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-    _objectCache[filename]=ObjectTimeStampPair(object,timestamp);
+    if (_objectCache.valid()) _objectCache->addEntryToObjectCache(filename, object, timestamp);
 }
 
-osg::Object* Registry::getFromObjectCache(const std::string& fileName)
+osg::Object* Registry::getFromObjectCache(const std::string& filename)
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-    ObjectCache::iterator itr = _objectCache.find(fileName);
-    if (itr!=_objectCache.end()) return itr->second.first.get();
-    else return 0;
+    return _objectCache.valid() ? _objectCache->getFromObjectCache(filename) : 0;
 }
 
-osg::ref_ptr<osg::Object> Registry::getRefFromObjectCache(const std::string& fileName)
+osg::ref_ptr<osg::Object> Registry::getRefFromObjectCache(const std::string& filename)
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-    ObjectCache::iterator itr = _objectCache.find(fileName);
-    if (itr!=_objectCache.end()) return itr->second.first;
-    else return 0;
+    return _objectCache.valid() ? _objectCache->getRefFromObjectCache(filename) : 0;
 }
 
 void Registry::updateTimeStampOfObjectsInCacheWithExternalReferences(const osg::FrameStamp& frameStamp)
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-
-    // look for objects with external references and update their time stamp.
-    for(ObjectCache::iterator itr=_objectCache.begin();
-        itr!=_objectCache.end();
-        ++itr)
-    {
-        // if ref count is greater the 1 the object has an external reference.
-        if (itr->second.first->referenceCount()>1)
-        {
-            // so update it time stamp.
-            itr->second.second = frameStamp.getReferenceTime();
-        }
-    }
+    if (_objectCache.valid()) _objectCache->updateTimeStampOfObjectsInCacheWithExternalReferences(frameStamp.getReferenceTime());
 }
 
 void Registry::removeExpiredObjectsInCache(const osg::FrameStamp& frameStamp)
 {
     double expiryTime = frameStamp.getReferenceTime() - _expiryDelay;
-
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-
-    // Remove expired entries from object cache
-    ObjectCache::iterator oitr = _objectCache.begin();
-    while(oitr != _objectCache.end())
-    {
-        if (oitr->second.second<=expiryTime)
-        {
-            _objectCache.erase(oitr++);
-        }
-        else
-        {
-            ++oitr;
-        }
-    }
+    if (_objectCache.valid()) _objectCache->removeExpiredObjectsInCache(expiryTime);
 }
 
-void Registry::removeFromObjectCache(const std::string& fileName)
+void Registry::removeFromObjectCache(const std::string& filename)
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-    ObjectCache::iterator itr = _objectCache.find(fileName);
-    if (itr!=_objectCache.end()) _objectCache.erase(itr);
+    if (_objectCache.valid()) _objectCache->removeFromObjectCache(filename);
 }
 
 void Registry::clearObjectCache()
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-    _objectCache.clear();
+    if (_objectCache.valid()) _objectCache->clear();
 }
 
 void Registry::addToArchiveCache(const std::string& fileName, osgDB::Archive* archive)
@@ -1771,20 +1741,8 @@ void Registry::clearArchiveCache()
 
 void Registry::releaseGLObjects(osg::State* state)
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_objectCacheMutex);
-
-    for(ObjectCache::iterator itr = _objectCache.begin();
-        itr != _objectCache.end();
-        ++itr)
-    {
-        osg::Object* object = itr->second.first.get();
-        object->releaseGLObjects(state);
-    }
-
-    if (_sharedStateManager.valid())
-    {
-      _sharedStateManager->releaseGLObjects( state );
-    }
+    if (_objectCache.valid()) _objectCache->releaseGLObjects( state );
+    if (_sharedStateManager.valid()) _sharedStateManager->releaseGLObjects( state );
 }
 
 SharedStateManager* Registry::getOrCreateSharedStateManager()

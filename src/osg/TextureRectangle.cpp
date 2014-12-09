@@ -157,13 +157,7 @@ void TextureRectangle::setImage(Image* image)
 
 void TextureRectangle::apply(State& state) const
 {
-    static bool s_rectangleSupported =
-            OSG_GL3_FEATURES ||
-            isGLExtensionSupported(state.getContextID(),"GL_ARB_texture_rectangle") ||
-            isGLExtensionSupported(state.getContextID(),"GL_EXT_texture_rectangle") ||
-            isGLExtensionSupported(state.getContextID(),"GL_NV_texture_rectangle");
-
-    if (!s_rectangleSupported)
+    if (!state.get<GL2Extensions>()->isRectangleSupported)
     {
         OSG_WARN<<"Warning: TextureRectangle::apply(..) failed, texture rectangle is not support by your OpenGL drivers."<<std::endl;
         return;
@@ -314,7 +308,7 @@ void TextureRectangle::applyTexImage_load(GLenum target, Image* image, State& st
     // get the contextID (user defined ID of 0 upwards) for the
     // current OpenGL context.
     const unsigned int contextID = state.getContextID();
-    const Extensions* extensions = getExtensions(contextID,true);
+    const GL2Extensions* extensions = state.get<GL2Extensions>();
 
     // update the modified count to show that it is upto date.
     getModifiedCount(contextID) = image->getModifiedCount();
@@ -327,7 +321,7 @@ void TextureRectangle::applyTexImage_load(GLenum target, Image* image, State& st
     glPixelStorei(GL_UNPACK_ROW_LENGTH,image->getRowLength());
 #endif
 
-    bool useClientStorage = extensions->isClientStorageSupported() && getClientStorageHint();
+    bool useClientStorage = extensions->isClientStorageSupported && getClientStorageHint();
     if (useClientStorage)
     {
         glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE,GL_TRUE);
@@ -396,7 +390,7 @@ void TextureRectangle::applyTexImage_subload(GLenum target, Image* image, State&
     // get the contextID (user defined ID of 0 upwards) for the
     // current OpenGL context.
     const unsigned int contextID = state.getContextID();
-    const Extensions* extensions = getExtensions(contextID,true);
+    const GL2Extensions* extensions = state.get<GL2Extensions>();
 
 
     // update the modified count to show that it is upto date.

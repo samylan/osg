@@ -2866,7 +2866,7 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
         osg::ref_ptr<osgVolume::SampleRatioWhenMovingProperty> srm = vs.valid() ? vs->getSampleRatioWhenMovingProperty() : 0;
         if (!volumeData.sampleRatioWhenMovingValue.empty())
         {
-            srm = new osgVolume::SampleRatioWhenMovingProperty(0.5);
+            srm = new osgVolume::SampleRatioWhenMovingProperty(1.0);
             setUpVolumeScalarProperty(tile.get(), srm.get(), volumeData.sampleRatioWhenMovingValue);
         }
 
@@ -2927,7 +2927,7 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
 
         {
             // Isosurface
-            osgVolume::IsoSurfaceProperty* isp = new osgVolume::IsoSurfaceProperty(0.1);
+            osgVolume::IsoSurfaceProperty* isp = vs.valid() ? vs->getIsoSurfaceProperty() : new osgVolume::IsoSurfaceProperty(0.1);
             setUpVolumeScalarProperty(tile.get(), isp, volumeData.alphaValue);
 
             sp->addProperty(isp);
@@ -2938,12 +2938,19 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
             sp->addProperty(new osgVolume::MaximumIntensityProjectionProperty);
         }
 
-        switch(volumeData.shadingModel)
+        if (volumeData.volumeSettings.valid())
         {
-            case(osgVolume::VolumeSettings::Standard):                     sp->setActiveProperty(0); break;
-            case(osgVolume::VolumeSettings::Light):                        sp->setActiveProperty(1); break;
-            case(osgVolume::VolumeSettings::Isosurface):                   sp->setActiveProperty(2); break;
-            case(osgVolume::VolumeSettings::MaximumIntensityProjection):   sp->setActiveProperty(3); break;
+            sp->setActiveProperty(volumeData.volumeSettings->getShadingModel());
+        }
+        else
+        {
+            switch(volumeData.shadingModel)
+            {
+                case(osgVolume::VolumeSettings::Standard):                     sp->setActiveProperty(0); break;
+                case(osgVolume::VolumeSettings::Light):                        sp->setActiveProperty(1); break;
+                case(osgVolume::VolumeSettings::Isosurface):                   sp->setActiveProperty(2); break;
+                case(osgVolume::VolumeSettings::MaximumIntensityProjection):   sp->setActiveProperty(3); break;
+            }
         }
 #else
         {
@@ -3092,19 +3099,13 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
     }
 
 
-
-    model->addEventCallback(new VolumeSettingsCallback());
-
-    ModelData modelData;
-    addModel(model.get(), positionData, modelData, scriptData);
-
-#if 0
-    osgUI::Widget* widget = vs.valid() ? osgDB::readFile<osgUI::Widget>("VolumeSettings.lua") : 0;
+#if 1
+    osgUI::Widget* widget = vs.valid() ? osgDB::readFile<osgUI::Widget>("ui/VolumeSettings.lua") : 0;
     if (widget)
     {
-        OSG_NOTICE<<"Addig widget"<<std::endl;
+        OSG_NOTICE<<"Adding widget"<<std::endl;
 
-        widget->setVisible(true);
+        widget->setVisible(false);
         vs->setName("VolumeSettings");
         widget->getOrCreateUserDataContainer()->addUserObject(vs.get());
 
@@ -3118,7 +3119,9 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
         transform->setMatrix(osg::Matrix::rotate(osg::inDegrees(90.0f),osg::Vec3(1.0f,0.0f,0.0f)) * osg::Matrix::scale(slide_scale,slide_scale,slide_scale)*osg::Matrix::translate(pos));
         transform->addChild(widget);
 
-#if 1
+        transform->addEventCallback(new VolumeSettingsCallback());
+
+#if 0
         HUDTransform* hudTransform = new HUDTransform(_hudSettings.get());
         hudTransform->addChild(transform);
 
@@ -3128,6 +3131,10 @@ void SlideShowConstructor::addVolume(const std::string& filename, const Position
 #endif
     }
 #endif
+
+
+    ModelData modelData;
+    addModel(model.get(), positionData, modelData, scriptData);
 }
 
 bool SlideShowConstructor::attachTexMat(osg::StateSet* stateset, const ImageData& imageData, float s, float t, bool textureRectangle)

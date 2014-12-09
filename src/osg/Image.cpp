@@ -1053,10 +1053,7 @@ void Image::readImageFromCurrentTexture(unsigned int contextID, bool copyMipMaps
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
     // OSG_NOTICE<<"Image::readImageFromCurrentTexture()"<<std::endl;
 
-    const osg::Texture::Extensions* extensions = osg::Texture::getExtensions(contextID,true);
-    const osg::Texture3D::Extensions* extensions3D = osg::Texture3D::getExtensions(contextID,true);
-    const osg::Texture2DArray::Extensions* extensions2DArray = osg::Texture2DArray::getExtensions(contextID,true);
-
+    const osg::GL2Extensions* extensions = osg::GL2Extensions::Get(contextID,true);
 
     GLboolean binding1D = GL_FALSE, binding2D = GL_FALSE, binding3D = GL_FALSE, binding2DArray = GL_FALSE, bindingCubeMap = GL_FALSE;
 
@@ -1065,7 +1062,7 @@ void Image::readImageFromCurrentTexture(unsigned int contextID, bool copyMipMaps
     glGetBooleanv(GL_TEXTURE_BINDING_3D, &binding3D);
     glGetBooleanv(GL_TEXTURE_BINDING_CUBE_MAP, &bindingCubeMap);
 
-    if (extensions2DArray->isTexture2DArraySupported())
+    if (extensions->isTexture2DArraySupported)
     {
         glGetBooleanv(GL_TEXTURE_BINDING_2D_ARRAY_EXT, &binding2DArray);
     }
@@ -1136,14 +1133,14 @@ void Image::readImageFromCurrentTexture(unsigned int contextID, bool copyMipMaps
     }
     else if (textureMode==GL_TEXTURE_3D)
     {
-        if (extensions3D->isCompressedTexImage3DSupported())
+        if (extensions->isCompressedTexImage3DSupported())
         {
             glGetTexLevelParameteriv(textureMode, 0, GL_TEXTURE_COMPRESSED_ARB,&compressed);
         }
     }
     else if (textureMode==GL_TEXTURE_2D_ARRAY_EXT)
     {
-        if (extensions2DArray->isCompressedTexImage3DSupported())
+        if (extensions->isCompressedTexImage3DSupported())
         {
             glGetTexLevelParameteriv(textureMode, 0, GL_TEXTURE_COMPRESSED_ARB,&compressed);
         }
@@ -1919,11 +1916,56 @@ Vec4 Image::getColor(unsigned int s,unsigned t,unsigned r) const
 
 Vec4 Image::getColor(const Vec3& texcoord) const
 {
-    int s = int(texcoord.x()*float(_s-1)) % _s;
-    int t = int(texcoord.y()*float(_t-1)) % _t;
-    int r = int(texcoord.z()*float(_r-1)) % _r;
+    unsigned int s = osg::clampTo(int(texcoord.x()*float(_s-1)), 0, _s-1);
+    unsigned int t = osg::clampTo(int(texcoord.y()*float(_t-1)), 0, _t-1);
+    unsigned int r = osg::clampTo(int(texcoord.z()*float(_r-1)), 0, _r-1);
     //OSG_NOTICE<<"getColor("<<texcoord<<")="<<getColor(s,t,r)<<std::endl;
     return getColor(s,t,r);
+}
+
+
+template <typename T>
+void _writeColor(GLenum pixelFormat, T* data, float scale, const Vec4& c)
+{
+    switch(pixelFormat)
+    {
+    case(GL_DEPTH_COMPONENT):   //intentionally fall through and execute the code for GL_LUMINANCE
+    case(GL_LUMINANCE):         { (*data++) = c[0] * scale; } break;
+    case(GL_ALPHA):             { (*data++) = c[3] * scale; } break;
+    case(GL_LUMINANCE_ALPHA):   { (*data++) = c[0] * scale;  (*data++) = c[3] * scale; } break;
+    case(GL_RGB):               { (*data++) = c[0] *scale; (*data++) = c[1] *scale; (*data++) = c[2] *scale;} break;
+    case(GL_RGBA):              { (*data++) = c[0] *scale; (*data++) = c[1] *scale; (*data++) = c[2] *scale; (*data++) = c[3] *scale;} break;
+    case(GL_BGR):               { (*data++) = c[2] *scale; (*data++) = c[1] *scale; (*data++) = c[0] *scale;} break;
+    case(GL_BGRA):              { (*data++) = c[2] *scale; (*data++) = c[1] *scale; (*data++) = c[0] *scale; (*data++) = c[3] *scale;} break;
+    }
+
+}
+
+
+void Image::setColor( const Vec4& color, unsigned int s, unsigned int t/*=0*/, unsigned int r/*=0*/ )
+{
+    unsigned char* ptr = data(s,t,r);
+
+    switch(getDataType())
+    {
+    case(GL_BYTE):              return _writeColor(getPixelFormat(), (char*)ptr,             128.0f, color);
+    case(GL_UNSIGNED_BYTE):     return _writeColor(getPixelFormat(), (unsigned char*)ptr,    255.0f, color);
+    case(GL_SHORT):             return _writeColor(getPixelFormat(), (short*)ptr,            32768.0f, color);
+    case(GL_UNSIGNED_SHORT):    return _writeColor(getPixelFormat(), (unsigned short*)ptr,   65535.0f, color);
+    case(GL_INT):               return _writeColor(getPixelFormat(), (int*)ptr,              2147483648.0f, color);
+    case(GL_UNSIGNED_INT):      return _writeColor(getPixelFormat(), (unsigned int*)ptr,     4294967295.0f, color);
+    case(GL_FLOAT):             return _writeColor(getPixelFormat(), (float*)ptr,            1.0f, color);
+    case(GL_DOUBLE):            return _writeColor(getPixelFormat(), (double*)ptr,           1.0f, color);
+    }
+}
+
+void Image::setColor( const Vec4& color, const Vec3& texcoord )
+{
+    unsigned int s = osg::clampTo(int(texcoord.x()*float(_s-1)), 0, _s-1);
+    unsigned int t = osg::clampTo(int(texcoord.y()*float(_t-1)), 0, _t-1);
+    unsigned int r = osg::clampTo(int(texcoord.z()*float(_r-1)), 0, _r-1);
+
+    return setColor(color, s,t,r);
 }
 
 void Image::addDimensionsChangedCallback(DimensionsChangedCallback* cb)

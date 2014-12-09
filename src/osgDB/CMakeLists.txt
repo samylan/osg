@@ -7,7 +7,7 @@ IF   (DYNAMIC_OPENSCENEGRAPH)
 
     IF(OSG_PLUGIN_SEARCH_INSTALL_DIR_FOR_PLUGINS)
         # Add a default plugin search path component
-        ADD_DEFINITIONS(-DOSG_DEFAULT_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib${LIB_POSTFIX}/${OSG_PLUGINS})
+        ADD_DEFINITIONS(-DOSG_DEFAULT_LIBRARY_PATH=\"${CMAKE_INSTALL_PREFIX}/lib${LIB_POSTFIX}/${OSG_PLUGINS}\")
     ENDIF()
 
     # Set the library extension according to what configuration is being built.
@@ -68,6 +68,7 @@ SET(TARGET_H
     ${HEADER_PATH}/ImagePager
     ${HEADER_PATH}/ImageProcessor
     ${HEADER_PATH}/Input
+    ${HEADER_PATH}/ObjectCache
     ${HEADER_PATH}/Output
     ${HEADER_PATH}/Options
     ${HEADER_PATH}/ParameterOutput
@@ -107,6 +108,7 @@ SET(TARGET_SRC
     ImagePager.cpp
     Input.cpp
     MimeTypes.cpp
+    ObjectCache.cpp
     Output.cpp
     Options.cpp
     PluginQuery.cpp

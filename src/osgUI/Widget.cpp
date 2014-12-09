@@ -22,6 +22,7 @@
 #include <osgUI/Widget>
 #include <osgGA/EventVisitor>
 #include <osgGA/GUIActionAdapter>
+#include <osgViewer/View>
 
 #include <algorithm>
 
@@ -31,6 +32,7 @@ Widget::Widget():
     _focusBehaviour(FOCUS_FOLLOWS_POINTER),
     _hasEventFocus(false),
     _graphicsInitialized(false),
+    _autoFillBackground(false),
     _visible(true),
     _enabled(true)
 {
@@ -45,6 +47,7 @@ Widget::Widget(const Widget& widget, const osg::CopyOp& copyop):
     _alignmentSettings(osg::clone(widget._alignmentSettings.get(), copyop)),
     _frameSettings(osg::clone(widget._frameSettings.get(), copyop)),
     _textSettings(osg::clone(widget._textSettings.get(), copyop)),
+    _autoFillBackground(widget._autoFillBackground),
     _visible(widget._visible),
     _enabled(widget._enabled)
 {
@@ -72,20 +75,24 @@ void Widget::updateFocus(osg::NodeVisitor& nv)
             osgGA::GUIEventAdapter* ea = (*itr)->asGUIEventAdapter();
             if (ea)
             {
+                int numButtonsPressed = 0;
+                if (ea->getEventType()==osgGA::GUIEventAdapter::PUSH)
+                {
+                    if (ea->getButtonMask()&osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) ++numButtonsPressed;
+                    if (ea->getButtonMask()&osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON) ++numButtonsPressed;
+                    if (ea->getButtonMask()&osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON) ++numButtonsPressed;
+                }
+
                 bool previousFocus = _hasEventFocus;
                 if (_focusBehaviour==CLICK_TO_FOCUS)
                 {
                     if (ea->getEventType()==osgGA::GUIEventAdapter::PUSH)
                     {
-                        int numButtonsPressed = 0;
-                        if (ea->getButtonMask()&osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) ++numButtonsPressed;
-                        if (ea->getButtonMask()&osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON) ++numButtonsPressed;
-                        if (ea->getButtonMask()&osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON) ++numButtonsPressed;
-
                         if (numButtonsPressed==1)
                         {
-                            osgUtil::LineSegmentIntersector::Intersections intersections;
-                            bool withinWidget = aa->computeIntersections(*ea, nv.getNodePath(), intersections);
+                            osg::Vec3d intersection;
+                            bool withinWidget = computeExtentsPositionInLocalCoordinates(ev, ea, intersection);
+
                             if (withinWidget) _hasEventFocus = true;
                             else _hasEventFocus = false;
                         }
@@ -114,30 +121,30 @@ void Widget::updateFocus(osg::NodeVisitor& nv)
 
                     if (checkWithinWidget)
                     {
-#if 0
-                        osgUtil::LineSegmentIntersector::Intersections intersections;
-                        bool withinWidget = aa->computeIntersections(*ea, nv.getNodePath(), intersections);
-#else
-                        Intersections intersections;
-                        bool withinWidget = computeIntersections( ev, ea, intersections);
-#endif
+                        osg::Vec3d intersection;
+                        bool withinWidget = computeExtentsPositionInLocalCoordinates(ev, ea, intersection);
 
                         _hasEventFocus = withinWidget;
                     }
                 }
+
+                if (_hasEventFocus && (ea->getEventType()==osgGA::GUIEventAdapter::PUSH || ea->getEventType()==osgGA::GUIEventAdapter::SCROLL) )
+                {
+                    osgViewer::View* view = dynamic_cast<osgViewer::View*>(aa);
+                    if (view && view->getCameraManipulator())
+                    {
+                        view->getCameraManipulator()->finishAnimation();
+                        view->requestContinuousUpdate( false );
+                    }
+                }
+
 
                 if (previousFocus != _hasEventFocus)
                 {
                     if (_hasEventFocus)
                     {
                         enter();
-#if 0
-                        if (view->getCameraManipulator())
-                        {
-                            view->getCameraManipulator()->finishAnimation();
-                            view->requestContinuousUpdate( false );
-                        }
-#endif
+
                     }
                     else
                     {
@@ -214,24 +221,43 @@ void Widget::traverseImplementation(osg::NodeVisitor& nv)
 
             // signify that event has been taken by widget with focus
 
+            bool widgetsWithFocusSetHandled = getHasEventFocus();
+
             osgGA::EventQueue::Events& events = ev->getEvents();
             for(osgGA::EventQueue::Events::iterator itr = events.begin();
                 itr != events.end();
                 ++itr)
             {
-                if (handle(ev, itr->get()))
+                if (handle(ev, itr->get()) || widgetsWithFocusSetHandled)
                 {
                     (*itr)->setHandled(true);
                     ev->setEventHandled(true);
                 }
             }
 
+            GraphicsSubgraphMap::iterator itr = _graphicsSubgraphMap.begin();
+            while(itr!= _graphicsSubgraphMap.end() && itr->first<=0)
+            {
+                itr->second->accept(nv);
+                ++itr;
+            }
+
             osg::Group::traverse(nv);
+
+            while(itr!= _graphicsSubgraphMap.end())
+            {
+                itr->second->accept(nv);
+                ++itr;
+            }
+
         }
     }
     else if (_visible ||
             (nv.getVisitorType()!=osg::NodeVisitor::UPDATE_VISITOR && nv.getVisitorType()!=osg::NodeVisitor::CULL_VISITOR && nv.getVisitorType()!=osg::NodeVisitor::INTERSECTION_VISITOR) )
     {
+        osgUtil::CullVisitor* cv = (nv.getVisitorType()==osg::NodeVisitor::CULL_VISITOR) ? dynamic_cast<osgUtil::CullVisitor*>(&nv) : 0;
+        if (cv && _widgetStateSet.valid()) cv->pushStateSet(_widgetStateSet.get());
+
         GraphicsSubgraphMap::iterator itr = _graphicsSubgraphMap.begin();
         while(itr!= _graphicsSubgraphMap.end() && itr->first<=0)
         {
@@ -246,6 +272,8 @@ void Widget::traverseImplementation(osg::NodeVisitor& nv)
             itr->second->accept(nv);
             ++itr;
         }
+
+        if (cv && _widgetStateSet.valid()) cv->popStateSet();
     }
 }
 
@@ -326,7 +354,7 @@ void Widget::releaseGLObjects(osg::State* state) const
 
 }
 
-bool Widget::computePositionInLocalCoordinates(osgGA::EventVisitor* ev, osgGA::GUIEventAdapter* event, osg::Vec3& localPosition) const
+bool Widget::computePositionInLocalCoordinates(osgGA::EventVisitor* ev, osgGA::GUIEventAdapter* event, osg::Vec3d& localPosition) const
 {
     osgGA::GUIActionAdapter* aa = ev ? ev->getActionAdapter() : 0;
     osgUtil::LineSegmentIntersector::Intersections intersections;
@@ -437,4 +465,64 @@ bool Widget::computeIntersections(osgGA::EventVisitor* ev, osgGA::GUIEventAdapte
         return true;
     }
     return false;
+}
+
+
+bool Widget::computeExtentsPositionInLocalCoordinates(osgGA::EventVisitor* ev, osgGA::GUIEventAdapter* event, osg::Vec3d& localPosition, bool withinExtents) const
+{
+    //OSG_NOTICE<<"Widget::computeExtentsPositionInLocalCoordinates(()"<<std::endl;
+    const osg::Camera* camera = 0;
+    double x=0.0, y=0.0;
+    if (event->getNumPointerData()>=1)
+    {
+        const osgGA::PointerData* pd = event->getPointerData(event->getNumPointerData()-1);
+        camera = dynamic_cast<const osg::Camera*>(pd->object.get());
+        if (camera)
+        {
+            x = pd->getXnormalized();
+            y = pd->getYnormalized();
+        }
+    }
+    //OSG_NOTICE<<"   camera = "<<camera<<", x = "<<x<<", y="<<y<<std::endl;
+    if (!camera) return false;
+
+    const osg::NodePath& nodePath = ev->getNodePath();
+
+    osg::Matrixd matrix;
+    if (nodePath.size()>1)
+    {
+        osg::NodePath prunedNodePath(nodePath.begin(),nodePath.end()-1);
+        matrix = osg::computeLocalToWorld(prunedNodePath);
+    }
+
+    matrix.postMult(camera->getViewMatrix());
+    matrix.postMult(camera->getProjectionMatrix());
+
+    double zNear = -1.0;
+    double zFar = 1.0;
+
+    osg::Matrixd inverse;
+    inverse.invert(matrix);
+
+    osg::Vec3d startVertex = osg::Vec3d(x,y,zNear) * inverse;
+    osg::Vec3d endVertex = osg::Vec3d(x,y,zFar) * inverse;
+
+    //OSG_NOTICE<<"   startVertex("<<startVertex<<"(, endVertex("<<endVertex<<")"<<std::endl;
+
+
+    osg::Plane plane(0.0, 0.0, 1.0, _extents.zMax());
+
+    //OSG_NOTICE<<"   plane("<<plane<<")"<<std::endl;
+    double ds = plane.distance(startVertex);
+    double de = plane.distance(endVertex);
+    if (ds*de>0.0) return false;
+
+    double r = ds/(ds-de);
+    //OSG_NOTICE<<"   r = "<<r<<std::endl;
+
+    osg::Vec3d intersection = startVertex + (endVertex-startVertex)*r;
+    //OSG_NOTICE<<"    intersection = "<<intersection<<std::endl;
+    localPosition = intersection;
+
+    return withinExtents ? _extents.contains(localPosition, 1e-6) : true;
 }
