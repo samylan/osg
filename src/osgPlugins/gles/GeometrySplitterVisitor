@@ -304,7 +304,7 @@ class GeometrySplitterVisitor : public GeometryUniqueVisitor {
 public:
     typedef std::vector< osg::ref_ptr<osg::Geometry> > GeometryList;
 
-    GeometrySplitterVisitor(unsigned int maxIndexValue = 65535) : _maxIndexValue(maxIndexValue)
+    GeometrySplitterVisitor(unsigned int maxIndexValue = 65534) : _maxIndexValue(maxIndexValue)
     {}
 
     void apply(osg::Geode& geode) {
