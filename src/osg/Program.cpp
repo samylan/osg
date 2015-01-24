@@ -30,7 +30,7 @@
 #include <osg/ref_ptr>
 #include <osg/Program>
 #include <osg/Shader>
-#include <osg/GL2Extensions>
+#include <osg/GLExtensions>
 
 #include <OpenThreads/ScopedLock>
 #include <OpenThreads/Mutex>
@@ -66,7 +66,7 @@ void Program::flushDeletedGlPrograms(unsigned int contextID,double /*currentTime
     if (availableTime<=0.0) return;
 
     OpenThreads::ScopedLock<OpenThreads::Mutex> lock(s_mutex_deletedGlProgramCache);
-    const GL2Extensions* extensions = GL2Extensions::Get(contextID,true);
+    const GLExtensions* extensions = GLExtensions::Get(contextID,true);
     if( ! extensions->isGlslSupported ) return;
 
     const osg::Timer& timer = *osg::Timer::instance();
@@ -137,7 +137,7 @@ void Program::ProgramBinary::assign(unsigned int size, const unsigned char* data
 Program::Program() :
     _geometryVerticesOut(1), _geometryInputType(GL_TRIANGLES),
     _geometryOutputType(GL_TRIANGLE_STRIP),
-    _numGroupsX(0), _numGroupsY(0), _numGroupsZ(0)
+    _numGroupsX(0), _numGroupsY(0), _numGroupsZ(0), _feedbackmode(GL_SEPARATE_ATTRIBS)
 {
 }
 
@@ -180,6 +180,9 @@ Program::Program(const Program& rhs, const osg::CopyOp& copyop):
     _numGroupsX = rhs._numGroupsX;
     _numGroupsY = rhs._numGroupsY;
     _numGroupsZ = rhs._numGroupsZ;
+
+    _feedbackmode=rhs._feedbackmode;
+    _feedbackout=rhs._feedbackout;
 }
 
 
@@ -223,6 +226,9 @@ int Program::compare(const osg::StateAttribute& sa) const
     if( _numGroupsZ < rhs._numGroupsZ ) return -1;
     if( rhs._numGroupsZ < _numGroupsZ ) return 1;
 
+    if(_feedbackout<rhs._feedbackout) return -1;
+    if(_feedbackmode<rhs._feedbackmode) return -1;
+
     ShaderList::const_iterator litr=_shaderList.begin();
     ShaderList::const_iterator ritr=rhs._shaderList.begin();
     for(;
@@ -248,6 +254,24 @@ void Program::compileGLObjects( osg::State& state ) const
         _shaderList[i]->compileShader( state );
     }
 
+    if(!_feedbackout.empty())
+    {
+        const PerContextProgram* pcp = getPCP(contextID);
+        const GLExtensions* extensions = state.get<GLExtensions>();
+
+        unsigned int numfeedback = _feedbackout.size();
+        const char**varyings = new const char*[numfeedback];
+        const char **varyingsptr = varyings;
+        for(std::vector<std::string>::const_iterator it=_feedbackout.begin();
+            it!=_feedbackout.end();
+            it++)
+        {
+            *varyingsptr++=(*it).c_str();
+        }
+
+        extensions->glTransformFeedbackVaryings( pcp->getHandle(), numfeedback, varyings, _feedbackmode);
+        delete [] varyings;
+    }
     getPCP( contextID )->linkProgram(state);
 }
 
@@ -437,11 +461,11 @@ void Program::removeBindUniformBlock(const std::string& name)
 
 
 
-
+#include <iostream>
 void Program::apply( osg::State& state ) const
 {
     const unsigned int contextID = state.getContextID();
-    const GL2Extensions* extensions = state.get<GL2Extensions>();
+    const GLExtensions* extensions = state.get<GLExtensions>();
     if( ! extensions->isGlslSupported ) return;
 
     if( isFixedFunction() )
@@ -534,7 +558,7 @@ Program::PerContextProgram::PerContextProgram(const Program* program, unsigned i
     _program = program;
     if (_glProgramHandle == 0)
     {
-        _extensions = GL2Extensions::Get( _contextID, true );
+        _extensions = GLExtensions::Get( _contextID, true );
         _glProgramHandle = _extensions->glCreateProgram();
         _ownsProgramHandle = true;
     }

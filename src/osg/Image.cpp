@@ -1053,7 +1053,7 @@ void Image::readImageFromCurrentTexture(unsigned int contextID, bool copyMipMaps
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
     // OSG_NOTICE<<"Image::readImageFromCurrentTexture()"<<std::endl;
 
-    const osg::GL2Extensions* extensions = osg::GL2Extensions::Get(contextID,true);
+    const osg::GLExtensions* extensions = osg::GLExtensions::Get(contextID,true);
 
     GLboolean binding1D = GL_FALSE, binding2D = GL_FALSE, binding3D = GL_FALSE, binding2DArray = GL_FALSE, bindingCubeMap = GL_FALSE;
 
@@ -1141,6 +1141,13 @@ void Image::readImageFromCurrentTexture(unsigned int contextID, bool copyMipMaps
     else if (textureMode==GL_TEXTURE_2D_ARRAY_EXT)
     {
         if (extensions->isCompressedTexImage3DSupported())
+        {
+            glGetTexLevelParameteriv(textureMode, 0, GL_TEXTURE_COMPRESSED_ARB,&compressed);
+        }
+    }
+    else if(bindingCubeMap)
+    {
+        if (extensions->isCompressedTexImage2DSupported())
         {
             glGetTexLevelParameteriv(textureMode, 0, GL_TEXTURE_COMPRESSED_ARB,&compressed);
         }

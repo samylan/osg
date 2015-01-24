@@ -41,7 +41,8 @@ const osgTerrain::Locator* osgTerrain::computeMasterLocator(const osgTerrain::Te
 //
 //  GeometryPool
 //
-GeometryPool::GeometryPool()
+GeometryPool::GeometryPool():
+    _useGeometryShader(false)
 {
 }
 
@@ -87,10 +88,7 @@ bool GeometryPool::createKeyForTile(TerrainTile* tile, GeometryKey& key)
     return true;
 }
 
-static int numberGeometryCreated = 0;
-static int numberSharedGeometry = 0;
-
-osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::TerrainTile* tile)
+osg::ref_ptr<SharedGeometry> GeometryPool::getOrCreateGeometry(osgTerrain::TerrainTile* tile)
 {
     OpenThreads::ScopedLock<OpenThreads::Mutex>  lock(_geometryMapMutex);
 
@@ -100,15 +98,15 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
     GeometryMap::iterator itr = _geometryMap.find(key);
     if (itr != _geometryMap.end())
     {
-
-        ++numberSharedGeometry;
-//        OSG_NOTICE<<"Sharing geometry "<<itr->second.get()<<", number shared = "<<std::dec<<numberSharedGeometry<<", number created "<<numberGeometryCreated<<std::endl;
-//        OSG_NOTICE<<"   GeometryKey "<<key.y<<", sx="<<key.sx<<", sy="<<key.sy<<", "<<key.nx<<", "<<key.ny<<std::endl;
         return itr->second.get();
     }
 
-    osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
+    osg::ref_ptr<SharedGeometry> geometry = new SharedGeometry;
     _geometryMap[key] = geometry;
+
+    geometry->setUseVertexBufferObjects(true);
+
+    SharedGeometry::VertexToHeightFieldMapping& vthfm = geometry->getVertexToHeightFieldMapping();
 
     osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
     geometry->setVertexArray(vertices.get());
@@ -133,6 +131,7 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
     vertices->reserve(numVertices);
     normals->reserve(numVertices);
     texcoords->reserve(numVertices);
+    vthfm.reserve(numVertices);
 
     double c_mult = 1.0/static_cast<double>(nx-1);
     double r_mult = 1.0/static_cast<double>(ny-1);
@@ -179,6 +178,7 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
     double skirtRatio = 0.02;
     double skirtHeight = -diagonalLength*skirtRatio;
 
+
     // set up the vertex data
     {
         // bottom row for skirt
@@ -191,6 +191,7 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
             normals->push_back(normal);
             texcoords->push_back(osg::Vec4(pos.x(), pos.y(), 1.0f, 1.0f));
             locationCoords.push_back(osg::Vec4d(pos.x(), pos.y(),c_mult, r_mult));
+            vthfm.push_back(0*nx + c);
         }
 
         // main body
@@ -206,6 +207,7 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
                 normals->push_back(normal);
                 texcoords->push_back(osg::Vec4(pos.x(), pos.y(), 1.0f, 1.0f));
                 locationCoords.push_back(osg::Vec4d(pos.x(), pos.y(),c_mult, r_mult));
+                vthfm.push_back(r*nx + 0);
             }
 
             pos.z() = 0;
@@ -216,6 +218,7 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
                 normals->push_back(normal);
                 texcoords->push_back(osg::Vec4(pos.x(), pos.y(), 1.0f, 1.0f));
                 locationCoords.push_back(osg::Vec4d(pos.x(), pos.y(),c_mult, r_mult));
+                vthfm.push_back(r*nx + c);
             }
 
             // end skirt vertex
@@ -226,6 +229,7 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
                 normals->push_back(normal);
                 texcoords->push_back(osg::Vec4(pos.x(), pos.y(), 1.0f, 1.0f));
                 locationCoords.push_back(osg::Vec4d(pos.x(), pos.y(),c_mult, r_mult));
+                vthfm.push_back((r+1)*nx-1);
             }
 
         }
@@ -240,10 +244,11 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
             normals->push_back(normal);
             texcoords->push_back(osg::Vec4(pos.x(), pos.y(), 1.0f, 1.0f));
             locationCoords.push_back(osg::Vec4d(pos.x(), pos.y(),c_mult, r_mult));
+            vthfm.push_back((ny-1)*nx + c);
         }
     }
 
-#if 1
+#if 0
 
     bool smallTile = numVertices <= 16384;
     osg::ref_ptr<osg::DrawElements> elements = smallTile ?
@@ -296,9 +301,10 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
 
 #else
     bool smallTile = numVertices <= 16384;
+    GLenum primitiveTypes = _useGeometryShader ? GL_LINES_ADJACENCY : GL_QUADS;
     osg::ref_ptr<osg::DrawElements> elements = smallTile ?
-        static_cast<osg::DrawElements*>(new osg::DrawElementsUShort(GL_QUADS)) :
-        static_cast<osg::DrawElements*>(new osg::DrawElementsUInt(GL_QUADS));
+        static_cast<osg::DrawElements*>(new osg::DrawElementsUShort(primitiveTypes)) :
+        static_cast<osg::DrawElements*>(new osg::DrawElementsUInt(primitiveTypes));
 
     elements->reserveElements( (nx-1) * (ny-1) * 4 + (nx-1)*2*4 + (ny-1)*2*4 );
     geometry->addPrimitiveSet(elements.get());
@@ -436,8 +442,6 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
 
     //osgDB::writeNodeFile(*geometry, "geometry.osgt");
 
-
-    ++ numberGeometryCreated;
 //    OSG_NOTICE<<"Creating new geometry "<<geometry.get()<<std::endl;
 
     return geometry;
@@ -446,7 +450,7 @@ osg::ref_ptr<osg::Geometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terrai
 osg::ref_ptr<osg::MatrixTransform> GeometryPool::getTileSubgraph(osgTerrain::TerrainTile* tile)
 {
     // create or reuse Geometry
-    osg::ref_ptr<osg::Geometry> geometry = getOrCreateGeometry(tile);
+    osg::ref_ptr<SharedGeometry> geometry = getOrCreateGeometry(tile);
 
 
     osg::ref_ptr<HeightFieldDrawable> hfDrawable = new HeightFieldDrawable();
@@ -489,36 +493,56 @@ osg::ref_ptr<osg::MatrixTransform> GeometryPool::getTileSubgraph(osgTerrain::Ter
         }
     }
 
-    osg::Vec3Array* vertices = dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
-    osg::Vec3Array* normals = dynamic_cast<osg::Vec3Array*>(geometry->getNormalArray());
-    if (hf && vertices && normals && (vertices->size()==normals->size()))
+    osg::Vec3Array* shared_vertices = dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
+    osg::Vec3Array* shared_normals = dynamic_cast<osg::Vec3Array*>(geometry->getNormalArray());
+    osg::FloatArray* heights = hf->getFloatArray();
+    const SharedGeometry::VertexToHeightFieldMapping& vthfm = geometry->getVertexToHeightFieldMapping();
+
+    if (hf && shared_vertices && shared_normals && (shared_vertices->size()==shared_normals->size()))
     {
-        unsigned int nr = hf->getNumRows();
-        unsigned int nc = hf->getNumColumns();
-
-        osg::BoundingBox bb;
-        osg::FloatArray* heights = hf->getFloatArray();
-
-        for(unsigned int r=0; r<nr; ++r)
+        if (vthfm.size()==shared_vertices->size())
         {
-            for(unsigned int c=0; c<nc; ++c)
+            // Using cache VertexArray
+            unsigned int numVertices = shared_vertices->size();
+            osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+            vertices->resize(numVertices);
+
+            for(unsigned int i=0; i<numVertices; ++i)
             {
-                unsigned int i = r*nc+c;
-                float h = (*heights)[i];
-                const osg::Vec3& v = (*vertices)[i];
-                const osg::Vec3& n = (*normals)[i];
-
-                const osg::Vec3 vt(v+n*h);
-                bb.expandBy(vt);
+                unsigned int hi = vthfm[i];
+                (*vertices)[i] = (*shared_vertices)[i] + (*shared_normals)[i] * (*heights)[hi];
             }
+
+            hfDrawable->setVertices(vertices.get());
         }
-        hfDrawable->setInitialBound(bb);
-        // OSG_NOTICE<<"Assigning initial bound ("<<bb.xMin()<<", "<<bb.xMax()<<") ,  ("<<bb.yMin()<<", "<<bb.yMax()<<") ("<<bb.zMin()<<", "<<bb.zMax()<<")"<< std::endl;
-        // bb = hfDrawable->getBoundingBox();
-        //OSG_NOTICE<<"         getBoundingBox ("<<bb.xMin()<<", "<<bb.xMax()<<") ,  ("<<bb.yMin()<<", "<<bb.yMax()<<") ("<<bb.zMin()<<", "<<bb.zMax()<<")"<< std::endl;
+        else
+        {
+            // Setting local bounding
+            unsigned int nr = hf->getNumRows();
+            unsigned int nc = hf->getNumColumns();
+
+            osg::BoundingBox bb;
+
+            for(unsigned int r=0; r<nr; ++r)
+            {
+                for(unsigned int c=0; c<nc; ++c)
+                {
+                    unsigned int i = r*nc+c;
+                    float h = (*heights)[i];
+                    const osg::Vec3& v = (*shared_vertices)[i];
+                    const osg::Vec3& n = (*shared_normals)[i];
+
+                    const osg::Vec3 vt(v+n*h);
+                    bb.expandBy(vt);
+                }
+            }
+            hfDrawable->setInitialBound(bb);
+            // OSG_NOTICE<<"Assigning initial bound ("<<bb.xMin()<<", "<<bb.xMax()<<") ,  ("<<bb.yMin()<<", "<<bb.yMax()<<") ("<<bb.zMin()<<", "<<bb.zMax()<<")"<< std::endl;
+            // bb = hfDrawable->getBoundingBox();
+            //OSG_NOTICE<<"         getBoundingBox ("<<bb.xMin()<<", "<<bb.xMax()<<") ,  ("<<bb.yMin()<<", "<<bb.yMax()<<") ("<<bb.zMin()<<", "<<bb.zMax()<<")"<< std::endl;
+
+        }
     }
-
-
 
     osg::ref_ptr<osg::StateSet> stateset = transform->getOrCreateStateSet();
 
@@ -530,22 +554,6 @@ osg::ref_ptr<osg::MatrixTransform> GeometryPool::getTileSubgraph(osgTerrain::Ter
 
 osg::ref_ptr<osg::Program> GeometryPool::getOrCreateProgram(LayerTypes& layerTypes)
 {
-#if 0
-    OSG_NOTICE<<"getOrCreateProgram(";
-    for(LayerTypes::iterator itr = layerTypes.begin();
-        itr != layerTypes.end();
-        ++itr)
-    {
-        if (itr!= layerTypes.begin()) OSG_NOTICE<<", ";
-        switch(*itr)
-        {
-            case(HEIGHTFIELD_LAYER): OSG_NOTICE<<"HeightField"; break;
-            case(COLOR_LAYER): OSG_NOTICE<<"Colour"; break;
-            case(CONTOUR_LAYER): OSG_NOTICE<<"Contour"; break;
-        }
-    }
-#endif
-
     OpenThreads::ScopedLock<OpenThreads::Mutex>  lock(_programMapMutex);
     ProgramMap::iterator itr = _programMap.find(layerTypes);
     if (itr!=_programMap.end())
@@ -554,27 +562,112 @@ osg::ref_ptr<osg::Program> GeometryPool::getOrCreateProgram(LayerTypes& layerTyp
         return itr->second.get();
     }
 
+#if 1
+    unsigned int num_HeightField = 0;
+    unsigned int num_Color = 0;
+    unsigned int num_Contour = 0;
+    for(LayerTypes::iterator itr = layerTypes.begin();
+        itr != layerTypes.end();
+        ++itr)
+    {
+        switch(*itr)
+        {
+            case(HEIGHTFIELD_LAYER): ++num_HeightField; break;
+            case(COLOR_LAYER): ++num_Color; break;
+            case(CONTOUR_LAYER): ++num_Contour; break;
+        }
+    }
+    OSG_NOTICE<<"getOrCreateProgram()"<<std::endl;
+
+    OSG_NOTICE<<"    HeightField "<<num_HeightField<<std::endl;
+    OSG_NOTICE<<"    Color "<<num_Color<<std::endl;
+    OSG_NOTICE<<"    Contour "<<num_Contour<<std::endl;
+
+#endif
+
+    bool useLighting = true;
+    bool useTextures = true;
+
     osg::ref_ptr<osg::Program> program = new osg::Program;
     _programMap[layerTypes] = program;
 
+    // add shader that provides the lighting functions
+    program->addShader(osgDB::readShaderFile("shaders/lighting.vert"));
+
     // OSG_NOTICE<<") creating new Program "<<program.get()<<std::endl;
-
-
-    osg::ref_ptr<osg::Shader> vertex_shader = osgDB::readShaderFile("shaders/terrain_displacement_mapping.vert");
-    if (!vertex_shader)
+    if (num_HeightField>0)
     {
         #include "shaders/terrain_displacement_mapping_vert.cpp"
-        vertex_shader = new osg::Shader(osg::Shader::VERTEX, terrain_displacement_mapping_vert);
-    }
-    program->addShader(vertex_shader.get());
+        osg::ref_ptr<osg::Shader> shader = osgDB::readShaderFileWithFallback(osg::Shader::VERTEX, "shaders/terrain_displacement_mapping.vert", terrain_displacement_mapping_vert);
+        if (_useGeometryShader)
+        {
+            // prepend define to enable the compute shader style
+            shader->setShaderSource(std::string("#define COMPUTE_DIAGONALS\n")+shader->getShaderSource());
+        }
 
-    osg::ref_ptr<osg::Shader> fragment_shader = osgDB::readShaderFile("shaders/terrain_displacement_mapping.frag");
-    if (!fragment_shader)
-    {
-        #include "shaders/terrain_displacement_mapping_frag.cpp"
-        fragment_shader = new osg::Shader(osg::Shader::FRAGMENT, terrain_displacement_mapping_frag);
+        if (useLighting)
+        {
+            // prepend define to enable lighting
+            shader->setShaderSource(std::string("#define GL_LIGHTING\n")+shader->getShaderSource());
+        }
+
+        program->addShader(shader.get());
     }
-    program->addShader(fragment_shader.get());
+    else
+    {
+        #include "shaders/terrain_displacement_mapping_flat_vert.cpp"
+        program->addShader(osgDB::readShaderFileWithFallback(osg::Shader::VERTEX, "shaders/terrain_displacement_mapping.vert", terrain_displacement_mapping_flat_vert));
+    }
+
+
+    if (_useGeometryShader)
+    {
+        program->addShader(osgDB::readShaderFile("shaders/terrain_displacement_mapping.geom"));
+
+        program->setParameter( GL_GEOMETRY_VERTICES_OUT_EXT, 4 );
+        program->setParameter( GL_GEOMETRY_INPUT_TYPE_EXT, GL_LINES_ADJACENCY );
+        program->setParameter( GL_GEOMETRY_OUTPUT_TYPE_EXT, GL_TRIANGLE_STRIP);
+    }
+
+    if (num_Contour>0)
+    {
+        OSG_NOTICE<<"No support for Contour yet."<<std::endl;
+    }
+
+    {
+        osg::ref_ptr<osg::Shader> shader;
+        if (num_Color==0)
+        {
+            #include "shaders/terrain_displacement_mapping_frag.cpp"
+            shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping.frag", terrain_displacement_mapping_frag);
+        }
+        else if (num_Color==1)
+        {
+            #include "shaders/terrain_displacement_mapping_C_frag.cpp"
+            shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping_C.frag", terrain_displacement_mapping_C_frag);
+        }
+        else if (num_Color==2)
+        {
+            #include "shaders/terrain_displacement_mapping_CC_frag.cpp"
+            shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping_CC.frag", terrain_displacement_mapping_CC_frag);
+        }
+        else if (num_Color==3)
+        {
+            #include "shaders/terrain_displacement_mapping_CCC_frag.cpp"
+            shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping_CCC.frag", terrain_displacement_mapping_CCC_frag);
+        }
+
+        if (shader.valid())
+        {
+            if (useTextures)
+            {
+                // prepend define to enable lighting
+                shader->setShaderSource(std::string("#define GL_TEXTURE_2D\n")+shader->getShaderSource());
+            }
+            program->addShader(shader.get());
+        }
+
+    }
 
     return program;
 }
@@ -727,6 +820,29 @@ void GeometryPool::applyLayers(osgTerrain::TerrainTile* tile, osg::StateSet* sta
     }
 }
 
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//  SharedGeometry
+//
+SharedGeometry::SharedGeometry()
+{
+//    setSupportsDisplayList(false);
+}
+
+SharedGeometry::SharedGeometry(const SharedGeometry& rhs,const osg::CopyOp& copyop):
+    osg::Geometry(rhs, copyop),
+    _vertexToHeightFieldMapping(rhs._vertexToHeightFieldMapping)
+{
+//    setSupportsDisplayList(false);
+}
+
+SharedGeometry::~SharedGeometry()
+{
+}
+
+
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 //  HeightFieldDrawable
@@ -739,9 +855,14 @@ HeightFieldDrawable::HeightFieldDrawable()
 HeightFieldDrawable::HeightFieldDrawable(const HeightFieldDrawable& rhs,const osg::CopyOp& copyop):
     osg::Drawable(rhs, copyop),
     _heightField(rhs._heightField),
-    _geometry(rhs._geometry)
+    _geometry(rhs._geometry),
+    _vertices(rhs._vertices)
 {
     setSupportsDisplayList(false);
+}
+
+HeightFieldDrawable::~HeightFieldDrawable()
+{
 }
 
 void HeightFieldDrawable::drawImplementation(osg::RenderInfo& renderInfo) const
@@ -776,10 +897,52 @@ void HeightFieldDrawable::accept(osg::Drawable::ConstAttributeFunctor& caf) cons
 
 void HeightFieldDrawable::accept(osg::PrimitiveFunctor& pf) const
 {
-    if (_geometry) _geometry->accept(pf);
+    // use the cached vertex positions for PrimitiveFunctor operations
+    if (!_geometry) return;
+
+    if (_vertices.valid())
+    {
+        pf.setVertexArray(_vertices->size(), &((*_vertices)[0]));
+
+        for(osg::Geometry::PrimitiveSetList::const_iterator itr = _geometry->getPrimitiveSetList().begin();
+            itr != _geometry->getPrimitiveSetList().end();
+            ++itr)
+        {
+            const osg::DrawElementsUShort* deus = dynamic_cast<const osg::DrawElementsUShort*>(itr->get());
+            if (deus)
+            {
+                pf.drawElements(GL_QUADS, deus->size(), &((*deus)[0]));
+            }
+            else
+            {
+                const osg::DrawElementsUInt* deui = dynamic_cast<const osg::DrawElementsUInt*>(itr->get());
+                if (deui)
+                {
+                    pf.drawElements(GL_QUADS, deui->size(), &((*deui)[0]));
+                }
+            }
+        }
+    }
+    else
+    {
+        _geometry->accept(pf);
+    }
 }
 
 void HeightFieldDrawable::accept(osg::PrimitiveIndexFunctor& pif) const
 {
-    if (_geometry) _geometry->accept(pif);
+    if (_vertices.valid())
+    {
+        pif.setVertexArray(_vertices->size(), &((*_vertices)[0]));
+        for(osg::Geometry::PrimitiveSetList::const_iterator itr = _geometry->getPrimitiveSetList().begin();
+            itr != _geometry->getPrimitiveSetList().end();
+            ++itr)
+        {
+            (*itr)->accept(pif);
+        }
+    }
+    else
+    {
+        _geometry->accept(pif);
+    }
 }
