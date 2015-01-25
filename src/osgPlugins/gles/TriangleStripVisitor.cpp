@@ -4,7 +4,6 @@
 
 void TriangleStripVisitor::apply(osg::Geometry& geometry) {
     osgUtil::TriStripVisitor tristrip;
-    tristrip.setAllowDrawArrays(_allowDrawArrays);
     tristrip.setCacheSize(_cacheSize);
     tristrip.setMinStripSize(_minSize);
     tristrip.stripify(geometry);
