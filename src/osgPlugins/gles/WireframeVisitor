@@ -16,18 +16,18 @@
 #include <set>
 
 #include <osg/ValueObject>
-#include <osg/NodeVisitor>
 #include <osg/Geode>
 #include <osg/Geometry>
 
+#include "GeometryUniqueVisitor"
 #include "PrimitiveIndexors"
 
 
-class WireframeVisitor : public osg::NodeVisitor
+class WireframeVisitor : public GeometryUniqueVisitor
 {
 public:
-    WireframeVisitor(bool inlined=false) :
-        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+    WireframeVisitor(bool inlined=false):
+        GeometryUniqueVisitor("WireframeVisitor"),
         _inlined(inlined)
     {}
 

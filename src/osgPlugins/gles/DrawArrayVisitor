@@ -19,6 +19,9 @@
 
 class DrawArrayVisitor : public GeometryUniqueVisitor {
 public:
+    DrawArrayVisitor(): GeometryUniqueVisitor("DrawArrayVisitor")
+    {}
+
     void apply(osg::Geometry& geometry) {
         GeometryArrayList srcArrays(geometry);
 

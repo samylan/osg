@@ -18,6 +18,9 @@
 class IndexMeshVisitor : public GeometryUniqueVisitor
 {
 public:
+    IndexMeshVisitor(): GeometryUniqueVisitor("IndexMeshVisitor")
+    {}
+
     void apply(osg::Geometry& geom);
 
 protected:

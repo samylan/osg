@@ -28,7 +28,9 @@
 class TangentSpaceVisitor : public GeometryUniqueVisitor
 {
 public:
-    TangentSpaceVisitor(int textureUnit = 0): _textureUnit(textureUnit)
+    TangentSpaceVisitor(int textureUnit = 0):
+        GeometryUniqueVisitor("TangentSpaceVisitor"),
+        _textureUnit(textureUnit)
     {}
 
     void apply(osg::Geometry& geom) {

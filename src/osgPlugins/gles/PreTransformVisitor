@@ -20,6 +20,9 @@
 class PreTransformVisitor : public GeometryUniqueVisitor
 {
 public:
+    PreTransformVisitor(): GeometryUniqueVisitor("PreTransformVisitor")
+    {}
+
     void apply(osg::Geometry& geometry) {
         glesUtil::VertexAccessOrderVisitor optimizer;
         optimizer.optimizeOrder(geometry);
