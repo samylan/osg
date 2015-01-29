@@ -388,9 +388,10 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
 
     osg::ref_ptr<JSONObject> attributes = new JSONObject;
 
-    int nbVertexes = geom->getVertexArray()->getNumElements();
+    int nbVertexes = 0;
 
     if (geom->getVertexArray()) {
+        nbVertexes = geom->getVertexArray()->getNumElements();
         attributes->getMaps()["Vertex"] = createJSONBufferArray(geom->getVertexArray(), geom);
     }
     if (geom->getNormalArray()) {
