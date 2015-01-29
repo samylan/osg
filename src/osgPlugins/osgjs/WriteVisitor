@@ -29,8 +29,11 @@
 
 #include "JSON_Objects"
 #include "Animation"
+#include "json_stream"
+
 
 #define WRITER_VERSION 7
+
 
 osg::Array* getTangentSpaceArray(osg::Geometry& geometry);
 void translateObject(JSONObject* json, osg::Object* osg);
@@ -103,7 +106,7 @@ public:
         return size;
     }
 
-    void write(std::ostream& str) {
+    void write(json_stream& str) {
         osg::ref_ptr<JSONObject> o = new JSONObject();
         o->getMaps()["Version"] = new JSONValue<int>(WRITER_VERSION);
         o->getMaps()["Generator"] = new JSONValue<std::string>("OpenSceneGraph " + std::string(osgGetVersion()) );

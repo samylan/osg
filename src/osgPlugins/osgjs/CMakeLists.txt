@@ -1,9 +1,19 @@
 SET(TARGET_SRC
-  ReaderWriterJSON.cpp
-  WriteVisitor.cpp
-  JSON_Objects.cpp
-  Base64.cpp
-  Animation.cpp)
+    Animation.cpp
+    Base64.cpp
+    JSON_Objects.cpp
+    ReaderWriterJSON.cpp
+    WriteVisitor.cpp)
+
+SET(TARGET_H
+    Adaptator
+    Animation
+    Base64
+    CompactBufferVisitor
+    JSON_Objects
+    json_stream
+    WriteVisitor
+)
 
 #### end var setup  ###
 SET(TARGET_ADDED_LIBRARIES

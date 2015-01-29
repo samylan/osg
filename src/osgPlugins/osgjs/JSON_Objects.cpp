@@ -29,7 +29,7 @@ std::string JSONObjectBase::indent()
 }
 
 
-void JSONMatrix::write(std::ostream& str, WriteVisitor& visitor)
+void JSONMatrix::write(json_stream& str, WriteVisitor& visitor)
 {
     str << "[ ";
     for (unsigned int i = 0; i < _array.size(); i++) {
@@ -41,7 +41,7 @@ void JSONMatrix::write(std::ostream& str, WriteVisitor& visitor)
 }
 
 
-void JSONNode::write(std::ostream& str, WriteVisitor& visitor)
+void JSONNode::write(json_stream& str, WriteVisitor& visitor)
 {
     std::vector<std::string> order;
     order.push_back("UniqueID");
@@ -256,7 +256,7 @@ std::vector<uint8_t> JSONObject::varintEncoding(unsigned int value) const
     return buffer;
 }
 
-static void writeEntry(std::ostream& str, const std::string& key, JSONObject::JSONMap& map, WriteVisitor& visitor)
+static void writeEntry(json_stream& str, const std::string& key, JSONObject::JSONMap& map, WriteVisitor& visitor)
 {
     if (key.empty())
         return;
@@ -275,7 +275,7 @@ static void writeEntry(std::ostream& str, const std::string& key, JSONObject::JS
     }
 }
 
-void JSONObject::writeOrder(std::ostream& str, const std::vector<std::string>& order, WriteVisitor& visitor)
+void JSONObject::writeOrder(json_stream& str, const std::vector<std::string>& order, WriteVisitor& visitor)
 {
     str << "{" << std::endl;
     JSONObjectBase::level++;
@@ -292,7 +292,7 @@ void JSONObject::writeOrder(std::ostream& str, const std::vector<std::string>& o
     str << std::endl << JSONObjectBase::indent() << "}";
 }
 
-void JSONObject::write(std::ostream& str, WriteVisitor& visitor)
+void JSONObject::write(json_stream& str, WriteVisitor& visitor)
 {
     OrderList defaultOrder;
     defaultOrder.push_back("UniqueID");
@@ -336,7 +336,7 @@ std::pair<unsigned int,unsigned int> JSONVertexArray::writeMergeData(const osg::
     return std::pair<unsigned int, unsigned int>(offset, fsize - offset);
 }
 
-void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
+void JSONVertexArray::write(json_stream& str, WriteVisitor& visitor)
 {
     bool _useExternalBinaryArray = visitor._useExternalBinaryArray;
     bool _mergeAllBinaryFiles = visitor._mergeAllBinaryFiles;
@@ -595,7 +595,7 @@ JSONVec3Array::JSONVec3Array(const osg::Vec3& v)
     }
 }
 
-void JSONVec3Array::write(std::ostream& str,WriteVisitor& visitor)
+void JSONVec3Array::write(json_stream& str,WriteVisitor& visitor)
 {
     str << "[ ";
     for (unsigned int i = 0; i < _array.size(); i++) {
@@ -610,7 +610,7 @@ void JSONVec3Array::write(std::ostream& str,WriteVisitor& visitor)
     str << "]";
 }
 
-void JSONKeyframes::write(std::ostream& str,WriteVisitor& visitor)
+void JSONKeyframes::write(json_stream& str,WriteVisitor& visitor)
 {
     JSONObjectBase::level++;
     str << "[" << std::endl << JSONObjectBase::indent();
@@ -630,7 +630,7 @@ void JSONKeyframes::write(std::ostream& str,WriteVisitor& visitor)
 }
 
 
-void JSONArray::write(std::ostream& str,WriteVisitor& visitor)
+void JSONArray::write(json_stream& str,WriteVisitor& visitor)
 {
     str << "[ ";
     for (unsigned int i = 0; i < _array.size(); i++) {
