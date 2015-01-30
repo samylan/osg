@@ -42,6 +42,7 @@ public:
          bool disableTriStrip;
          bool disableMergeTriStrip;
          bool disablePreTransform;
+         bool disablePostTransform;
          unsigned int triStripCacheSize;
          unsigned int triStripMinSize;
          bool useDrawArray;
@@ -55,6 +56,7 @@ public:
              disableTriStrip = false;
              disableMergeTriStrip = false;
              disablePreTransform = false;
+             disablePostTransform = false;
              triStripCacheSize = 16;
              triStripMinSize = 2;
              useDrawArray = false;
@@ -76,6 +78,7 @@ public:
         supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
         supportsOption("disableTriStrip","disable generation of tristrip");
         supportsOption("disablePreTransform","disable pre-transform of geometries after split");
+        supportsOption("disablePostTransform","disable post-transform of geometries (called during geometry splitting)");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("disableIndex","Do not index the geometry");
         supportsOption("maxIndexValue=<int>","set the maximum index value (first index is 0)");
@@ -100,6 +103,7 @@ public:
             optimizer.setDisableTriStrip(options.disableTriStrip);
             optimizer.setDisableMergeTriStrip(options.disableMergeTriStrip);
             optimizer.setDisablePreTransform(options.disablePreTransform);
+            optimizer.setDisablePostTransform(options.disablePostTransform);
             optimizer.setWireframe(options.enableWireframe);
             if (options.generateTangentSpace) {
                 optimizer.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
@@ -217,6 +221,10 @@ public:
                 if (pre_equals == "disablePreTransform")
                 {
                     localOptions.disablePreTransform = true;
+                }
+                if (pre_equals == "disablePostTransform")
+                {
+                    localOptions.disablePostTransform = true;
                 }
                 if (pre_equals == "disableTriStrip")
                 {

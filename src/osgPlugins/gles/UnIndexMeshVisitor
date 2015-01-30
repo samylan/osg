@@ -19,6 +19,9 @@
 class UnIndexMeshVisitor : public GeometryUniqueVisitor
 {
 public:
+    UnIndexMeshVisitor(): GeometryUniqueVisitor("UnIndexMeshVisitor")
+    {}
+
     void apply(osg::Geometry& geom);
 };
 

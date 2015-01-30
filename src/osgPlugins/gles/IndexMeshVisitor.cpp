@@ -5,6 +5,7 @@
 #include <osg/Geometry>
 #include <osg/PrimitiveSet>
 #include <osg/ValueObject>
+#include <osgUtil/MeshOptimizers>
 
 #include "glesUtil"
 #include "IndexMeshVisitor"
@@ -23,6 +24,9 @@ void IndexMeshVisitor::apply(osg::Geometry& geom) {
     // no point optimizing if we don't have enough vertices.
     if (!geom.getVertexArray() || geom.getVertexArray()->getNumElements() < 3) return;
 
+
+    osgUtil::SharedArrayOptimizer deduplicator;
+    deduplicator.findDuplicatedUVs(geom);
 
     // duplicate shared arrays as it isn't safe to rearrange vertices when arrays are shared.
     if (geom.containsSharedArrays()) {
@@ -149,6 +153,7 @@ void IndexMeshVisitor::apply(osg::Geometry& geom) {
     }
 
     geom.setPrimitiveSetList(new_primitives);
+    deduplicator.deduplicateUVs(geom);
     setProcessed(&geom);
 }
 

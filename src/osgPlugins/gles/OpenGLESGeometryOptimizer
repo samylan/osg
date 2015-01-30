@@ -16,6 +16,18 @@
 #include <osg/Node>
 #include <algorithm> //std::max
 
+#include "AnimationVisitor"
+#include "BindPerVertexVisitor"
+#include "DetachPrimitiveVisitor"
+#include "DrawArrayVisitor"
+#include "GeometrySplitterVisitor"
+#include "IndexMeshVisitor"
+#include "PreTransformVisitor"
+#include "TangentSpaceVisitor"
+#include "TriangleStripVisitor"
+#include "UnIndexMeshVisitor"
+#include "WireframeVisitor"
+
 
 class OpenGLESGeometryOptimizer
 {
@@ -25,6 +37,7 @@ public:
         _disableTriStrip(false),
         _disableMergeTriStrip(false),
         _disablePreTransform(false),
+        _disablePostTransform(false),
         _triStripCacheSize(16),
         _triStripMinSize(2),
         _generateTangentSpace(false),
@@ -42,6 +55,7 @@ public:
     void setDisableTriStrip(bool s) { _disableTriStrip = s; }
     void setDisableMergeTriStrip(bool s) { _disableMergeTriStrip = s; }
     void setDisablePreTransform(bool s) { _disablePreTransform = s; }
+    void setDisablePostTransform(bool s) { _disablePostTransform = s; }
     void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
     void setTripStripMinSize(unsigned int size) { _triStripMinSize = std::max<unsigned int>(size, 2); }
 
@@ -60,11 +74,62 @@ public:
     }
 
 protected:
+    void makeAnimation(osg::Node* node) {
+        AnimationVisitor anim;
+        node->accept(anim);
+    }
+
+    void makeWireframe(osg::Node* node) {
+        WireframeVisitor wireframe(_wireframe == std::string("inline"));
+        node->accept(wireframe);
+    }
+
+    void makeBindPerVertex(osg::Node* node) {
+        BindPerVertexVisitor bindpervertex;
+        node->accept(bindpervertex);
+    }
+
+    void makeIndexMesh(osg::Node* node) {
+        IndexMeshVisitor indexer;
+        node->accept(indexer);
+    }
+
+    void makeTangentSpace(osg::Node* node) {
+        TangentSpaceVisitor tangent(_tangentUnit);
+        node->accept(tangent);
+    }
+
+    void makeSplit(osg::Node* node) {
+        GeometrySplitterVisitor splitter(_maxIndexValue, _disablePostTransform);
+        node->accept(splitter);
+    }
+
+    void makeTriStrip(osg::Node* node) {
+        TriangleStripVisitor strip(_triStripCacheSize, _triStripMinSize, !_disableMergeTriStrip);
+        node->accept(strip);
+    }
+
+    void makeDrawArray(osg::Node* node) {
+        DrawArrayVisitor drawarray;
+        node->accept(drawarray);
+    }
+
+    void makePreTransform(osg::Node* node) {
+        PreTransformVisitor preTransform;
+        node->accept(preTransform);
+    }
+
+    void makeDetach(osg::Node* node) {
+        DetachPrimitiveVisitor detacher("wireframe", false, _wireframe == std::string("inline"));
+        node->accept(detacher);
+    }
+
     bool _useDrawArray;
 
     bool _disableTriStrip;
     bool _disableMergeTriStrip;
     bool _disablePreTransform;
+    bool _disablePostTransform;
     unsigned int _triStripCacheSize;
     unsigned int _triStripMinSize;
 

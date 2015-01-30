@@ -19,6 +19,9 @@
 // TODO: deprecated
 class BindPerVertexVisitor : public GeometryUniqueVisitor {
 public:
+    BindPerVertexVisitor(): GeometryUniqueVisitor("BindPerVertexVisitor")
+    {}
+
     void apply(osg::Geometry& geometry) {
         if (geometry.getNormalArray() && geometry.getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) {
             bindPerVertex(geometry.getNormalArray(),

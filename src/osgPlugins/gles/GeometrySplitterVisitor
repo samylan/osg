@@ -32,11 +32,17 @@ class GeometryIndexSplitter
 public:
     typedef std::vector<osg::ref_ptr<osg::Geometry> > GeometryList;
 
-    GeometryIndexSplitter(unsigned int maxIndex) : _maxIndexToSplit(maxIndex)
+    GeometryIndexSplitter(unsigned int maxIndex, bool disablePostTransform):
+        _maxIndexToSplit(maxIndex), _disablePostTransform(disablePostTransform)
     {}
 
     bool split(osg::Geometry& geometry) {
         if(!hasValidPrimitives(geometry) || !needToSplit(geometry)) {
+            if(!_disablePostTransform) {
+                // optimize cache for rendering
+                glesUtil::VertexCacheVisitor posttransform;
+                posttransform.optimizeVertices(geometry);
+            }
             _geometryList.push_back(&geometry); // remap geometry to itself
             return false;
         }
@@ -44,18 +50,38 @@ public:
         // keep bounding box data as user value if needed in subsequent processing
         attachBufferBoundingBox(geometry);
 
+        // first optimize primitives indexing
+        {
+            if(!_disablePostTransform) {
+                // post-transform for better locality
+                glesUtil::VertexCacheVisitor posttransform;
+                posttransform.optimizeVertices(geometry);
+            }
+            // pre-transform to reindex correctly
+            glesUtil::VertexAccessOrderVisitor pretransform;
+            pretransform.optimizeOrder(geometry);
+        }
 
-        // copy it because we will modify vertex arrays
-        osg::ref_ptr<osg::Geometry> processing = osg::clone(&geometry, osg::CopyOp::DEEP_COPY_ALL);
+        // Clone geometry as we will modify vertex arrays and primitives
+        // To avoid issues with shared buffers, arrays & primitives should be
+        // deep cloned.
+        // As UserValues might be changed on a per-geometry basis afterwards, we
+        // also deep clone userdata
+        // We do *not* want to clone statesets as they reference a UniqueID that
+        // should be unique (see #83056464).
+        osg::ref_ptr<osg::Geometry> processing = osg::clone(&geometry, osg::CopyOp::DEEP_COPY_ARRAYS |
+                                                                       osg::CopyOp::DEEP_COPY_PRIMITIVES |
+                                                                       osg::CopyOp::DEEP_COPY_USERDATA);
         osg::ref_ptr<osg::Geometry> reported;
         while (true) {
             reported = doSplit(*processing);
 
             // reduce vertex array if needed
-            GeometryArrayList arrayList(*processing);
-            arrayList.setNumElements(osg::minimum(arrayList.size(), _maxIndexToSplit + 1));
-
-            _geometryList.push_back(processing);
+            if(processing && processing->getNumPrimitiveSets()) {
+                GeometryArrayList arrayList(*processing);
+                arrayList.setNumElements(osg::minimum(arrayList.size(), _maxIndexToSplit + 1));
+                _geometryList.push_back(processing);
+            }
 
             if (!reported.valid()) {
                 break;
@@ -63,6 +89,7 @@ public:
             else {
                 processing = reported;
                 reported = 0;
+
                 // re order index elements
                 glesUtil::VertexAccessOrderVisitor preTransform;
                 preTransform.optimizeOrder(*processing);
@@ -171,6 +198,7 @@ protected:
 
         for (unsigned int i = 0; i < primitives.size(); i++) {
             osg::DrawElements *primitive = primitives[i]->getDrawElements();
+
             bool isWireframe = false;
             if(primitive->getUserValue("wireframe", isWireframe)) {
                 wirePrimitives.push_back(primitive);
@@ -185,9 +213,6 @@ protected:
         }
 
         if (!primitivesToFix.empty()) {
-            reportGeometry = osg::clone(&geometry, osg::CopyOp::DEEP_COPY_ARRAYS |
-                                                   osg::CopyOp::DEEP_COPY_USERDATA);
-
             // filter all indices > _maxIndexValue in primitives
             for (unsigned int i = 0; i < primitivesToFix.size(); i++) {
                 osg::DrawElements* source = primitivesToFix[i];
@@ -203,6 +228,8 @@ protected:
 
         geometry.setPrimitiveSetList(geomPrimitives);
         if (!reportedPrimitives.empty()) {
+            reportGeometry = osg::clone(&geometry, osg::CopyOp::DEEP_COPY_ARRAYS |
+                                                   osg::CopyOp::DEEP_COPY_USERDATA);
             reportGeometry->setPrimitiveSetList(reportedPrimitives);
             return reportGeometry.release();
         }
@@ -271,6 +298,7 @@ protected:
                 unsigned int arrayIndex = id * 2;
                 unsigned int a = line->index(arrayIndex),
                              b = line->index(arrayIndex + 1);
+
                 if(indices.find(a) != indices.end() && indices.find(b) != indices.end()) {
                     small->addElement(a);
                     small->addElement(b);
@@ -295,6 +323,7 @@ protected:
 
 public:
     const unsigned int _maxIndexToSplit;
+    bool _disablePostTransform;
     GeometryList _geometryList;
 };
 
@@ -304,7 +333,10 @@ class GeometrySplitterVisitor : public GeometryUniqueVisitor {
 public:
     typedef std::vector< osg::ref_ptr<osg::Geometry> > GeometryList;
 
-    GeometrySplitterVisitor(unsigned int maxIndexValue = 65534) : _maxIndexValue(maxIndexValue)
+    GeometrySplitterVisitor(unsigned int maxIndexValue = 65535, bool disablePostTransform=false):
+        GeometryUniqueVisitor("GeometrySplitterVisitor"),
+        _maxIndexValue(maxIndexValue),
+        _disablePostTransform(disablePostTransform)
     {}
 
     void apply(osg::Geode& geode) {
@@ -327,7 +359,7 @@ public:
     }
 
     void apply(osg::Geometry& geometry) {
-        GeometryIndexSplitter splitter(_maxIndexValue);
+        GeometryIndexSplitter splitter(_maxIndexValue, _disablePostTransform);
         splitter.split(geometry);
         setProcessed(&geometry, splitter._geometryList);
     }
@@ -343,6 +375,7 @@ protected:
 
     unsigned int _maxIndexValue;
     std::map<osg::Geometry*, GeometryList> _split;
+    bool _disablePostTransform;
 };
 
 #endif

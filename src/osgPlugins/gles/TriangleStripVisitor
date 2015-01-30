@@ -17,8 +17,9 @@
 
 class TriangleStripVisitor : public GeometryUniqueVisitor {
 public:
-    TriangleStripVisitor(unsigned int cacheSize, unsigned int minSize, bool allowDrawArrays, bool merge) :
-        _cacheSize(cacheSize), _minSize(minSize), _allowDrawArrays(allowDrawArrays), _merge(merge)
+    TriangleStripVisitor(unsigned int cacheSize, unsigned int minSize, bool merge):
+        GeometryUniqueVisitor("TriangleStripVisitor"),
+        _cacheSize(cacheSize), _minSize(minSize), _merge(merge)
     {}
 
     void apply(osg::Geometry& geometry);
@@ -28,7 +29,6 @@ protected:
 
     unsigned int _cacheSize;
     unsigned int _minSize;
-    bool _allowDrawArrays;
     bool _merge;
 };
 

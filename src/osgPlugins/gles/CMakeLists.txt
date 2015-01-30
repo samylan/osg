@@ -3,7 +3,8 @@ SET(TARGET_SRC
     OpenGLESGeometryOptimizer.cpp
     TriangleStripVisitor.cpp
     IndexMeshVisitor.cpp
-    UnIndexMeshVisitor.cpp)
+    UnIndexMeshVisitor.cpp
+    forsythtriangleorderoptimizer.cpp)
 
 #### end var setup  ###
 SET(TARGET_ADDED_LIBRARIES

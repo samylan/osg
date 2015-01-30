@@ -19,6 +19,7 @@
 class DetachPrimitiveVisitor : public GeometryUniqueVisitor {
 public:
     DetachPrimitiveVisitor(std::string const& userValue, bool keepGeometryAttributes=false, bool inlined=true):
+        GeometryUniqueVisitor("DetachPrimitiveVisitor"),
         _userValue(userValue), _keepGeometryAttributes(keepGeometryAttributes), _inlined(inlined)
     {}
 
@@ -42,7 +43,6 @@ public:
         }
         setProcessed(&geometry);
     }
-
 
 protected:
     bool shouldDetach(osg::Geometry& geometry) {
