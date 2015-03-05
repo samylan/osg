@@ -53,8 +53,8 @@ PROJECT(OpenSceneGraph)
 
 SET(OPENSCENEGRAPH_MAJOR_VERSION 3)
 SET(OPENSCENEGRAPH_MINOR_VERSION 3)
-SET(OPENSCENEGRAPH_PATCH_VERSION 4)
-SET(OPENSCENEGRAPH_SOVERSION 116)
+SET(OPENSCENEGRAPH_PATCH_VERSION 5)
+SET(OPENSCENEGRAPH_SOVERSION 118)
 
 # set to 0 when not a release candidate, non zero means that any generated
 # svn tags will be treated as release candidates of given number
@@ -634,7 +634,7 @@ ELSE()
     FIND_PACKAGE(LibVNCServer)
     FIND_PACKAGE(OurDCMTK)
     FIND_PACKAGE(FFmpeg)
-    FIND_PACKAGE(GStreamer COMPONENTS gstreamer-app gstreamer-pbutils)
+    FIND_PACKAGE(GStreamer COMPONENTS app pbutils)
     FIND_PACKAGE(GLIB COMPONENTS gobject)
     FIND_PACKAGE(DirectShow)
     FIND_PACKAGE(SDL2)
@@ -659,8 +659,9 @@ ELSE()
         ENDIF()
     ENDIF()
 
-    FIND_PACKAGE(V8)
-    FIND_PACKAGE(PythonLibs)
+    # V8 and Python plugins are tests for linking against these libraries but aren't functionality beyond this.
+    # FIND_PACKAGE(V8)
+    # FIND_PACKAGE(PythonLibs)
 ENDIF()
 
 IF(CMAKE_MAJOR_VERSION EQUAL 2 AND CMAKE_MINOR_VERSION LESS 8)

@@ -38,4 +38,14 @@ REGISTER_OBJECT_WRAPPER( osgFX_MultiTextureControl,
                          "osg::Object osg::Node osg::Group osgFX::MultiTextureControl" )
 {
     ADD_USER_SERIALIZER( TextureWeights );  // _textureWeightList
+
+    {
+        UPDATE_TO_VERSION_SCOPED( 116 )
+
+        REMOVE_SERIALIZER( TextureWeights );  // _textureWeightList
+
+        ADD_OBJECT_SERIALIZER( TextureWeights, osgFX::MultiTextureControl::TextureWeights, NULL );
+        ADD_BOOL_SERIALIZER( UseTexEnvCombine, true );
+        ADD_BOOL_SERIALIZER( UseTextureWeightsUniform, true );
+    }
 }

@@ -132,8 +132,11 @@ State::State():
 State::~State()
 {
     // delete the GLExtensions object associated with this osg::State.
-    GLExtensions::Set(_contextID, 0);
-    _glExtensions = 0;
+    if (_glExtensions)
+    {
+        GLExtensions::Set(_contextID, 0);
+        _glExtensions = 0;
+    }
 
     //_texCoordArrayList.clear();
 
@@ -335,6 +338,8 @@ void State::pushStateSet(const StateSet* dstate)
         }
 
         pushUniformList(_uniformMap,dstate->getUniformList());
+
+        pushDefineList(_defineMap,dstate->getDefineList());
     }
 
     // OSG_NOTICE<<"State::pushStateSet()"<<_stateStateStack.size()<<std::endl;
@@ -384,6 +389,8 @@ void State::popStateSet()
         }
 
         popUniformList(_uniformMap,dstate->getUniformList());
+
+        popDefineList(_defineMap,dstate->getDefineList());
 
     }
 
@@ -510,7 +517,19 @@ void State::apply(const StateSet* dstate)
         const Program::PerContextProgram* previousLastAppliedProgramObject = _lastAppliedProgramObject;
 
         applyModeList(_modeMap,dstate->getModeList());
+#if 1
+        pushDefineList(_defineMap, dstate->getDefineList());
+#else
+        applyDefineList(_defineMap, dstate->getDefineList());
+#endif
+
         applyAttributeList(_attributeMap,dstate->getAttributeList());
+
+        if ((_lastAppliedProgramObject!=0) && (previousLastAppliedProgramObject==_lastAppliedProgramObject) && _defineMap.changed)
+        {
+            // OSG_NOTICE<<"State::apply(StateSet*) Program already applied ("<<(previousLastAppliedProgramObject==_lastAppliedProgramObject)<<") and _defineMap.changed= "<<_defineMap.changed<<std::endl;
+            _lastAppliedProgramObject->getProgram()->apply(*this);
+        }
 
         if (_shaderCompositionEnabled)
         {
@@ -536,6 +555,10 @@ void State::apply(const StateSet* dstate)
                 applyUniformList(_uniformMap, _currentShaderCompositionUniformList);
             }
         }
+
+#if 1
+        popDefineList(_defineMap, dstate->getDefineList());
+#endif
 
         // pop the stateset from the stack
         _stateStateStack.pop_back();
@@ -568,8 +591,17 @@ void State::apply()
     // appropriate.
     applyModeMap(_modeMap);
 
+    const Program::PerContextProgram* previousLastAppliedProgramObject = _lastAppliedProgramObject;
+
     // go through all active StateAttribute's, applying where appropriate.
     applyAttributeMap(_attributeMap);
+
+
+    if ((_lastAppliedProgramObject!=0) && (previousLastAppliedProgramObject==_lastAppliedProgramObject) && _defineMap.changed)
+    {
+        //OSG_NOTICE<<"State::apply() Program already applied ("<<(previousLastAppliedProgramObject==_lastAppliedProgramObject)<<") and _defineMap.changed= "<<_defineMap.changed<<std::endl;
+        if (_lastAppliedProgramObject) _lastAppliedProgramObject->getProgram()->apply(*this);
+    }
 
 
     if (_shaderCompositionEnabled)
@@ -614,7 +646,7 @@ void State::applyShaderComposition()
 
         if (_currentShaderCompositionProgram)
         {
-            Program::PerContextProgram* pcp = _currentShaderCompositionProgram->getPCP(_contextID);
+            Program::PerContextProgram* pcp = _currentShaderCompositionProgram->getPCP(*this);
             if (_lastAppliedProgramObject != pcp) applyAttribute(_currentShaderCompositionProgram);
         }
     }
@@ -942,13 +974,14 @@ void State::initializeExtensionProcs()
     setGLExtensionFuncPtr(_glDrawArraysInstanced, "glDrawArraysInstanced","glDrawArraysInstancedARB","glDrawArraysInstancedEXT");
     setGLExtensionFuncPtr(_glDrawElementsInstanced, "glDrawElementsInstanced","glDrawElementsInstancedARB","glDrawElementsInstancedEXT");
 
-    if ( osg::getGLVersionNumber() >= 2.0 || osg::isGLExtensionSupported(_contextID,"GL_ARB_vertex_shader") || OSG_GLES2_FEATURES)
+    if (osg::getGLVersionNumber() >= 2.0 || osg::isGLExtensionSupported(_contextID, "GL_ARB_vertex_shader") || OSG_GLES2_FEATURES || OSG_GL3_FEATURES)
     {
         glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS,&_glMaxTextureUnits);
-        if(OSG_GLES2_FEATURES)
+        #ifdef OSG_GL_FIXED_FUNCTION_AVAILABLE
+            glGetIntegerv(GL_MAX_TEXTURE_COORDS, &_glMaxTextureCoords);
+        #else
             _glMaxTextureCoords = _glMaxTextureUnits;
-        else
-            glGetIntegerv(GL_MAX_TEXTURE_COORDS,&_glMaxTextureCoords);
+        #endif
     }
     else if ( osg::getGLVersionNumber() >= 1.3 ||
                                  osg::isGLExtensionSupported(_contextID,"GL_ARB_multitexture") ||
@@ -1280,23 +1313,24 @@ bool State::checkGLErrors(const char* str) const
     GLenum errorNo = glGetError();
     if (errorNo!=GL_NO_ERROR)
     {
+        osg::NotifySeverity notifyLevel = NOTICE; // WARN;
         const char* error = (char*)gluErrorString(errorNo);
         if (error)
         {
-            OSG_NOTIFY(WARN)<<"Warning: detected OpenGL error '" << error<<"'";
+            OSG_NOTIFY(notifyLevel)<<"Warning: detected OpenGL error '" << error<<"'";
         }
         else
         {
-            OSG_NOTIFY(WARN)<<"Warning: detected OpenGL error number 0x" << std::hex << errorNo << std::dec;
+            OSG_NOTIFY(notifyLevel)<<"Warning: detected OpenGL error number 0x" << std::hex << errorNo << std::dec;
         }
 
         if (str)
         {
-            OSG_NOTIFY(WARN)<<" at "<<str<< std::endl;
+            OSG_NOTIFY(notifyLevel)<<" at "<<str<< std::endl;
         }
         else
         {
-            OSG_NOTIFY(WARN)<<" in osg::State."<< std::endl;
+            OSG_NOTIFY(notifyLevel)<<" in osg::State."<< std::endl;
         }
 
         return true;
@@ -1764,4 +1798,92 @@ void State::frameCompleted()
         setGpuTimestamp(osg::Timer::instance()->tick(), timestamp);
         //OSG_NOTICE<<"State::frameCompleted() setting time stamp. timestamp="<<timestamp<<std::endl;
     }
+}
+
+bool State::DefineMap::updateCurrentDefines()
+{
+    if (changed)
+    {
+        currentDefines.clear();
+        for(DefineStackMap::const_iterator itr = map.begin();
+            itr != map.end();
+            ++itr)
+        {
+            const DefineStack::DefineVec& dv = itr->second.defineVec;
+            if (!dv.empty())
+            {
+                const StateSet::DefinePair& dp = dv.back();
+                if (dp.second & osg::StateAttribute::ON)
+                {
+                    currentDefines[itr->first] = dp;
+                }
+            }
+        }
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+std::string State::getDefineString(const osg::ShaderDefines& shaderDefines)
+{
+    if (_defineMap.changed) _defineMap.updateCurrentDefines();
+
+    const StateSet::DefineList& currentDefines = _defineMap.currentDefines;
+
+    ShaderDefines::const_iterator sd_itr = shaderDefines.begin();
+    StateSet::DefineList::const_iterator cd_itr = currentDefines.begin();
+
+    std::string shaderDefineStr;
+
+    while(sd_itr != shaderDefines.end() && cd_itr != currentDefines.end())
+    {
+        if ((*sd_itr) < cd_itr->first) ++sd_itr;
+        else if (cd_itr->first < (*sd_itr)) ++cd_itr;
+        else
+        {
+            const StateSet::DefinePair& dp = cd_itr->second;
+            shaderDefineStr += "#define ";
+            shaderDefineStr += cd_itr->first;
+            if (dp.first.empty())
+            {
+                shaderDefineStr += "\n";
+            }
+            else
+            {
+                shaderDefineStr += " ";
+                shaderDefineStr += dp.first;
+                shaderDefineStr += "\n";
+            }
+
+            ++sd_itr;
+            ++cd_itr;
+        }
+    }
+    return shaderDefineStr;
+}
+
+bool State::supportsShaderRequirements(const osg::ShaderDefines& shaderRequirements)
+{
+    if (shaderRequirements.empty()) return true;
+
+    if (_defineMap.changed) _defineMap.updateCurrentDefines();
+
+    const StateSet::DefineList& currentDefines = _defineMap.currentDefines;
+    for(ShaderDefines::const_iterator sr_itr = shaderRequirements.begin();
+        sr_itr != shaderRequirements.end();
+        ++sr_itr)
+    {
+        if (currentDefines.find(*sr_itr)==currentDefines.end()) return false;
+    }
+    return true;
+}
+
+bool State::supportsShaderRequirement(const std::string& shaderRequirement)
+{
+    if (_defineMap.changed) _defineMap.updateCurrentDefines();
+    const StateSet::DefineList& currentDefines = _defineMap.currentDefines;
+    return (currentDefines.find(shaderRequirement)!=currentDefines.end());
 }

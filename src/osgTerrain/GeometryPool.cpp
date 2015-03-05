@@ -42,8 +42,10 @@ const osgTerrain::Locator* osgTerrain::computeMasterLocator(const osgTerrain::Te
 //  GeometryPool
 //
 GeometryPool::GeometryPool():
-    _useGeometryShader(false)
+    _rootStateSetAssigned(false)
+
 {
+    _rootStateSet = new osg::StateSet;
 }
 
 GeometryPool::~GeometryPool()
@@ -106,20 +108,27 @@ osg::ref_ptr<SharedGeometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terra
 
     geometry->setUseVertexBufferObjects(true);
 
+    osg::ref_ptr<osg::VertexBufferObject> vbo = new osg::VertexBufferObject;
+
     SharedGeometry::VertexToHeightFieldMapping& vthfm = geometry->getVertexToHeightFieldMapping();
 
-    osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array(osg::Array::BIND_PER_VERTEX);
+    vertices->setVertexBufferObject(vbo.get());
     geometry->setVertexArray(vertices.get());
 
-    osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
-    geometry->setNormalArray(normals.get(), osg::Array::BIND_PER_VERTEX);
+    osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array(osg::Array::BIND_PER_VERTEX);
+    normals->setVertexBufferObject(vbo.get());
+    geometry->setNormalArray(normals.get());
 
-    osg::ref_ptr<osg::Vec4Array> colours = new osg::Vec4Array;
-    geometry->setColorArray(colours.get(), osg::Array::BIND_OVERALL);
+    osg::ref_ptr<osg::Vec4Array> colours = new osg::Vec4Array(osg::Array::BIND_OVERALL);
+    geometry->setColorArray(colours.get());
     colours->push_back(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
-    osg::ref_ptr<osg::Vec4Array> texcoords = new osg::Vec4Array;
-    geometry->setTexCoordArray(0, texcoords.get(), osg::Array::BIND_PER_VERTEX);
+    osg::ref_ptr<osg::Vec4Array> texcoords = new osg::Vec4Array(osg::Array::BIND_PER_VERTEX);
+    texcoords->setVertexBufferObject(vbo.get());
+    geometry->setTexCoordArray(texcoords.get());
+
+
 
     int nx = key.nx;
     int ny = key.nx;
@@ -301,13 +310,16 @@ osg::ref_ptr<SharedGeometry> GeometryPool::getOrCreateGeometry(osgTerrain::Terra
 
 #else
     bool smallTile = numVertices <= 16384;
-    GLenum primitiveTypes = _useGeometryShader ? GL_LINES_ADJACENCY : GL_QUADS;
+
+    GLenum primitiveTypes = GL_QUADS;
+
     osg::ref_ptr<osg::DrawElements> elements = smallTile ?
         static_cast<osg::DrawElements*>(new osg::DrawElementsUShort(primitiveTypes)) :
         static_cast<osg::DrawElements*>(new osg::DrawElementsUInt(primitiveTypes));
 
     elements->reserveElements( (nx-1) * (ny-1) * 4 + (nx-1)*2*4 + (ny-1)*2*4 );
-    geometry->addPrimitiveSet(elements.get());
+    elements->setElementBufferObject(new osg::ElementBufferObject());
+    geometry->setDrawElements(elements.get());
 
 
     // first row containing the skirt
@@ -554,11 +566,11 @@ osg::ref_ptr<osg::MatrixTransform> GeometryPool::getTileSubgraph(osgTerrain::Ter
 
 osg::ref_ptr<osg::Program> GeometryPool::getOrCreateProgram(LayerTypes& layerTypes)
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex>  lock(_programMapMutex);
+    //OpenThreads::ScopedLock<OpenThreads::Mutex>  lock(_programMapMutex);
     ProgramMap::iterator itr = _programMap.find(layerTypes);
     if (itr!=_programMap.end())
     {
-        // OSG_NOTICE<<") returning exisitng Program "<<itr->second.get()<<std::endl;
+        // OSG_NOTICE<<") returning existing Program "<<itr->second.get()<<std::endl;
         return itr->second.get();
     }
 
@@ -585,9 +597,6 @@ osg::ref_ptr<osg::Program> GeometryPool::getOrCreateProgram(LayerTypes& layerTyp
 
 #endif
 
-    bool useLighting = true;
-    bool useTextures = true;
-
     osg::ref_ptr<osg::Program> program = new osg::Program;
     _programMap[layerTypes] = program;
 
@@ -595,38 +604,22 @@ osg::ref_ptr<osg::Program> GeometryPool::getOrCreateProgram(LayerTypes& layerTyp
     program->addShader(osgDB::readShaderFile("shaders/lighting.vert"));
 
     // OSG_NOTICE<<") creating new Program "<<program.get()<<std::endl;
-    if (num_HeightField>0)
     {
         #include "shaders/terrain_displacement_mapping_vert.cpp"
         osg::ref_ptr<osg::Shader> shader = osgDB::readShaderFileWithFallback(osg::Shader::VERTEX, "shaders/terrain_displacement_mapping.vert", terrain_displacement_mapping_vert);
-        if (_useGeometryShader)
-        {
-            // prepend define to enable the compute shader style
-            shader->setShaderSource(std::string("#define COMPUTE_DIAGONALS\n")+shader->getShaderSource());
-        }
-
-        if (useLighting)
-        {
-            // prepend define to enable lighting
-            shader->setShaderSource(std::string("#define GL_LIGHTING\n")+shader->getShaderSource());
-        }
 
         program->addShader(shader.get());
     }
-    else
+
+
     {
-        #include "shaders/terrain_displacement_mapping_flat_vert.cpp"
-        program->addShader(osgDB::readShaderFileWithFallback(osg::Shader::VERTEX, "shaders/terrain_displacement_mapping.vert", terrain_displacement_mapping_flat_vert));
-    }
+        #include "shaders/terrain_displacement_mapping_geom.cpp"
+        osg::ref_ptr<osg::Shader> shader = osgDB::readShaderFileWithFallback(osg::Shader::GEOMETRY, "shaders/terrain_displacement_mapping.geom", terrain_displacement_mapping_geom);
+        program->addShader(shader.get());
 
-
-    if (_useGeometryShader)
-    {
-        program->addShader(osgDB::readShaderFile("shaders/terrain_displacement_mapping.geom"));
-
-        program->setParameter( GL_GEOMETRY_VERTICES_OUT_EXT, 4 );
-        program->setParameter( GL_GEOMETRY_INPUT_TYPE_EXT, GL_LINES_ADJACENCY );
-        program->setParameter( GL_GEOMETRY_OUTPUT_TYPE_EXT, GL_TRIANGLE_STRIP);
+        program->setParameter( GL_GEOMETRY_VERTICES_OUT, 4 );
+        program->setParameter( GL_GEOMETRY_INPUT_TYPE, GL_LINES_ADJACENCY );
+        program->setParameter( GL_GEOMETRY_OUTPUT_TYPE, GL_TRIANGLE_STRIP);
     }
 
     if (num_Contour>0)
@@ -635,35 +628,11 @@ osg::ref_ptr<osg::Program> GeometryPool::getOrCreateProgram(LayerTypes& layerTyp
     }
 
     {
-        osg::ref_ptr<osg::Shader> shader;
-        if (num_Color==0)
-        {
-            #include "shaders/terrain_displacement_mapping_frag.cpp"
-            shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping.frag", terrain_displacement_mapping_frag);
-        }
-        else if (num_Color==1)
-        {
-            #include "shaders/terrain_displacement_mapping_C_frag.cpp"
-            shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping_C.frag", terrain_displacement_mapping_C_frag);
-        }
-        else if (num_Color==2)
-        {
-            #include "shaders/terrain_displacement_mapping_CC_frag.cpp"
-            shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping_CC.frag", terrain_displacement_mapping_CC_frag);
-        }
-        else if (num_Color==3)
-        {
-            #include "shaders/terrain_displacement_mapping_CCC_frag.cpp"
-            shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping_CCC.frag", terrain_displacement_mapping_CCC_frag);
-        }
+        #include "shaders/terrain_displacement_mapping_frag.cpp"
+        osg::ref_ptr<osg::Shader> shader = osgDB::readShaderFileWithFallback(osg::Shader::FRAGMENT, "shaders/terrain_displacement_mapping.frag", terrain_displacement_mapping_frag);
 
         if (shader.valid())
         {
-            if (useTextures)
-            {
-                // prepend define to enable lighting
-                shader->setShaderSource(std::string("#define GL_TEXTURE_2D\n")+shader->getShaderSource());
-            }
             program->addShader(shader.get());
         }
 
@@ -702,8 +671,8 @@ void GeometryPool::applyLayers(osgTerrain::TerrainTile* tile, osg::StateSet* sta
             texture2D->setImage(image.get());
             texture2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
             texture2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
-            texture2D->setWrap(osg::Texture::WRAP_S,osg::Texture::CLAMP);
-            texture2D->setWrap(osg::Texture::WRAP_T,osg::Texture::CLAMP);
+            texture2D->setWrap(osg::Texture::WRAP_S,osg::Texture::CLAMP_TO_EDGE);
+            texture2D->setWrap(osg::Texture::WRAP_T,osg::Texture::CLAMP_TO_EDGE);
             texture2D->setBorderColor(osg::Vec4d(0.0,0.0,0.0,0.0));
             texture2D->setResizeNonPowerOfTwoHint(false);
 
@@ -717,6 +686,7 @@ void GeometryPool::applyLayers(osgTerrain::TerrainTile* tile, osg::StateSet* sta
         layerTypes.push_back(HEIGHTFIELD_LAYER);
     }
 #if 1
+    int colorLayerNum = 0;
     for(unsigned int layerNum=0; layerNum<tile->getNumColorLayers(); ++layerNum)
     {
         osgTerrain::Layer* colorLayer = tile->getColorLayer(layerNum);
@@ -781,45 +751,77 @@ void GeometryPool::applyLayers(osgTerrain::TerrainTile* tile, osg::StateSet* sta
             stateset->setTextureAttributeAndModes(textureUnit, texture2D, osg::StateAttribute::ON);
 
             std::stringstream str;
-            str<<"colorTexture"<<textureUnit;
+            str<<"colorTexture"<<colorLayerNum;
             stateset->addUniform(new osg::Uniform(str.str().c_str(),textureUnit));
 
             layerTypes.push_back(COLOR_LAYER);
 
+            ++colorLayerNum;
+
         }
         else if (contourLayer)
         {
-            osg::Texture1D* texture1D = dynamic_cast<osg::Texture1D*>(layerToTextureMap[colorLayer]);
-            if (!texture1D)
-            {
-                texture1D = new osg::Texture1D;
-                texture1D->setImage(image);
-                texture1D->setResizeNonPowerOfTwoHint(false);
-                texture1D->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
-                texture1D->setFilter(osg::Texture::MAG_FILTER, colorLayer->getMagFilter());
-
-                layerToTextureMap[colorLayer] = texture1D;
-            }
-
-            int textureUnit = layerTypes.size();
-            stateset->setTextureAttributeAndModes(textureUnit, texture1D, osg::StateAttribute::ON);
-
-            std::stringstream str;
-            str<<"contourTexture"<<textureUnit;
-            stateset->addUniform(new osg::Uniform(str.str().c_str(),textureUnit));
-
-            layerTypes.push_back(CONTOUR_LAYER);
+            OSG_NOTICE<<"Warning : GeometryPool does not presently support ContourLayers."<<std::endl;
         }
     }
 #endif
 
-    osg::ref_ptr<osg::Program> program = getOrCreateProgram(layerTypes);
-    if (program.valid())
+
+    // If we have a root StateSet assigned for Terrain?
+    //   If tile_LayerTypes a subset of root_LayerTypes then toggle on/off locally
+    //   If tile_LayerTypes a superset of root_LayerTypes then create local Program
+    //   else no need to set anything
+    // else no root StateSet
+    //    create new StateSet for Program required and assigned with layers required enabled
+    //
+
+
+
+    //stateset->setDefine("GL_LIGHTING", osg::StateAttribute::ON);
     {
-        stateset->setAttribute(program.get());
+        OpenThreads::ScopedLock<OpenThreads::Mutex>  lock(_programMapMutex);
+        if (!_rootStateSetAssigned)
+        {
+            _rootStateSetAssigned = true;
+
+            _rootStateSet->setDefine("LIGHTING");
+
+            int num_Color = 0;
+            for(LayerTypes::iterator itr = layerTypes.begin();
+                itr != layerTypes.end();
+                ++itr)
+            {
+                switch(*itr)
+                {
+                    case(HEIGHTFIELD_LAYER): _rootStateSet->setDefine("HEIGHTFIELD_LAYER"); break;
+                    case(COLOR_LAYER): ++num_Color; break;
+                    case(CONTOUR_LAYER): break; // not supported right now
+                }
+            }
+
+            if (num_Color>=1)
+            {
+                _rootStateSet->setDefine("TEXTURE_2D");
+                _rootStateSet->setDefine("COLOR_LAYER0");
+            }
+
+            if (num_Color>=2) _rootStateSet->setDefine("COLOR_LAYER1");
+            if (num_Color>=3) _rootStateSet->setDefine("COLOR_LAYER2");
+
+            osg::ref_ptr<osg::Program> program = getOrCreateProgram(layerTypes);
+            if (program.valid())
+            {
+                _rootStateSet->setAttribute(program.get());
+            }
+        }
     }
 }
 
+osg::StateSet* GeometryPool::getRootStateSetForTerrain(Terrain* terrain)
+{
+    //OSG_NOTICE<<"getRootStateSetForTerrain("<<terrain<<")"<<std::endl;
+    return _rootStateSet.get();
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -827,11 +829,17 @@ void GeometryPool::applyLayers(osgTerrain::TerrainTile* tile, osg::StateSet* sta
 //
 SharedGeometry::SharedGeometry()
 {
-//    setSupportsDisplayList(false);
+    setSupportsDisplayList(false);
+    _supportsVertexBufferObjects = true;
 }
 
 SharedGeometry::SharedGeometry(const SharedGeometry& rhs,const osg::CopyOp& copyop):
-    osg::Geometry(rhs, copyop),
+    osg::Drawable(rhs, copyop),
+    _vertexArray(rhs._vertexArray),
+    _normalArray(rhs._normalArray),
+    _colorArray(rhs._colorArray),
+    _texcoordArray(rhs._texcoordArray),
+    _drawElements(rhs._drawElements),
     _vertexToHeightFieldMapping(rhs._vertexToHeightFieldMapping)
 {
 //    setSupportsDisplayList(false);
@@ -841,6 +849,177 @@ SharedGeometry::~SharedGeometry()
 {
 }
 
+void SharedGeometry::compileGLObjects(osg::RenderInfo& renderInfo) const
+{
+    if (!_vertexArray) return;
+    if (_vertexArray->getVertexBufferObject())
+    {
+        osg::State& state = *renderInfo.getState();
+        unsigned int contextID = state.getContextID();
+        osg::GLExtensions* extensions = state.get<osg::GLExtensions>();
+        if (!extensions) return;
+
+        {
+            osg::BufferObject* vbo = _vertexArray->getVertexBufferObject();
+            osg::GLBufferObject* glBufferObject = vbo->getOrCreateGLBufferObject(contextID);
+            if (glBufferObject && glBufferObject->isDirty())
+            {
+                // OSG_NOTICE<<"Compile buffer "<<glBufferObject<<std::endl;
+                glBufferObject->compileBuffer();
+            }
+        }
+
+        {
+            osg::BufferObject* ebo = _drawElements->getElementBufferObject();
+            osg::GLBufferObject* glBufferObject = ebo->getOrCreateGLBufferObject(contextID);
+            if (glBufferObject && glBufferObject->isDirty())
+            {
+                // OSG_NOTICE<<"Compile buffer "<<glBufferObject<<std::endl;
+                glBufferObject->compileBuffer();
+            }
+        }
+
+        // unbind the BufferObjects
+        extensions->glBindBuffer(GL_ARRAY_BUFFER_ARB,0);
+        extensions->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER_ARB,0);
+    }
+    else
+    {
+        Drawable::compileGLObjects(renderInfo);
+    }
+}
+
+void SharedGeometry::resizeGLObjectBuffers(unsigned int maxSize)
+{
+    Drawable::resizeGLObjectBuffers(maxSize);
+
+    osg::BufferObject* vbo = _vertexArray->getVertexBufferObject();
+    if (vbo) vbo->resizeGLObjectBuffers(maxSize);
+
+    osg::BufferObject* ebo = _drawElements->getElementBufferObject();
+    if (ebo) ebo->resizeGLObjectBuffers(maxSize);
+}
+
+void SharedGeometry::releaseGLObjects(osg::State* state) const
+{
+    Drawable::releaseGLObjects(state);
+
+    osg::BufferObject* vbo = _vertexArray->getVertexBufferObject();
+    if (vbo) vbo->releaseGLObjects(state);
+
+    osg::BufferObject* ebo = _drawElements->getElementBufferObject();
+    if (ebo) ebo->releaseGLObjects(state);
+}
+
+void SharedGeometry::drawImplementation(osg::RenderInfo& renderInfo) const
+{
+    bool computeDiagonals = renderInfo.getState()->supportsShaderRequirement("COMPUTE_DIAGONALS");
+    //OSG_NOTICE<<"SharedGeometry "<<computeDiagonals<<std::endl;
+
+    osg::State& state = *renderInfo.getState();
+
+
+    // state.checkGLErrors("Before SharedGeometry::drawImplementation.");
+
+
+    bool checkForGLErrors = state.getCheckForGLErrors()==osg::State::ONCE_PER_ATTRIBUTE;
+    if (checkForGLErrors) state.checkGLErrors("start of SharedGeometry::drawImplementation()");
+
+    osg::ArrayDispatchers& arrayDispatchers = state.getArrayDispatchers();
+
+    arrayDispatchers.reset();
+    arrayDispatchers.setUseVertexAttribAlias(state.getUseVertexAttributeAliasing());
+
+    arrayDispatchers.activateNormalArray(_normalArray.get());
+    arrayDispatchers.activateColorArray(_colorArray.get());
+
+    // dispatch any attributes that are bound overall
+    arrayDispatchers.dispatch(osg::Array::BIND_OVERALL,0);
+
+    state.lazyDisablingOfVertexAttributes();
+
+    // set up arrays
+    if( _vertexArray.valid() )
+        state.setVertexPointer(_vertexArray.get());
+
+    if (_normalArray.valid() && _normalArray->getBinding()==osg::Array::BIND_PER_VERTEX)
+        state.setNormalPointer(_normalArray.get());
+
+    if (_colorArray.valid() && _colorArray->getBinding()==osg::Array::BIND_PER_VERTEX)
+        state.setColorPointer(_colorArray.get());
+
+    if (_texcoordArray.valid() && _texcoordArray->getBinding()==osg::Array::BIND_PER_VERTEX)
+        state.setTexCoordPointer(0, _texcoordArray.get());
+
+    state.applyDisablingOfVertexAttributes();
+
+    if (checkForGLErrors) state.checkGLErrors("Geometry::drawImplementation() after vertex arrays setup.");
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //
+    // draw the primitives themselves.
+    //
+    GLenum primitiveType = computeDiagonals ? GL_LINES_ADJACENCY : GL_QUADS;
+
+    osg::GLBufferObject* ebo = _drawElements->getOrCreateGLBufferObject(state.getContextID());
+    state.bindElementBufferObject(ebo);
+
+    glDrawElements(primitiveType, _drawElements->getNumIndices(), _drawElements->getDataType(), (const GLvoid *)(ebo->getOffset(_drawElements->getBufferIndex())));
+
+
+    // unbind the VBO's if any are used.
+    state.unbindVertexBufferObject();
+    state.unbindElementBufferObject();
+
+#if 0
+    if (computeDiagonals)
+    {
+        if (state.checkGLErrors("End of SharedGeometry::drawImplementation. computeDiagonals=TRUE")) {}
+        else OSG_NOTICE<<"SharedGeometry::drawImplementation. OK computeDiagonals=TRUE"<<std::endl;
+    }
+    else
+    {
+        if (state.checkGLErrors("End of SharedGeometry::drawImplementation. computeDiagonals=FALSE")) {}
+        else OSG_NOTICE<<"SharedGeometry::drawImplementation. OK computeDiagonals=FALSE"<<std::endl;
+    }
+#endif
+
+    if (checkForGLErrors) state.checkGLErrors("end of SharedGeometry::drawImplementation().");
+}
+
+void SharedGeometry::accept(osg::Drawable::AttributeFunctor& af)
+{
+    osg::AttributeFunctorArrayVisitor afav(af);
+
+    afav.applyArray(VERTICES,_vertexArray.get());
+    afav.applyArray(NORMALS, _normalArray.get());
+    afav.applyArray(COLORS, _colorArray.get());
+    afav.applyArray(TEXTURE_COORDS_0,_texcoordArray.get());
+}
+
+void SharedGeometry::accept(osg::Drawable::ConstAttributeFunctor& af) const
+{
+    osg::ConstAttributeFunctorArrayVisitor afav(af);
+
+    afav.applyArray(VERTICES,_vertexArray.get());
+    afav.applyArray(NORMALS, _normalArray.get());
+    afav.applyArray(COLORS, _colorArray.get());
+    afav.applyArray(TEXTURE_COORDS_0,_texcoordArray.get());
+}
+
+void SharedGeometry::accept(osg::PrimitiveFunctor& pf) const
+{
+    pf.setVertexArray(_vertexArray->getNumElements(),static_cast<const osg::Vec3*>(_vertexArray->getDataPointer()));
+
+    _drawElements->accept(pf);
+}
+
+void SharedGeometry::accept(osg::PrimitiveIndexFunctor& pif) const
+{
+    pif.setVertexArray(_vertexArray->getNumElements(),static_cast<const osg::Vec3*>(_vertexArray->getDataPointer()));
+
+    _drawElements->accept(pif);
+}
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -904,22 +1083,17 @@ void HeightFieldDrawable::accept(osg::PrimitiveFunctor& pf) const
     {
         pf.setVertexArray(_vertices->size(), &((*_vertices)[0]));
 
-        for(osg::Geometry::PrimitiveSetList::const_iterator itr = _geometry->getPrimitiveSetList().begin();
-            itr != _geometry->getPrimitiveSetList().end();
-            ++itr)
+        const osg::DrawElementsUShort* deus = dynamic_cast<const osg::DrawElementsUShort*>(_geometry->getDrawElements());
+        if (deus)
         {
-            const osg::DrawElementsUShort* deus = dynamic_cast<const osg::DrawElementsUShort*>(itr->get());
-            if (deus)
+            pf.drawElements(GL_QUADS, deus->size(), &((*deus)[0]));
+        }
+        else
+        {
+            const osg::DrawElementsUInt* deui = dynamic_cast<const osg::DrawElementsUInt*>(_geometry->getDrawElements());
+            if (deui)
             {
-                pf.drawElements(GL_QUADS, deus->size(), &((*deus)[0]));
-            }
-            else
-            {
-                const osg::DrawElementsUInt* deui = dynamic_cast<const osg::DrawElementsUInt*>(itr->get());
-                if (deui)
-                {
-                    pf.drawElements(GL_QUADS, deui->size(), &((*deui)[0]));
-                }
+                pf.drawElements(GL_QUADS, deui->size(), &((*deui)[0]));
             }
         }
     }
@@ -934,11 +1108,19 @@ void HeightFieldDrawable::accept(osg::PrimitiveIndexFunctor& pif) const
     if (_vertices.valid())
     {
         pif.setVertexArray(_vertices->size(), &((*_vertices)[0]));
-        for(osg::Geometry::PrimitiveSetList::const_iterator itr = _geometry->getPrimitiveSetList().begin();
-            itr != _geometry->getPrimitiveSetList().end();
-            ++itr)
+
+        const osg::DrawElementsUShort* deus = dynamic_cast<const osg::DrawElementsUShort*>(_geometry->getDrawElements());
+        if (deus)
         {
-            (*itr)->accept(pif);
+            pif.drawElements(GL_QUADS, deus->size(), &((*deus)[0]));
+        }
+        else
+        {
+            const osg::DrawElementsUInt* deui = dynamic_cast<const osg::DrawElementsUInt*>(_geometry->getDrawElements());
+            if (deui)
+            {
+                pif.drawElements(GL_QUADS, deui->size(), &((*deui)[0]));
+            }
         }
     }
     else
