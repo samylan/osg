@@ -34,7 +34,7 @@ public:
     {
         supportsExtension("text2vert32","Texture to Vertex operator");
     }
-    
+
     const char* className() const { return "Texture to Vertex Operator"; }
 
 
@@ -49,7 +49,7 @@ public:
             notify(osg::WARN) << "t2v plugin only works with 32 bits image" << std::endl;
             return 0;
         }
-        
+
         osg::ref_ptr<osg::Vec3Array> vertexes = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
         for( int y=0; y<image->t(); y++ ) {
@@ -76,8 +76,8 @@ public:
             }
         }
         osg::Geometry* geom = new osg::Geometry;
-        geom->setVertexArray(vertexes);
-        geom->setColorArray(colors);
+        geom->setVertexArray(vertexes.get());
+        geom->setColorArray(colors.get());
         geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
         geom->getPrimitiveSetList().push_back(new osg::DrawArrays(GL_POINTS,0,vertexes->size()));
         geom->getOrCreateStateSet()->setMode(GL_BLEND,true);
@@ -95,7 +95,7 @@ public:
         std::string subLocation = osgDB::getNameLessExtension( file );
         if ( subLocation.empty() )
             return ReadResult::FILE_NOT_HANDLED;
-            
+
         // recursively load the subfile.
         osg::ref_ptr<osg::Image> image = osgDB::readImageFile( subLocation, options );
         if( !image.valid() )
@@ -104,7 +104,7 @@ public:
             osg::notify(osg::WARN) << "Subfile \"" << subLocation << "\" could not be loaded" << std::endl;
             return ReadResult::FILE_NOT_HANDLED;
         }
-            
+
         ReadResult rr = readTex2Vert(image.get());
         return rr;
     }

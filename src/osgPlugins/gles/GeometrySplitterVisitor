@@ -215,7 +215,7 @@ protected:
         if (!primitivesToFix.empty()) {
             // filter all indices > _maxIndexValue in primitives
             for (unsigned int i = 0; i < primitivesToFix.size(); i++) {
-                osg::DrawElements* source = primitivesToFix[i];
+                osg::DrawElements* source = primitivesToFix[i].get();
                 osg::DrawElements* large = removeLargeIndices(dynamic_cast<osg::DrawElementsUInt*>(source));
                 reportedPrimitives.push_back(large);
                 geomPrimitives.push_back(source);
@@ -354,7 +354,7 @@ public:
         // remove all drawables
         geode.removeDrawables(0, geode.getNumDrawables());
         for(unsigned int i = 0 ; i < remapped.size() ; ++ i) {
-            geode.addDrawable(remapped[i]);
+            geode.addDrawable(remapped[i].get());
         }
     }
 

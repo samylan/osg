@@ -30,7 +30,7 @@ public:
         GeometryArrayList dst = srcArrays.cloneType();
 
         for (unsigned int i = 0; i < geometry.getPrimitiveSetList().size(); i++) {
-            osg::PrimitiveSet* ps = geometry.getPrimitiveSetList()[i];
+            osg::PrimitiveSet* ps = geometry.getPrimitiveSetList()[i].get();
             switch (ps->getType()) {
                 case osg::PrimitiveSet::DrawArraysPrimitiveType:
                     {

@@ -1,9 +1,9 @@
-/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson 
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson
  *
- * This application is open source and may be redistributed and/or modified   
+ * This application is open source and may be redistributed and/or modified
  * freely and without restriction, both in commercial and non commercial
  * applications, as long as this copyright notice is maintained.
- * 
+ *
  * This application is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -21,7 +21,7 @@ struct StatsVisitor : public osg::NodeVisitor
         _sceneNbTriangles = 0;
         _sceneNbVertexes = 0;
 
-        
+
     }
     void dump() {
         osg::notify(osg::NOTICE) << "SceneNbTriangles:" << _sceneNbTriangles << std::endl;
@@ -41,8 +41,8 @@ struct StatsVisitor : public osg::NodeVisitor
                 }
                 // compute nb triangles and vertexes
                 for (unsigned int tr = 0; tr < (*geom).getPrimitiveSetList().size(); tr++) {
-                    osg::PrimitiveSet* primitive = (*geom).getPrimitiveSetList()[tr];
-                    if (primitive && 
+                    osg::PrimitiveSet* primitive = (*geom).getPrimitiveSetList()[tr].get();
+                    if (primitive &&
                         primitive->getMode() != osg::PrimitiveSet::LINES_ADJACENCY &&
                         primitive->getMode() != osg::PrimitiveSet::LINE_STRIP_ADJACENCY &&
                         primitive->getMode() != osg::PrimitiveSet::PATCHES &&

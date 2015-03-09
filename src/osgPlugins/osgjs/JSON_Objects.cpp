@@ -517,6 +517,9 @@ void JSONVertexArray::write(json_stream& str, WriteVisitor& visitor)
             }
             break;
 
+            case osg::Array::MatrixdArrayType:
+            default:
+                break;
             }
         }
     }
