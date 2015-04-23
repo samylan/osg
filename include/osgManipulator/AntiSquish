@@ -39,6 +39,11 @@ class OSGMANIPULATOR_EXPORT AntiSquish: public osg::Transform
 
         virtual bool isSameKindAs(const osg::Object* obj) const { return dynamic_cast<const AntiSquish *>(obj)!=NULL; }
 
+        virtual const char* libraryName() const { return "osgManipulator"; }
+
+        virtual const char* className() const { return "AntiSquish"; }
+
+
         void setPivot(const osg::Vec3d& pvt)
         {
             _pivot = pvt;
@@ -64,7 +69,7 @@ class OSGMANIPULATOR_EXPORT AntiSquish: public osg::Transform
 
         virtual ~AntiSquish();
 
-        bool computeUnSquishedMatrix(const osg::NodeVisitor*,osg::Matrix&) const;
+        bool computeUnSquishedMatrix(osg::Matrix&) const;
 
         osg::Vec3d _pivot;
         bool _usePivot;

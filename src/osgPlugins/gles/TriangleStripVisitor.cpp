@@ -20,8 +20,8 @@ void TriangleStripVisitor::mergeTrianglesStrip(osg::Geometry& geometry)
     int nbtristrip = 0;
     int nbtristripVertexes = 0;
 
-    for (unsigned int i = 0; i < geometry.getPrimitiveSetList().size(); i++) {
-        osg::PrimitiveSet* ps = geometry.getPrimitiveSetList()[i].get();
+    for (unsigned int i = 0; i < geometry.getNumPrimitiveSets(); i++) {
+        osg::PrimitiveSet* ps = geometry.getPrimitiveSet(i);
         osg::DrawElements* de = ps->getDrawElements();
         if (de && de->getMode() == osg::PrimitiveSet::TRIANGLE_STRIP) {
             nbtristrip++;
@@ -36,8 +36,8 @@ void TriangleStripVisitor::mergeTrianglesStrip(osg::Geometry& geometry)
                                  << " after connection" << std::endl;
 
         osg::DrawElementsUShort* ndw = new osg::DrawElementsUShort(osg::PrimitiveSet::TRIANGLE_STRIP);
-        for (unsigned int i = 0 ; i < geometry.getPrimitiveSetList().size() ; ++ i) {
-            osg::PrimitiveSet* ps = geometry.getPrimitiveSetList()[i].get();
+        for (unsigned int i = 0 ; i < geometry.getNumPrimitiveSets() ; ++ i) {
+            osg::PrimitiveSet* ps = geometry.getPrimitiveSet(i);
             if (ps && ps->getMode() == osg::PrimitiveSet::TRIANGLE_STRIP) {
                 osg::DrawElements* de = ps->getDrawElements();
                 if (de) {
@@ -81,8 +81,8 @@ void TriangleStripVisitor::mergeTrianglesStrip(osg::Geometry& geometry)
             }
         }
 
-        for (int i = geometry.getPrimitiveSetList().size() - 1 ; i >= 0 ; -- i) {
-            osg::PrimitiveSet* ps = geometry.getPrimitiveSetList()[i].get();
+        for (int i = geometry.getNumPrimitiveSets() - 1 ; i >= 0 ; -- i) {
+            osg::PrimitiveSet* ps = geometry.getPrimitiveSet(i);
             // remove null primitive sets and all primitives that have been merged
             // (i.e. all TRIANGLE_STRIP DrawElements and DrawArrays)
             if (!ps || (ps && ps->getMode() == osg::PrimitiveSet::TRIANGLE_STRIP)) {

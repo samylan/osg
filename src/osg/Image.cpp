@@ -638,7 +638,7 @@ unsigned int Image::computePixelSizeInBits(GLenum format,GLenum type)
 
     // note, haven't yet added proper handling of the ARB GL_COMPRESSRED_* pathways
     // yet, no clear size for these since its probably implementation dependent
-    // which raises the question of how to actually querry for these sizes...
+    // which raises the question of how to actually query for these sizes...
     // will need to revisit this issue, for now just report an error.
     // this is possible a bit of mute point though as since the ARB compressed formats
     // arn't yet used for storing images to disk, so its likely that users wont have
@@ -833,7 +833,11 @@ int Image::computeNumberOfMipmapLevels(int s,int t, int r)
 {
     int w = maximum(s, t);
     w = maximum(w, r);
-    return 1 + static_cast<int>(floor(logf(w)/logf(2.0f)));
+
+    int n = 0;
+    while (w >>= 1)
+        ++n;
+    return n+1;
 }
 
 bool Image::isCompressed() const

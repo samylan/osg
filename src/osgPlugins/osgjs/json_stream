@@ -1,3 +1,20 @@
+/*  -*-c++-*-
+ *  Copyright (C) 2010 Cedric Pinson <cedric.pinson@plopbyte.net>
+ *
+ * This library is open source and may be redistributed and/or modified under
+ * the terms of the OpenSceneGraph Public License (OSGPL) version 0.0 or
+ * (at your option) any later version.  The full license is in LICENSE file
+ * included with this distribution, and on the openscenegraph.org website.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * OpenSceneGraph Public License for more details.
+ *
+ * Authors:
+ *         Cedric Pinson <cedric.pinson@plopbyte.net>
+ */
+
 #ifndef JSON_STREAM
 #define JSON_STREAM
 
@@ -5,11 +22,13 @@
 #include <iomanip>
 #include <cctype>  // control characters
 #include <sstream>
-#include <fstream>
 #include <string>
 #include <cmath>
 #include <limits>
 
+#include <osgDB/fstream>
+
+using namespace std;
 
 // A simple class wrapping ofstream calls to enable generic cleaning of json data.
 // Especially 'standard' json should:
@@ -17,7 +36,13 @@
 // * disallow some control characters
 // * does not support inf or nan values
 
-class json_stream : public std::ofstream {
+#if defined(WIN32) && !defined(__MINGW32__) && (!defined(_MSC_VER) || _MSC_VER<=1600)
+inline int isfinite( double x ) { return _finite( x ); }
+inline int isinf( double x ) { return !_finite( x ) && !_isnan( x ); }
+#endif
+
+
+class json_stream : public osgDB::ofstream {
     public:
         json_stream(const std::string& filename, bool strict=true) :
             _stream(filename.c_str()),
@@ -66,11 +91,11 @@ class json_stream : public std::ofstream {
         }
 
         double to_valid_float(const double d) {
-            if(std::isfinite(d)) {
+            if(isfinite(d)) {
                 return d;
             }
             else {
-                if(std::isinf(d)) {
+                if(isinf(d)) {
                     return std::numeric_limits<double>::max();
                 }
                 // no much way to do better than replace invalid float NaN by 0

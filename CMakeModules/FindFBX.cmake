@@ -38,6 +38,8 @@ ELSE()
     SET(FBX_LIBDIR ${FBX_LIBDIR}/x86)
 ENDIF()
 
+#try to use 2015.1 or 2014.2 version
+
 IF(APPLE)
     IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         SET(FBX_LIBNAME "fbxsdk")
@@ -54,11 +56,15 @@ SET(FBX_LIBNAME_DEBUG ${FBX_LIBNAME}d)
 
 SET( FBX_SEARCH_PATHS
     $ENV{FBX_DIR}
+    "$ENV{ProgramW6432}/Autodesk/FBX/FBX SDK/2015.1"
+    "$ENV{PROGRAMFILES}/Autodesk/FBX/FBX SDK/2015.1"
+    /Applications/Autodesk/FBXSDK20151
     "$ENV{ProgramW6432}/Autodesk/FBX/FBX SDK/2014.2"
     "$ENV{PROGRAMFILES}/Autodesk/FBX/FBX SDK/2014.2"
-    "/Applications/Autodesk/FBXSDK20141"
-    "/Applications/Autodesk/FBX SDK/2014.2.1/"
+    /Applications/Autodesk/FBXSDK20142
+    /Applications/Autodesk/FBXSDK20141
 )
+#I think the last line in the search path is an old typo, but let's search for 2014.1 anyway - LV
 
 # search for headers & debug/release libraries
 FIND_PATH(FBX_INCLUDE_DIR "fbxsdk.h"

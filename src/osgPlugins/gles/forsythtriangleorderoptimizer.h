@@ -19,23 +19,23 @@
 
 namespace Forsyth
 {
-	//-----------------------------------------------------------------------------
-	//  OptimizeFaces
-	//-----------------------------------------------------------------------------
-	//  Parameters:
-	//      indexList
-	//          input index list
-	//      indexCount
-	//          the number of indices in the list
-	//      vertexCount
-	//          the largest index value in indexList
-	//      newIndexList
-	//          a pointer to a preallocated buffer the same size as indexList to
-	//          hold the optimized index list
-	//      lruCacheSize
-	//          the size of the simulated post-transform cache (max:64)
-	//-----------------------------------------------------------------------------
-	void OptimizeFaces(const unsigned int* indexList,
+    //-----------------------------------------------------------------------------
+    //  OptimizeFaces
+    //-----------------------------------------------------------------------------
+    //  Parameters:
+    //      indexList
+    //          input index list
+    //      indexCount
+    //          the number of indices in the list
+    //      vertexCount
+    //          the largest index value in indexList
+    //      newIndexList
+    //          a pointer to a preallocated buffer the same size as indexList to
+    //          hold the optimized index list
+    //      lruCacheSize
+    //          the size of the simulated post-transform cache (max:64)
+    //-----------------------------------------------------------------------------
+    void OptimizeFaces(const unsigned int* indexList,
                        unsigned int indexCount,
                        unsigned int vertexCount,
                        unsigned int* newIndexList,

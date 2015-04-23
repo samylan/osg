@@ -1,4 +1,4 @@
-/* O penSceneGraph example, osganimate.
+/* OpenSceneGraph example, osgshadercomposition.
 *
 *  Permission is hereby granted, free of charge, to any person obtaining a copy
 *  of this software and associated documentation files (the "Software"), to deal
@@ -173,7 +173,7 @@ int main( int argc, char **argv )
     }
     else
     {
-        // use new #pragama(tic) shader composition.
+        // use new #pragma(tic) shader composition.
         osg::ref_ptr<osg::Node> scenegraph = createNewShaderCompositionScene(arguments);
         if (!scenegraph) return 1;
 

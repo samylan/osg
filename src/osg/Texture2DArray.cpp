@@ -38,8 +38,7 @@ Texture2DArray::Texture2DArray(const Texture2DArray& text,const CopyOp& copyop):
 {
     setTextureDepth(text._textureDepth);
 
-    // copy all images by iterating through all of them
-    for (int i=0; i < text._textureDepth; i++)
+    for(unsigned int i = 0; i<static_cast<unsigned int>(_images.size()); ++i)
     {
         setImage(i, copyop(text._images[i].get()));
     }
@@ -47,7 +46,7 @@ Texture2DArray::Texture2DArray(const Texture2DArray& text,const CopyOp& copyop):
 
 Texture2DArray::~Texture2DArray()
 {
-    for (int i=0; i<_textureDepth; ++i)
+    for(unsigned int i = 0; i<static_cast<unsigned int>(_images.size()); ++i)
     {
         setImage(i, NULL);
     }
@@ -59,8 +58,11 @@ int Texture2DArray::compare(const StateAttribute& sa) const
     // used by the COMPARE_StateAttribute_Parameter macros below.
     COMPARE_StateAttribute_Types(Texture2DArray,sa)
 
+    if (_images.size()<rhs._images.size()) return -1;
+    if (_images.size()>rhs._images.size()) return 1;
+
     bool noImages = true;
-    for (int n=0; n < _textureDepth; n++)
+    for (unsigned int n=0; n < static_cast<unsigned int>(_images.size()); n++)
     {
         if (noImages && _images[n].valid()) noImages = false;
         if (noImages && rhs._images[n].valid()) noImages = false;
@@ -86,7 +88,6 @@ int Texture2DArray::compare(const StateAttribute& sa) const
         }
     }
 
-
     if (noImages)
     {
         int result = compareTextureObjects(rhs);
@@ -107,15 +108,17 @@ int Texture2DArray::compare(const StateAttribute& sa) const
 
 void Texture2DArray::setImage(unsigned int layer, Image* image)
 {
-    // check if the layer exceeds the texture depth
-    if (static_cast<int>(layer) >= _textureDepth)
+    if (layer>= static_cast<unsigned int>(_images.size()))
     {
-        // print warning and do nothing
-        OSG_WARN<<"Warning: Texture2DArray::setImage(..) failed, the given layer number is bigger then the size of the texture array."<<std::endl;
-        return;
+        // _images vector not large enough to contain layer so expand it.
+        _images.resize(layer+1);
+        _modifiedCount.resize(layer+1);
     }
-
-    if (_images[layer] == image) return;
+    else
+    {
+        // do not need to replace already assigned images
+        if (_images[layer] == image) return;
+    }
 
     unsigned numImageRequireUpdateBefore = 0;
     for (unsigned int i=0; i<getNumImages(); ++i)
@@ -159,6 +162,29 @@ void Texture2DArray::setImage(unsigned int layer, Image* image)
     }
 }
 
+Image* Texture2DArray::getImage(unsigned int layer)
+{
+    return (layer<static_cast<unsigned int>(_images.size())) ? _images[layer].get() : 0;
+}
+
+const Image* Texture2DArray::getImage(unsigned int layer) const
+{
+    return (layer<static_cast<unsigned int>(_images.size())) ? _images[layer].get() : 0;
+}
+
+bool Texture2DArray::imagesValid() const
+{
+    if (_images.empty()) return false;
+
+    for(Images::const_iterator itr = _images.begin();
+        itr != _images.end();
+        ++itr)
+    {
+        if (!(itr->valid()) || !((*itr)->valid())) return false;
+    }
+    return true;
+}
+
 void Texture2DArray::setTextureSize(int width, int height, int depth)
 {
     // set dimensions
@@ -170,48 +196,36 @@ void Texture2DArray::setTextureSize(int width, int height, int depth)
 void Texture2DArray::setTextureDepth(int depth)
 {
     // if we decrease the number of layers, then delete non-used
-    if (depth < _textureDepth)
+    if (depth < static_cast<int>(_images.size()))
     {
         _images.resize(depth);
         _modifiedCount.resize(depth);
-    }
-
-    // if we increase the array, then add new empty elements
-    if (depth > _textureDepth)
-    {
-        _images.resize(depth, ref_ptr<Image>(0));
-        _modifiedCount.resize(depth, ImageModifiedCount());
     }
 
     // resize the texture array
     _textureDepth = depth;
 }
 
-Image* Texture2DArray::getImage(unsigned int layer)
-{
-    return _images[layer].get();
-}
-
-const Image* Texture2DArray::getImage(unsigned int layer) const
-{
-    return _images[layer].get();
-}
-
-bool Texture2DArray::imagesValid() const
-{
-    if (_textureDepth < 1) return false;
-    for (int n=0; n < _textureDepth; n++)
-    {
-        if (!_images[n].valid() || !_images[n]->data())
-            return false;
-    }
-    return true;
-}
-
 void Texture2DArray::computeInternalFormat() const
 {
     if (imagesValid()) computeInternalFormatWithImage(*_images[0]);
     else computeInternalFormatType();
+}
+
+GLsizei Texture2DArray::computeTextureDepth() const
+{
+    GLsizei textureDepth = _textureDepth;
+    if (textureDepth==0)
+    {
+        for(Images::const_iterator itr = _images.begin();
+            itr != _images.end();
+            ++itr)
+        {
+            const osg::Image* image = itr->get();
+            if (image) textureDepth += image->r();
+        }
+    }
+    return textureDepth;
 }
 
 
@@ -237,9 +251,11 @@ void Texture2DArray::apply(State& state) const
     // get the texture object for the current contextID.
     TextureObject* textureObject = getTextureObject(contextID);
 
-    if (textureObject && _textureDepth>0)
+    GLsizei textureDepth = computeTextureDepth();
+
+    if (textureObject && textureDepth>0)
     {
-        const osg::Image* image = _images[0].get();
+        const osg::Image* image = (_images.size()>0) ? _images[0].get() : 0;
         if (image && getModifiedCount(0, contextID) != image->getModifiedCount())
         {
             // compute the internal texture format, this set the _internalFormat to an appropriate value.
@@ -250,7 +266,7 @@ void Texture2DArray::apply(State& state) const
             // compute the dimensions of the texture.
             computeRequiredTextureDimensions(state, *image, new_width, new_height, new_numMipmapLevels);
 
-            if (!textureObject->match(GL_TEXTURE_2D_ARRAY_EXT, new_numMipmapLevels, _internalFormat, new_width, new_height, _textureDepth, _borderWidth))
+            if (!textureObject->match(GL_TEXTURE_2D_ARRAY_EXT, new_numMipmapLevels, _internalFormat, new_width, new_height, textureDepth, _borderWidth))
             {
                 Texture::releaseTextureObject(contextID, _textureObjectBuffer[contextID].get());
                 _textureObjectBuffer[contextID] = 0;
@@ -275,19 +291,23 @@ void Texture2DArray::apply(State& state) const
         }
         else
         {
-            // for each image of the texture array do
-            for (GLsizei n=0; n < _textureDepth; n++)
+            GLsizei n = 0;
+            for(Images::const_iterator itr = _images.begin();
+                itr != _images.end();
+                ++itr)
             {
-                osg::Image* image = _images[n].get();
-
-                // if image content is modified, then upload it to the GPU memory
-                if (image && getModifiedCount(n,contextID) != image->getModifiedCount())
+                osg::Image* image = itr->get();
+                if (image)
                 {
-                    applyTexImage2DArray_subload(state, image, _textureWidth, _textureHeight, n, _internalFormat, _numMipmapLevels);
-                    getModifiedCount(n,contextID) = image->getModifiedCount();
+                    if (getModifiedCount(n,contextID) != image->getModifiedCount())
+                    {
+                        applyTexImage2DArray_subload(state, image, n, _textureWidth, _textureHeight, image->r(), _internalFormat, _numMipmapLevels);
+                        getModifiedCount(n,contextID) = image->getModifiedCount();
+                    }
+                    n += image->r();
                 }
             }
-        }
+            }
 
     }
 
@@ -314,7 +334,7 @@ void Texture2DArray::apply(State& state) const
 
         // create texture object
         textureObject = generateTextureObject(
-                this, contextID,GL_TEXTURE_2D_ARRAY_EXT,_numMipmapLevels,_internalFormat,_textureWidth,_textureHeight,_textureDepth,0);
+                this, contextID, GL_TEXTURE_2D_ARRAY_EXT,_numMipmapLevels, _internalFormat, _textureWidth, _textureHeight, textureDepth,0);
 
         // bind texture
         textureObject->bind();
@@ -330,8 +350,8 @@ void Texture2DArray::apply(State& state) const
             extensions->isCompressedTexImage3DSupported() )
         {
             extensions->glCompressedTexImage3D( GL_TEXTURE_2D_ARRAY_EXT, 0, _internalFormat,
-                     _textureWidth, _textureHeight, _textureDepth, _borderWidth,
-                     _images[0]->getImageSizeInBytes() * _textureDepth,
+                     _textureWidth, _textureHeight, textureDepth, _borderWidth,
+                     _images[0]->getImageSizeInBytes() * textureDepth,
                      0);
         }
         else
@@ -342,28 +362,34 @@ void Texture2DArray::apply(State& state) const
                 sourceFormat = GL_RGBA;
 
             extensions->glTexImage3D( GL_TEXTURE_2D_ARRAY_EXT, 0, _internalFormat,
-                     _textureWidth, _textureHeight, _textureDepth, _borderWidth,
+                     _textureWidth, _textureHeight, textureDepth, _borderWidth,
                      sourceFormat, _sourceType ? _sourceType : GL_UNSIGNED_BYTE,
                      0);
         }
 
-       // For certain we have to manually allocate memory for mipmaps if images are compressed
-       // if not allocated OpenGL will produce errors on mipmap upload.
-       // I have not tested if this is neccessary for plain texture formats but
-       // common sense suggests its required as well.
-       if( _min_filter != LINEAR && _min_filter != NEAREST && _images[0]->isMipmap() )
-           allocateMipmap( state );
-
-        // now for each layer we upload it into the memory
-        for (GLsizei n=0; n<_textureDepth; n++)
+        // For certain we have to manually allocate memory for mipmaps if images are compressed
+        // if not allocated OpenGL will produce errors on mipmap upload.
+        // I have not tested if this is neccessary for plain texture formats but
+        // common sense suggests its required as well.
+        if( _min_filter != LINEAR && _min_filter != NEAREST && _images[0]->isMipmap() )
         {
-            // if image is valid then upload it to the texture memory
-            osg::Image* image = _images[n].get();
+            allocateMipmap( state );
+        }
+
+        GLsizei n = 0;
+        for(Images::const_iterator itr = _images.begin();
+            itr != _images.end();
+            ++itr)
+        {
+            osg::Image* image = itr->get();
             if (image)
             {
-                // now load the image data into the memory, this will also check if image do have valid properties
-                applyTexImage2DArray_subload(state, image, _textureWidth, _textureHeight, n, _internalFormat, _numMipmapLevels);
-                getModifiedCount(n,contextID) = image->getModifiedCount();
+                if (getModifiedCount(n,contextID) != image->getModifiedCount())
+                {
+                    applyTexImage2DArray_subload(state, image, n, _textureWidth, _textureHeight, image->r(), _internalFormat, _numMipmapLevels);
+                    getModifiedCount(n,contextID) = image->getModifiedCount();
+                }
+                n += image->r();
             }
         }
 
@@ -371,22 +397,25 @@ void Texture2DArray::apply(State& state) const
         // source images have no mipmamps but we could generate them...
         if( _min_filter != LINEAR && _min_filter != NEAREST && !_images[0]->isMipmap() &&
             _useHardwareMipMapGeneration && extensions->isGenerateMipMapSupported )
-            {
-                _numMipmapLevels = Image::computeNumberOfMipmapLevels( _textureWidth, _textureHeight );
-                generateMipmap( state );
-            }
+        {
+            _numMipmapLevels = Image::computeNumberOfMipmapLevels( _textureWidth, _textureHeight );
+            generateMipmap( state );
+        }
 
-        textureObject->setAllocated(_numMipmapLevels,_internalFormat,_textureWidth,_textureHeight,_textureDepth,0);
+        textureObject->setAllocated(_numMipmapLevels, _internalFormat, _textureWidth, _textureHeight, textureDepth,0);
 
         // unref image data?
         if (isSafeToUnrefImageData(state))
         {
             Texture2DArray* non_const_this = const_cast<Texture2DArray*>(this);
-            for (int n=0; n<_textureDepth; n++)
+            for(Images::iterator itr = non_const_this->_images.begin();
+                itr != non_const_this->_images.end();
+                ++itr)
             {
-                if (_images[n].valid() && _images[n]->getDataVariance()==STATIC)
+                osg::Image* image = itr->get();
+                if (image && image->getDataVariance()==STATIC)
                 {
-                    non_const_this->_images[n] = NULL;
+                    *itr = NULL;
                 }
             }
         }
@@ -398,7 +427,7 @@ void Texture2DArray::apply(State& state) const
     {
         // generate texture
         _textureObjectBuffer[contextID] = textureObject = generateTextureObject(
-                this, contextID, GL_TEXTURE_2D_ARRAY_EXT,_numMipmapLevels,_internalFormat,_textureWidth,_textureHeight,_textureDepth,0);
+                this, contextID, GL_TEXTURE_2D_ARRAY_EXT,_numMipmapLevels,_internalFormat, _textureWidth, _textureHeight, _textureDepth,0);
 
         textureObject->bind();
         applyTexParameters(GL_TEXTURE_2D_ARRAY_EXT,state);
@@ -426,7 +455,7 @@ void Texture2DArray::apply(State& state) const
 }
 
 
-void Texture2DArray::applyTexImage2DArray_subload(State& state, Image* image, GLsizei inwidth, GLsizei inheight, GLsizei indepth, GLint inInternalFormat, GLsizei& numMipmapLevels) const
+void Texture2DArray::applyTexImage2DArray_subload(State& state, Image* image, GLsizei layer, GLsizei inwidth, GLsizei inheight, GLsizei indepth, GLint inInternalFormat, GLsizei& numMipmapLevels) const
 {
     // if we don't have a valid image we can't create a texture!
     if (!imagesValid())
@@ -487,8 +516,8 @@ void Texture2DArray::applyTexImage2DArray_subload(State& state, Image* image, GL
         if ( !compressed_image )
         {
             extensions->glTexSubImage3D( target, 0,
-                                      0, 0, indepth,
-                                      inwidth, inheight, 1,
+                                      0, 0, layer,
+                                      inwidth, inheight, indepth,
                                       (GLenum)image->getPixelFormat(),
                                       (GLenum)image->getDataType(),
                                       image->data() );
@@ -503,15 +532,16 @@ void Texture2DArray::applyTexImage2DArray_subload(State& state, Image* image, GL
             getCompressedSize(_internalFormat, inwidth, inheight, 1, blockSize,size);
 
             extensions->glCompressedTexSubImage3D(target, 0,
-                0, 0, indepth,
-                inwidth, inheight, 1,
+                0, 0, layer,
+                inwidth, inheight, indepth,
                 (GLenum)image->getPixelFormat(),
                 size,
                 image->data());
         }
 
     // we want to use mipmapping, so enable it
-    }else
+    }
+    else
     {
         // image does not provide mipmaps, so we have to create them
         if( !image->isMipmap() )
@@ -520,7 +550,8 @@ void Texture2DArray::applyTexImage2DArray_subload(State& state, Image* image, GL
             OSG_WARN<<"Warning: Texture2DArray::applyTexImage2DArray_subload(..) mipmap layer not passed, and auto mipmap generation turned off or not available. Check texture's min/mag filters & hardware mipmap generation."<<std::endl;
 
             // the image object does provide mipmaps, so upload the in the certain levels of a layer
-        }else
+        }
+        else
         {
             numMipmapLevels = image->getNumMipmapLevels();
 
@@ -537,8 +568,8 @@ void Texture2DArray::applyTexImage2DArray_subload(State& state, Image* image, GL
                     if (height == 0)
                        height = 1;
 
-                    extensions->glTexSubImage3D( target, k, 0, 0, indepth,
-                                              width, height, 1,
+                    extensions->glTexSubImage3D( target, k, 0, 0, layer,
+                                              width, height, indepth,
                                               (GLenum)image->getPixelFormat(),
                                               (GLenum)image->getDataType(),
                                                image->getMipmapData(k));
@@ -557,12 +588,12 @@ void Texture2DArray::applyTexImage2DArray_subload(State& state, Image* image, GL
                     if (height == 0)
                         height = 1;
 
-                    getCompressedSize(image->getInternalTextureFormat(), width, height, 1, blockSize,size);
+                    getCompressedSize(image->getInternalTextureFormat(), width, height, indepth, blockSize,size);
 
 //                    state.checkGLErrors("before extensions->glCompressedTexSubImage3D(");
 
-                    extensions->glCompressedTexSubImage3D(target, k, 0, 0, indepth,
-                                                       width, height, 1,
+                    extensions->glCompressedTexSubImage3D(target, k, 0, 0, layer,
+                                                       width, height, indepth,
                                                        (GLenum)image->getPixelFormat(),
                                                        size,
                                                        image->getMipmapData(k));
@@ -612,7 +643,9 @@ void Texture2DArray::allocateMipmap(State& state) const
     // get the texture object for the current contextID.
     TextureObject* textureObject = getTextureObject(contextID);
 
-    if (textureObject && _textureWidth != 0 && _textureHeight != 0 && _textureDepth != 0)
+    GLsizei textureDepth = computeTextureDepth();
+
+    if (textureObject && _textureWidth != 0 && _textureHeight != 0 && textureDepth != 0)
     {
         const GLExtensions* extensions = state.get<GLExtensions>();
 
@@ -649,7 +682,7 @@ void Texture2DArray::allocateMipmap(State& state) const
             {
                 int size = 0, blockSize = 0;
 
-                getCompressedSize( _internalFormat, width, height, _textureDepth, blockSize, size);
+                getCompressedSize( _internalFormat, width, height, textureDepth, blockSize, size);
 
                 extensions->glCompressedTexImage3D( GL_TEXTURE_2D_ARRAY_EXT, k, _internalFormat,
                                                     width, height, _textureDepth, _borderWidth,
@@ -659,7 +692,7 @@ void Texture2DArray::allocateMipmap(State& state) const
             else
             {
                 extensions->glTexImage3D( GL_TEXTURE_2D_ARRAY_EXT, k, _internalFormat,
-                     width, height, _textureDepth, _borderWidth,
+                     width, height, textureDepth, _borderWidth,
                      safeSourceFormat, _sourceType ? _sourceType : GL_UNSIGNED_BYTE,
                      NULL);
             }

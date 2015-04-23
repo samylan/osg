@@ -198,8 +198,8 @@ ADD_SUBDIRECTORY(txf)
 ADD_SUBDIRECTORY(bsp)
 ADD_SUBDIRECTORY(mdl)
 
-ADD_SUBDIRECTORY(materialmerger)
-ADD_SUBDIRECTORY(minecraft)
+ADD_SUBDIRECTORY(gles)
+ADD_SUBDIRECTORY(osgjs)
 
 IF(OSG_CPP_EXCEPTIONS_AVAILABLE)
     ADD_SUBDIRECTORY(lwo)
@@ -325,5 +325,3 @@ ENDIF()
 #        "${myvar} -->${${myvar}}<-\n"
 #    )
 #ENDFOREACH(myvar)
-
-

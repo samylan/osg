@@ -491,7 +491,7 @@ namespace glesUtil {
     {
         struct OrderByPrimitiveMode
         {
-            inline bool operator() (const osg::ref_ptr<osg::PrimitiveSet> prim1, const osg::ref_ptr<osg::PrimitiveSet> prim2)
+            inline bool operator() (const osg::ref_ptr<osg::PrimitiveSet>& prim1, const osg::ref_ptr<osg::PrimitiveSet>& prim2)
             {
                 if(prim1.get() && prim2.get()) {
                     return prim1->getMode() >= prim2->getMode();

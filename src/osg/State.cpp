@@ -277,7 +277,7 @@ void State::reset()
     _lastAppliedProgramObject = 0;
 
     // what about uniforms??? need to clear them too...
-    // go through all active Unfirom's, setting to change to force update,
+    // go through all active Uniform's, setting to change to force update,
     // the idea is to leave only the global defaults left.
     for(UniformMap::iterator uitr=_uniformMap.begin();
         uitr!=_uniformMap.end();
@@ -945,7 +945,7 @@ void State::setInterleavedArrays( GLenum format, GLsizei stride, const GLvoid* p
     OSG_NOTICE<<"Warning: State::setInterleavedArrays(..) not implemented."<<std::endl;
 #endif
 
-    // the crude way, assume that all arrays have been effected so dirty them and
+    // the crude way, assume that all arrays have been affected so dirty them and
     // disable them...
     dirtyAllVertexArrays();
 }
@@ -1447,6 +1447,18 @@ bool State::convertVertexShaderSourceToOsgBuiltIns(std::string& source) const
         declPos = 0;
     }
 
+    if (_useModelViewAndProjectionUniforms)
+    {
+        // replace ftransform as it only works with built-ins
+        State_Utils::replace(source, "ftransform()", "gl_ModelViewProjectionMatrix * gl_Vertex");
+
+        // replace built in uniform
+        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ModelViewMatrix", "osg_ModelViewMatrix", "uniform mat4 ");
+        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ModelViewProjectionMatrix", "osg_ModelViewProjectionMatrix", "uniform mat4 ");
+        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ProjectionMatrix", "osg_ProjectionMatrix", "uniform mat4 ");
+        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_NormalMatrix", "osg_NormalMatrix", "uniform mat3 ");
+    }
+
     if (_useVertexAttributeAliasing)
     {
         State_Utils::replaceAndInsertDeclaration(source, declPos, _vertexAlias._glName,         _vertexAlias._osgName,         _vertexAlias._declaration);
@@ -1459,18 +1471,6 @@ bool State::convertVertexShaderSourceToOsgBuiltIns(std::string& source) const
             const VertexAttribAlias& texCoordAlias = _texCoordAliasList[i];
             State_Utils::replaceAndInsertDeclaration(source, declPos, texCoordAlias._glName, texCoordAlias._osgName, texCoordAlias._declaration);
         }
-    }
-
-    if (_useModelViewAndProjectionUniforms)
-    {
-        // replace ftransform as it only works with built-ins
-        State_Utils::replace(source, "ftransform()", "gl_ModelViewProjectionMatrix * gl_Vertex");
-
-        // replace built in uniform
-        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ModelViewMatrix", "osg_ModelViewMatrix", "uniform mat4 ");
-        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ModelViewProjectionMatrix", "osg_ModelViewProjectionMatrix", "uniform mat4 ");
-        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_ProjectionMatrix", "osg_ProjectionMatrix", "uniform mat4 ");
-        State_Utils::replaceAndInsertDeclaration(source, declPos, "gl_NormalMatrix", "osg_NormalMatrix", "uniform mat3 ");
     }
 
     OSG_INFO<<"-------- Converted source "<<std::endl<<source<<std::endl<<"----------------"<<std::endl;

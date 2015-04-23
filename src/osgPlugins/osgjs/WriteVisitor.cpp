@@ -443,9 +443,9 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
 
     if (!geom->getPrimitiveSetList().empty()) {
         osg::ref_ptr<JSONArray> primitives = new JSONArray();
-        for (unsigned int i = 0; i < geom->getPrimitiveSetList().size(); ++i) {
+        for (unsigned int i = 0; i < geom->getNumPrimitiveSets(); ++i) {
             osg::ref_ptr<JSONObject> obj = new JSONObject;
-            osg::PrimitiveSet* primitive = geom->getPrimitiveSetList()[i].get();
+            osg::PrimitiveSet* primitive = geom->getPrimitiveSet(i);
             if(!primitive) continue;
 
             if (primitive->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType) {
