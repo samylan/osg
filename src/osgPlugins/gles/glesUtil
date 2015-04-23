@@ -389,11 +389,13 @@ namespace glesUtil {
         {
             ref_ptr<T> newarray = new T(_newsize);
             T* newptr = newarray.get();
-            for (size_t i = 0; i < array.size(); ++i)
-                if (_remapping[i] != invalidIndex)
-                    (*newptr)[_remapping[i]] = array[i];
-            array.swap(*newptr);
 
+            for (size_t i = 0; i < _remapping.size(); ++i) {
+                if (_remapping[i] != invalidIndex) {
+                    (*newptr)[_remapping[i]] = array[i];
+                }
+            }
+            array.swap(*newptr);
         }
 
         virtual void apply(osg::Array&) {}
