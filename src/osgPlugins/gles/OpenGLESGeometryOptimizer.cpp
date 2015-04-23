@@ -23,6 +23,9 @@ osg::Node* OpenGLESGeometryOptimizer::optimize(osg::Node& node) {
     // index (merge exact duplicates + uses simple triangles & lines i.e. no strip/fan/loop)
     makeIndexMesh(model.get());
 
+    // smooth vertex normals (if geometry has no normal compute smooth normals)
+    makeSmoothNormal(model);
+
     // tangent space
     if (_generateTangentSpace) {
         makeTangentSpace(model.get());

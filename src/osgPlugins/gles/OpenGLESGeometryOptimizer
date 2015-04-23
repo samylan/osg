@@ -23,6 +23,7 @@
 #include "GeometrySplitterVisitor"
 #include "IndexMeshVisitor"
 #include "PreTransformVisitor"
+#include "SmoothNormalVisitor"
 #include "TangentSpaceVisitor"
 #include "TriangleStripVisitor"
 #include "UnIndexMeshVisitor"
@@ -92,6 +93,11 @@ protected:
     void makeIndexMesh(osg::Node* node) {
         IndexMeshVisitor indexer;
         node->accept(indexer);
+    }
+
+    void makeSmoothNormal(osg::Node* node) {
+        SmoothNormalVisitor smoother(osg::PI / 2.f, true);
+        node->accept(smoother);
     }
 
     void makeTangentSpace(osg::Node* node) {
