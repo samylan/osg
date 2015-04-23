@@ -50,8 +50,6 @@ public:
                           geometry.getPrimitiveSetList());
             geometry.setFogCoordBinding(osg::Geometry::BIND_PER_VERTEX);
         }
-
-        setProcessed(&geometry);
     };
 
 protected:

@@ -34,6 +34,15 @@ public:
     {}
 
     void apply(osg::Geometry& geom) {
+        // We don't have to recompute the tangent space if we already have the data
+        int tangentIndex = -1;
+        if (geom.getUserValue(std::string("tangent"), tangentIndex) && tangentIndex != -1)
+        {
+            OSG_INFO << "[TangentSpaceVisitor::apply] Geometry '" << geom.getName() << "' The tangent space is not recomputed as it was given within the original file" << std::endl;
+            geom.getVertexAttribArray(tangentIndex)->setUserValue("tangent", true);
+            return;
+        }
+
         if (!geom.getTexCoordArray(_textureUnit)){
             int texUnit = 0;
             bool found = false;
@@ -96,7 +105,6 @@ public:
             finalTangent->setUserValue("tangent", true);
             geom.setVertexAttribArray(geom.getNumVertexAttribArrays(), finalTangent, osg::Array::BIND_PER_VERTEX);
         }
-        setProcessed(&geom);
     }
 
 protected:

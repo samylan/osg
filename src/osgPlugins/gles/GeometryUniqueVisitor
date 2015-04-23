@@ -38,10 +38,17 @@ public:
 
     virtual void apply(osg::Drawable& drawable){
         osg::Geometry* geometry = drawable.asGeometry();
+
+        // skip already processed geometry
         if (!geometry || isProcessed(geometry)) {
             return;
         }
+
+        // call overloaded geometry processing
         apply(*geometry);
+
+        // flag geometry as processed
+        setProcessed(geometry);
     }
 
     virtual void apply(osg::Geometry& geometry) {} // to be implemented by actual visitors

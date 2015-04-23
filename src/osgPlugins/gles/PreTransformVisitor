@@ -26,8 +26,6 @@ public:
     void apply(osg::Geometry& geometry) {
         glesUtil::VertexAccessOrderVisitor optimizer;
         optimizer.optimizeOrder(geometry);
-
-        setProcessed(&geometry);
     }
 };
 
