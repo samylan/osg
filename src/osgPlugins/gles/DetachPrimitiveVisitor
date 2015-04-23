@@ -41,7 +41,6 @@ public:
             }
             setProcessed(detached);
         }
-        setProcessed(&geometry);
     }
 
 protected:

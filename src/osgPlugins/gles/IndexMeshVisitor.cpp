@@ -154,7 +154,6 @@ void IndexMeshVisitor::apply(osg::Geometry& geom) {
 
     geom.setPrimitiveSetList(new_primitives);
     deduplicator.deduplicateUVs(geom);
-    setProcessed(&geom);
 }
 
 

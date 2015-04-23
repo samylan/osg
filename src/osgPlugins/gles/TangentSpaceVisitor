@@ -96,7 +96,6 @@ public:
             finalTangent->setUserValue("tangent", true);
             geom.setVertexAttribArray(geom.getNumVertexAttribArrays(), finalTangent, osg::Array::BIND_PER_VERTEX);
         }
-        setProcessed(&geom);
     }
 
 protected:
