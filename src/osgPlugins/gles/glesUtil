@@ -476,16 +476,15 @@ namespace glesUtil {
     };
 
 
-    template<typename DE>
-    inline void reorderDrawElements(DE& drawElements,
-                                    const vector<unsigned>& reorder)
+    inline osg::DrawElementsUInt* reorderDrawElements(PrimitiveSet* primitive,
+                                                      const vector<unsigned>& reorder)
     {
-        for (typename DE::iterator itr = drawElements.begin(), end = drawElements.end();
-             itr != end;
-             ++itr)
-        {
-            *itr = static_cast<typename DE::value_type>(reorder[*itr]);
+        osg::DrawElementsUInt* newElements = new osg::DrawElementsUInt(primitive->getMode());
+        for (unsigned int i = 0 ; i < primitive->getNumIndices() ; ++ i) {
+            newElements->addElement(static_cast<unsigned>(reorder[primitive->index(i)]));
         }
+        newElements->setUserDataContainer(primitive->getUserDataContainer());
+        return newElements;
     }
 
 
@@ -543,27 +542,17 @@ namespace glesUtil {
 
             Remapper remapper(vr.remap);
             gatherer.accept(remapper);
+            Geometry::PrimitiveSetList newPrimitives;
             for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
                      end = primSets.end();
                  itr != end;
                  ++itr)
             {
                 PrimitiveSet* ps = itr->get();
-                switch (ps->getType())
-                {
-                case PrimitiveSet::DrawElementsUBytePrimitiveType:
-                    reorderDrawElements(*static_cast<DrawElementsUByte*>(ps), vr.remap);
-                    break;
-                case PrimitiveSet::DrawElementsUShortPrimitiveType:
-                    reorderDrawElements(*static_cast<DrawElementsUShort*>(ps), vr.remap);
-                    break;
-                case PrimitiveSet::DrawElementsUIntPrimitiveType:
-                    reorderDrawElements(*static_cast<DrawElementsUInt*>(ps), vr.remap);
-                    break;
-                default:
-                    break;
-                }
+                newPrimitives.push_back(reorderDrawElements(ps, vr.remap));
             }
+            geom.setPrimitiveSetList(newPrimitives);
+
 
             // deduplicate UVs array that were only shared within the geometry
             deduplicator.deduplicateUVs(geom);
