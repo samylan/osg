@@ -66,8 +66,6 @@ int RigTransformHardware::getNumVertexes() const { return _nbVertexes;}
 bool RigTransformHardware::createPalette(int nbVertexes, BoneMap boneMap, const VertexInfluenceSet::VertexIndexToBoneWeightMap& vertexIndexToBoneWeightMap)
 {
     typedef std::map<std::string, int> BoneNameCountMap;
-    typedef std::map<std::string, int> BoneNamePaletteIndex;
-    BoneNamePaletteIndex bname2palette;
     BonePalette palette;
     BoneNameCountMap boneNameCountMap;
 
@@ -88,7 +86,7 @@ bool RigTransformHardware::createPalette(int nbVertexes, BoneMap boneMap, const 
             {
                 boneNameCountMap[bw.getBoneName()]++;
                 bonesForThisVertex++; // count max number of bones per vertexes
-                vertexIndexWeight[vertexIndex].push_back(IndexWeightEntry(bname2palette[bw.getBoneName()],bw.getWeight()));
+                vertexIndexWeight[vertexIndex].push_back(IndexWeightEntry(_boneNameToPalette[bw.getBoneName()],bw.getWeight()));
             }
             else if (fabs(bw.getWeight()) > 1e-2) // dont use bone with weight too small
             {
@@ -100,8 +98,8 @@ bool RigTransformHardware::createPalette(int nbVertexes, BoneMap boneMap, const 
                 boneNameCountMap[bw.getBoneName()] = 1; // for stats
                 bonesForThisVertex++;
                 palette.push_back(boneMap[bw.getBoneName()]);
-                bname2palette[bw.getBoneName()] = palette.size()-1;
-                vertexIndexWeight[vertexIndex].push_back(IndexWeightEntry(bname2palette[bw.getBoneName()],bw.getWeight()));
+                _boneNameToPalette[bw.getBoneName()] = palette.size()-1;
+                vertexIndexWeight[vertexIndex].push_back(IndexWeightEntry(_boneNameToPalette[bw.getBoneName()],bw.getWeight()));
             }
             else
             {
