@@ -28,6 +28,7 @@
 #include "TriangleStripVisitor"
 #include "UnIndexMeshVisitor"
 #include "WireframeVisitor"
+#include "AABBonBoneVisitor"
 
 
 class OpenGLESGeometryOptimizer
@@ -40,6 +41,7 @@ public:
         _disablePreTransform(false),
         _disablePostTransform(false),
         _disableAnimation(false),
+        _disableAABBonBone(false),
         _triStripCacheSize(16),
         _triStripMinSize(2),
         _generateTangentSpace(false),
@@ -59,6 +61,7 @@ public:
     void setDisablePreTransform(bool s) { _disablePreTransform = s; }
     void setDisablePostTransform(bool s) { _disablePostTransform = s; }
     void setDisableAnimation(bool s) { _disableAnimation = s; }
+    void setDisableAABBonBone(bool s)  { _disableAABBonBone = s; }
     void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
     void setTripStripMinSize(unsigned int size) { _triStripMinSize = std::max<unsigned int>(size, 2); }
 
@@ -77,6 +80,18 @@ public:
     }
 
 protected:
+    void makeAABBonBone(osg::Node* node, bool disableAABBonBone) {
+        FindSkeletons fs;
+        node->accept(fs);
+
+       for(unsigned int i = 0; i < fs._skls.size(); i++) {
+           osgAnimation::Skeleton * skl = fs._skls[i];
+           ComputeAABBOnBoneVisitor cabv(!disableAABBonBone);
+           skl->accept(cabv);
+           cabv.computeBoundingBoxOnBones();
+       }
+    }
+
     void makeAnimation(osg::Node* node) {
         AnimationVisitor anim;
         node->accept(anim);
@@ -139,6 +154,7 @@ protected:
     bool _disablePreTransform;
     bool _disablePostTransform;
     bool _disableAnimation;
+    bool _disableAABBonBone;
     unsigned int _triStripCacheSize;
     unsigned int _triStripMinSize;
 

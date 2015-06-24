@@ -12,6 +12,7 @@ osg::Node* OpenGLESGeometryOptimizer::optimize(osg::Node& node) {
     // animation: create regular Geometry if RigGeometry
     if(!_disableAnimation) {
         makeAnimation(model.get());
+        makeAABBonBone(model.get(), _disableAABBonBone);
     }
 
     // wireframe

@@ -44,6 +44,7 @@ public:
          bool disablePreTransform;
          bool disablePostTransform;
          bool disableAnimation;
+         bool disableAABBonBone;
          unsigned int triStripCacheSize;
          unsigned int triStripMinSize;
          bool useDrawArray;
@@ -59,6 +60,7 @@ public:
              disablePreTransform = false;
              disablePostTransform = false;
              disableAnimation = false;
+             disableAABBonBone = false;
              triStripCacheSize = 16;
              triStripMinSize = 2;
              useDrawArray = false;
@@ -82,6 +84,7 @@ public:
         supportsOption("disablePreTransform","disable pre-transform of geometries after split");
         supportsOption("disablePostTransform","disable post-transform of geometries (called during geometry splitting)");
         supportsOption("disableAnimation","disable animation support");
+        supportsOption("disableAABBonBone","disable AABB on bone for rigGeometry");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("disableIndex","Do not index the geometry");
         supportsOption("maxIndexValue=<int>","set the maximum index value (first index is 0)");
@@ -108,6 +111,7 @@ public:
             optimizer.setDisablePreTransform(options.disablePreTransform);
             optimizer.setDisablePostTransform(options.disablePostTransform);
             optimizer.setDisableAnimation(options.disableAnimation);
+            optimizer.setDisableAABBonBone(options.disableAABBonBone);
             optimizer.setWireframe(options.enableWireframe);
             if (options.generateTangentSpace) {
                 optimizer.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
@@ -233,6 +237,10 @@ public:
                 if (pre_equals == "disableAnimation")
                 {
                     localOptions.disableAnimation = true;
+                }
+                if (pre_equals == "disableAABBonBone")
+                {
+                    localOptions.disableAABBonBone = true;
                 }
                 if (pre_equals == "disableTriStrip")
                 {
