@@ -412,8 +412,6 @@ namespace glesUtil {
         virtual void apply(osg::Vec3Array& array) { remap(array); }
         virtual void apply(osg::Vec4Array& array) { remap(array); }
 
-        virtual void apply(osg::Vec4ubArray& array) { remap(array); }
-
         virtual void apply(osg::Vec2bArray& array) { remap(array); }
         virtual void apply(osg::Vec3bArray& array) { remap(array); }
         virtual void apply(osg::Vec4bArray& array) { remap(array); }
@@ -422,11 +420,28 @@ namespace glesUtil {
         virtual void apply(osg::Vec3sArray& array) { remap(array); }
         virtual void apply(osg::Vec4sArray& array) { remap(array); }
 
+        virtual void apply(osg::Vec2iArray& array) { remap(array); }
+        virtual void apply(osg::Vec3iArray& array) { remap(array); }
+        virtual void apply(osg::Vec4iArray& array) { remap(array); }
+
         virtual void apply(osg::Vec2dArray& array) { remap(array); }
         virtual void apply(osg::Vec3dArray& array) { remap(array); }
         virtual void apply(osg::Vec4dArray& array) { remap(array); }
 
+        virtual void apply(osg::Vec2ubArray& array) { remap(array); }
+        virtual void apply(osg::Vec3ubArray& array) { remap(array); }
+        virtual void apply(osg::Vec4ubArray& array) { remap(array); }
+
+        virtual void apply(osg::Vec2usArray& array) { remap(array); }
+        virtual void apply(osg::Vec3usArray& array) { remap(array); }
+        virtual void apply(osg::Vec4usArray& array) { remap(array); }
+
+        virtual void apply(osg::Vec2uiArray& array) { remap(array); }
+        virtual void apply(osg::Vec3uiArray& array) { remap(array); }
+        virtual void apply(osg::Vec4uiArray& array) { remap(array); }
+
         virtual void apply(osg::MatrixfArray& array) { remap(array); }
+        virtual void apply(osg::MatrixdArray& array) { remap(array); }
     };
 
 
