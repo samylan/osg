@@ -39,6 +39,7 @@ public:
         _disableMergeTriStrip(false),
         _disablePreTransform(false),
         _disablePostTransform(false),
+        _disableAnimation(false),
         _triStripCacheSize(16),
         _triStripMinSize(2),
         _generateTangentSpace(false),
@@ -57,6 +58,7 @@ public:
     void setDisableMergeTriStrip(bool s) { _disableMergeTriStrip = s; }
     void setDisablePreTransform(bool s) { _disablePreTransform = s; }
     void setDisablePostTransform(bool s) { _disablePostTransform = s; }
+    void setDisableAnimation(bool s) { _disableAnimation = s; }
     void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
     void setTripStripMinSize(unsigned int size) { _triStripMinSize = std::max<unsigned int>(size, 2); }
 
@@ -136,6 +138,7 @@ protected:
     bool _disableMergeTriStrip;
     bool _disablePreTransform;
     bool _disablePostTransform;
+    bool _disableAnimation;
     unsigned int _triStripCacheSize;
     unsigned int _triStripMinSize;
 

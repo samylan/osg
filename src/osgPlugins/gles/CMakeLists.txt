@@ -8,5 +8,5 @@ SET(TARGET_SRC
 
 #### end var setup  ###
 SET(TARGET_ADDED_LIBRARIES
-    osgUtil)
+    osgUtil osgAnimation)
 SETUP_PLUGIN(gles)

@@ -10,7 +10,9 @@ osg::Node* OpenGLESGeometryOptimizer::optimize(osg::Node& node) {
     osg::ref_ptr<osg::Node> model = osg::clone(&node);
 
     // animation: create regular Geometry if RigGeometry
-    makeAnimation(model.get());
+    if(!_disableAnimation) {
+        makeAnimation(model.get());
+    }
 
     // wireframe
     if (!_wireframe.empty()) {
