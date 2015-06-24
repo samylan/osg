@@ -1,14 +1,17 @@
-/*  -*-c++-*- 
+/*  -*-c++-*-
  *  Copyright (C) 2011 Cedric Pinson <cedric.pinson@plopbyte.com>
  */
 
 #include <osgAnimation/Animation>
 #include <osgAnimation/Channel>
+#include <osgAnimation/CubicBezier>
 #include <osgAnimation/Sampler>
 #include <osgAnimation/UpdateMatrixTransform>
 #include <osgAnimation/StackedTranslateElement>
 #include <osgAnimation/StackedQuaternionElement>
 #include <osgAnimation/StackedRotateAxisElement>
+#include <osgAnimation/StackedMatrixElement>
+#include <osg/Array>
 #include "JSON_Objects"
 
 static bool addJSONChannelVec3(osgAnimation::Vec3LinearChannel* channel, JSONObject& anim)
@@ -18,20 +21,28 @@ static bool addJSONChannelVec3(osgAnimation::Vec3LinearChannel* channel, JSONObj
         json->getMaps()["Name"] = new JSONValue<std::string>(channel->getName());
         json->getMaps()["TargetName"] = new JSONValue<std::string>(channel->getTargetName());
         osgAnimation::Vec3KeyframeContainer* keys = channel->getSamplerTyped()->getKeyframeContainerTyped();
-        JSONKeyframes* jsonKeys = new JSONKeyframes();
-        //if (!keys->getName().empty()) {
-        //    jsonKeys->getMaps()["Name"] = new JSONValue<std::string>(keys->getName());
-        //}
+        osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
+        osg::ref_ptr<osg::FloatArray> timesArray = new osg::FloatArray;
+        osg::ref_ptr<osg::FloatArray> keysArrayX = new osg::FloatArray;
+        osg::ref_ptr<osg::FloatArray> keysArrayY = new osg::FloatArray;
+        osg::ref_ptr<osg::FloatArray> keysArrayZ = new osg::FloatArray;
 
         for (unsigned int i = 0; i < keys->size(); i++) {
-            JSONVec4Array* kf = new JSONVec4Array(osg::Vec4((*keys)[i].getTime(),
-                                                            (*keys)[i].getValue()[0],
-                                                            (*keys)[i].getValue()[1],
-                                                            (*keys)[i].getValue()[2]));
-            jsonKeys->getArray().push_back(kf);
+            timesArray->push_back((*keys)[i].getTime());
+            keysArrayX->push_back((*keys)[i].getValue()[0]);
+            keysArrayY->push_back((*keys)[i].getValue()[1]);
+            keysArrayZ->push_back((*keys)[i].getValue()[2]);
         }
-        json->getMaps()["KeyFrames"] = jsonKeys;
-            
+
+        osg::ref_ptr<JSONArray> keysArray = new JSONArray;
+        keysArray->asArray()->getArray().push_back(new JSONBufferArray(keysArrayX.get()));
+        keysArray->asArray()->getArray().push_back(new JSONBufferArray(keysArrayY.get()));
+        keysArray->asArray()->getArray().push_back(new JSONBufferArray(keysArrayZ.get()));
+
+        jsKeys->getMaps()["Time"] = new JSONBufferArray(timesArray.get());
+        jsKeys->getMaps()["Key"] = keysArray;
+        json->getMaps()["KeyFrames"] = jsKeys;
+
         osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
         jsonChannel->getMaps()["osgAnimation.Vec3LerpChannel"] = json;
         anim.getMaps()["Channels"]->asArray()->getArray().push_back(jsonChannel);
@@ -40,8 +51,6 @@ static bool addJSONChannelVec3(osgAnimation::Vec3LinearChannel* channel, JSONObj
     return false;
 }
 
-
-
 static bool addJSONChannelFloat(osgAnimation::FloatLinearChannel* channel, JSONObject& anim)
 {
     if (channel->getSampler()) {
@@ -49,18 +58,19 @@ static bool addJSONChannelFloat(osgAnimation::FloatLinearChannel* channel, JSONO
         json->getMaps()["Name"] = new JSONValue<std::string>(channel->getName());
         json->getMaps()["TargetName"] = new JSONValue<std::string>(channel->getTargetName());
         osgAnimation::FloatKeyframeContainer* keys = channel->getSamplerTyped()->getKeyframeContainerTyped();
-        JSONKeyframes* jsonKeys = new JSONKeyframes();
-        //if (!keys->getName().empty()) {
-        //    jsonKeys->getMaps()["Name"] = new JSONValue<std::string>(keys->getName());
-        //}
+        osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
+        osg::ref_ptr<osg::FloatArray> timesArray = new osg::FloatArray;
+        osg::ref_ptr<osg::FloatArray> keysArray = new osg::FloatArray;
 
         for (unsigned int i = 0; i < keys->size(); i++) {
-            JSONVec2Array* kf = new JSONVec2Array(osg::Vec2((*keys)[i].getTime(),
-                                                            (*keys)[i].getValue()));
-            jsonKeys->getArray().push_back(kf);
+            timesArray->push_back((*keys)[i].getTime());
+            keysArray->push_back((*keys)[i].getValue());
         }
-        json->getMaps()["KeyFrames"] = jsonKeys;
-            
+
+        jsKeys->getMaps()["Time"] = new JSONBufferArray(timesArray.get());
+        jsKeys->getMaps()["Key"] = new JSONBufferArray(keysArray.get());
+        json->getMaps()["KeyFrames"] = jsKeys;
+
         osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
         jsonChannel->getMaps()["osgAnimation.FloatLerpChannel"] = json;
         anim.getMaps()["Channels"]->asArray()->getArray().push_back(jsonChannel);
@@ -69,7 +79,6 @@ static bool addJSONChannelFloat(osgAnimation::FloatLinearChannel* channel, JSONO
     return false;
 }
 
-
 static bool addJSONChannelQuaternion(osgAnimation::QuatSphericalLinearChannel* channel, JSONObject& anim)
 {
     if (channel->getSampler()) {
@@ -77,20 +86,146 @@ static bool addJSONChannelQuaternion(osgAnimation::QuatSphericalLinearChannel* c
         json->getMaps()["Name"] = new JSONValue<std::string>(channel->getName());
         json->getMaps()["TargetName"] = new JSONValue<std::string>(channel->getTargetName());
         osgAnimation::QuatKeyframeContainer* keys = channel->getSamplerTyped()->getKeyframeContainerTyped();
-        JSONKeyframes* jsonKeys = new JSONKeyframes();
+        osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
+        osg::ref_ptr<osg::FloatArray> timesArray = new osg::FloatArray;
+
+        osg::ref_ptr<osg::FloatArray> keysArrayX = new osg::FloatArray;
+        osg::ref_ptr<osg::FloatArray> keysArrayY = new osg::FloatArray;
+        osg::ref_ptr<osg::FloatArray> keysArrayZ = new osg::FloatArray;
+        osg::ref_ptr<osg::FloatArray> keysArrayW = new osg::FloatArray;
 
         for (unsigned int i = 0; i < keys->size(); i++) {
-            JSONVec5Array* kf = new JSONVec5Array(Vec5((*keys)[i].getTime(),
-                                                       (*keys)[i].getValue()[0],
-                                                       (*keys)[i].getValue()[1],
-                                                       (*keys)[i].getValue()[2],
-                                                       (*keys)[i].getValue()[3]));
-            jsonKeys->getArray().push_back(kf);
+            timesArray->push_back((*keys)[i].getTime());
+            keysArrayX->push_back((*keys)[i].getValue()[0]);
+            keysArrayY->push_back((*keys)[i].getValue()[1]);
+            keysArrayZ->push_back((*keys)[i].getValue()[2]);
+            keysArrayW->push_back((*keys)[i].getValue()[3]);
         }
-        json->getMaps()["KeyFrames"] = jsonKeys;
-            
+
+        osg::ref_ptr<JSONArray> keysArray = new JSONArray;
+        keysArray->asArray()->getArray().push_back(new JSONBufferArray(keysArrayX.get()));
+        keysArray->asArray()->getArray().push_back(new JSONBufferArray(keysArrayY.get()));
+        keysArray->asArray()->getArray().push_back(new JSONBufferArray(keysArrayZ.get()));
+        keysArray->asArray()->getArray().push_back(new JSONBufferArray(keysArrayW.get()));
+
+        jsKeys->getMaps()["Time"] = new JSONBufferArray(timesArray.get());
+        jsKeys->getMaps()["Key"] = keysArray;
+        json->getMaps()["KeyFrames"] = jsKeys;
+
         osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
         jsonChannel->getMaps()["osgAnimation.QuatSlerpChannel"] = json;
+        anim.getMaps()["Channels"]->asArray()->getArray().push_back(jsonChannel);
+        return true;
+    }
+    return false;
+}
+
+static bool addJSONChannelFloatCubicBezier(osgAnimation::FloatCubicBezierChannel* channel, JSONObject& anim)
+{
+    if(channel->getSampler()) {
+        osg::ref_ptr<JSONObject> json = new JSONObject;
+        json->getMaps()["Name"] = new JSONValue<std::string>(channel->getName());
+        json->getMaps()["TargetName"] = new JSONValue<std::string>(channel->getTargetName());
+
+        osgAnimation::FloatCubicBezierKeyframeContainer * keys = channel->getSamplerTyped()->getKeyframeContainerTyped();
+        osg::ref_ptr<osg::FloatArray> timeArray = new osg::FloatArray,
+                positionArray = new osg::FloatArray,
+                controlPointInArray = new osg::FloatArray,
+                controlPointOutArray = new osg::FloatArray;
+
+        for (unsigned int i = 0; i < keys->size(); i++) {
+            timeArray->push_back((*keys)[i].getTime());
+            positionArray->push_back((*keys)[i].getValue().getPosition());
+            controlPointInArray->push_back((*keys)[i].getValue().getControlPointIn());
+            controlPointOutArray->push_back((*keys)[i].getValue().getControlPointOut());
+        }
+        osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
+
+        osg::ref_ptr<JSONBufferArray> controlOutVertexArray = new JSONBufferArray(controlPointOutArray.get());
+        jsKeys->getMaps()["ControlPointOut"] = controlOutVertexArray;
+
+        osg::ref_ptr<JSONBufferArray> controlInVertexArray = new JSONBufferArray(controlPointInArray.get());
+        jsKeys->getMaps()["ControlPointIn"] = controlInVertexArray;
+
+        osg::ref_ptr<JSONBufferArray> positionVertexArray = new JSONBufferArray(positionArray.get());
+        jsKeys->getMaps()["Position"] = positionVertexArray;
+
+        osg::ref_ptr<JSONBufferArray> timeVertexArray = new JSONBufferArray(timeArray.get());
+        jsKeys->getMaps()["Time"] = timeVertexArray;
+
+        json->getMaps()["KeyFrames"] = jsKeys;
+
+        osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
+        jsonChannel->getMaps()["osgAnimation.FloatCubicBezierChannel"] = json;
+        anim.getMaps()["Channels"]->asArray()->getArray().push_back(jsonChannel);
+        return true;
+    }
+    return false;
+}
+
+static bool addJSONChannelVec3CubicBezier(osgAnimation::Vec3CubicBezierChannel* channel, JSONObject& anim)
+{
+    if(channel->getSampler()) {
+        osg::ref_ptr<JSONObject> json = new JSONObject;
+        json->getMaps()["Name"] = new JSONValue<std::string>(channel->getName());
+        json->getMaps()["TargetName"] = new JSONValue<std::string>(channel->getTargetName());
+
+        osgAnimation::Vec3CubicBezierKeyframeContainer * keys = channel->getSamplerTyped()->getKeyframeContainerTyped();
+        osg::ref_ptr<osg::FloatArray> timeArray = new osg::FloatArray,
+                positionArrayX = new osg::FloatArray,
+                positionArrayY = new osg::FloatArray,
+                positionArrayZ = new osg::FloatArray,
+
+                controlPointInArrayX = new osg::FloatArray,
+                controlPointInArrayY = new osg::FloatArray,
+                controlPointInArrayZ = new osg::FloatArray,
+
+                controlPointOutArrayX = new osg::FloatArray,
+                controlPointOutArrayY = new osg::FloatArray,
+                controlPointOutArrayZ = new osg::FloatArray;
+
+        for (unsigned int i = 0; i < keys->size(); i++) {
+            timeArray->push_back((*keys)[i].getTime());
+
+            positionArrayX->push_back((*keys)[i].getValue().getPosition().x());
+            positionArrayY->push_back((*keys)[i].getValue().getPosition().y());
+            positionArrayZ->push_back((*keys)[i].getValue().getPosition().z());
+
+            controlPointInArrayX->push_back((*keys)[i].getValue().getControlPointIn().x());
+            controlPointInArrayY->push_back((*keys)[i].getValue().getControlPointIn().y());
+            controlPointInArrayZ->push_back((*keys)[i].getValue().getControlPointIn().z());
+
+            controlPointOutArrayX->push_back((*keys)[i].getValue().getControlPointOut().x());
+            controlPointOutArrayY->push_back((*keys)[i].getValue().getControlPointOut().y());
+            controlPointOutArrayZ->push_back((*keys)[i].getValue().getControlPointOut().z());
+        }
+        osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
+
+        osg::ref_ptr<JSONArray> jsControlPointOutArray = new JSONArray;
+        jsControlPointOutArray->asArray()->getArray().push_back(new JSONBufferArray(controlPointOutArrayX.get()));
+        jsControlPointOutArray->asArray()->getArray().push_back(new JSONBufferArray(controlPointOutArrayY.get()));
+        jsControlPointOutArray->asArray()->getArray().push_back(new JSONBufferArray(controlPointOutArrayZ.get()));
+        jsKeys->getMaps()["ControlPointOut"] = jsControlPointOutArray;
+
+        osg::ref_ptr<JSONArray> jsControlPointInArray = new JSONArray;
+        jsControlPointInArray->asArray()->getArray().push_back(new JSONBufferArray(controlPointInArrayX.get()));
+        jsControlPointInArray->asArray()->getArray().push_back(new JSONBufferArray(controlPointInArrayY.get()));
+        jsControlPointInArray->asArray()->getArray().push_back(new JSONBufferArray(controlPointInArrayZ.get()));
+        jsKeys->getMaps()["ControlPointIn"] = jsControlPointInArray;
+
+        osg::ref_ptr<JSONArray> jsPositionVertexArray = new JSONArray;
+        jsPositionVertexArray->asArray()->getArray().push_back(new JSONBufferArray(positionArrayX.get()));
+        jsPositionVertexArray->asArray()->getArray().push_back(new JSONBufferArray(positionArrayY.get()));
+        jsPositionVertexArray->asArray()->getArray().push_back(new JSONBufferArray(positionArrayZ.get()));
+        jsKeys->getMaps()["Position"] = jsPositionVertexArray;
+
+        osg::ref_ptr<JSONBufferArray> timeVertexArray = new JSONBufferArray(timeArray.get());
+        jsKeys->getMaps()["Time"] = timeVertexArray;
+
+        json->getMaps()["KeyFrames"] = jsKeys;
+
+        osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
+        jsonChannel->getMaps()["osgAnimation.Vec3CubicBezierChannel"] = json;
         anim.getMaps()["Channels"]->asArray()->getArray().push_back(jsonChannel);
         return true;
     }
@@ -122,7 +257,22 @@ static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim)
                 return;
         }
     }
-    
+
+    {
+        osgAnimation::FloatCubicBezierChannel* c = dynamic_cast<osgAnimation::FloatCubicBezierChannel*>(channel);
+        if (c) {
+            if (addJSONChannelFloatCubicBezier(c, anim))
+                return;
+        }
+    }
+
+    {
+        osgAnimation::Vec3CubicBezierChannel *c = dynamic_cast<osgAnimation::Vec3CubicBezierChannel*>(channel);
+        if (c) {
+            if (addJSONChannelVec3CubicBezier(c, anim))
+                return;
+        }
+    }
 }
 
 JSONObject* createJSONAnimation(osgAnimation::Animation* anim)
@@ -137,14 +287,12 @@ JSONObject* createJSONAnimation(osgAnimation::Animation* anim)
     return json.release();
 }
 
-
-
 JSONObject* createJSONUpdateMatrixTransform(osgAnimation::UpdateMatrixTransform& acb)
 {
     std::string name = acb.getName();
     osg::ref_ptr<JSONObject> json = new JSONObject;
     json->getMaps()["Name"] = new JSONValue<std::string>(acb.getName());
-    
+
     osg::ref_ptr<JSONArray> jsonStackedArray = new JSONArray();
     json->getMaps()["StackedTransforms"] = jsonStackedArray;
 
@@ -190,6 +338,21 @@ JSONObject* createJSONUpdateMatrixTransform(osgAnimation::UpdateMatrixTransform&
 
                 osg::ref_ptr<JSONObject> jsonElementObject = new JSONObject;
                 jsonElementObject->getMaps()["osgAnimation.StackedRotateAxis"] = jsonElement;
+                jsonStackedArray->getArray().push_back(jsonElementObject);
+                continue;
+            }
+        }
+
+
+        {
+            osgAnimation::StackedMatrixElement * element = dynamic_cast<osgAnimation::StackedMatrixElement*>(st[i].get());
+            if (element) {
+                osg::ref_ptr<JSONObject> jsonElement = new JSONObject;
+                jsonElement->getMaps()["Name"] = new JSONValue<std::string>(element->getName());
+                jsonElement->getMaps()["Matrix"] = new JSONMatrix(element->getMatrix());
+
+                osg::ref_ptr<JSONObject> jsonElementObject = new JSONObject;
+                jsonElementObject->getMaps()["osgAnimation.StackedMatrixElement"] = jsonElement;
                 jsonStackedArray->getArray().push_back(jsonElementObject);
                 continue;
             }

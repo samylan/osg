@@ -26,6 +26,51 @@ osg::Array* getTangentSpaceArray(osg::Geometry& geometry) {
     return 0;
 }
 
+
+osg::Array* getAnimationBonesArray(osg::Geometry& geometry) {
+    for(unsigned int i = 0 ; i < geometry.getNumVertexAttribArrays() ; ++ i) {
+        osg::Array* attribute = geometry.getVertexAttribArray(i);
+        bool isBones = false;
+        if(attribute && attribute->getUserValue("bones", isBones) && isBones) {
+            return attribute;
+        }
+    }
+    return 0;
+}
+
+
+osg::Array* getAnimationWeightsArray(osg::Geometry& geometry) {
+    for(unsigned int i = 0 ; i < geometry.getNumVertexAttribArrays() ; ++ i) {
+        osg::Array* attribute = geometry.getVertexAttribArray(i);
+        bool isWeights = false;
+        if(attribute && attribute->getUserValue("weights", isWeights) && isWeights) {
+            return attribute;
+        }
+    }
+    return 0;
+}
+
+
+osg::ref_ptr<JSONObject> buildRigBoneMap(osgAnimation::RigGeometry& geometry) {
+    osg::Array* bones = getAnimationBonesArray(geometry);
+    osg::ref_ptr<JSONObject> boneMap = new JSONObject;
+
+    unsigned int paletteIndex = 0;
+    while(true) {
+        std::ostringstream oss;
+        oss << "animationBone_" << paletteIndex;
+        std::string boneName, palette = oss.str();
+        if(!bones->getUserValue(palette, boneName)) {
+            break;
+        }
+        boneMap->getMaps()[boneName] = new JSONValue<int>(paletteIndex);
+        ++ paletteIndex;
+    }
+
+    return boneMap;
+}
+
+
 void translateObject(JSONObject* json, osg::Object* osg)
 {
     if (!osg->getName().empty()) {
@@ -481,7 +526,42 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
         }
         json->getMaps()["PrimitiveSetList"] = primitives;
     }
+    if (geom->getComputeBoundingBoxCallback()) {
+           osg::ref_ptr<JSONObject> jsonObj = new JSONObject;
+           jsonObj->addUniqueID();
+           json->getMaps()["osg.ComputeBoundingBoxCallback"] = jsonObj;
+    }
     return json.get();
+}
+
+JSONObject* WriteVisitor::createJSONRigGeometry(osgAnimation::RigGeometry* rigGeom)
+{
+    //TODO : Convert data to JSONVertexArray "Float32Array"
+    JSONObject* json = createJSONGeometry(rigGeom);
+
+    json->getMaps()["BoneMap"] = buildRigBoneMap(*rigGeom);
+
+    osg::Array* bones = getAnimationBonesArray(*rigGeom);
+    osg::Array* weights = getAnimationWeightsArray(*rigGeom);
+    if (bones && weights) {
+        osg::ref_ptr<JSONObject> attributes = json->getMaps()["VertexAttributeList"];
+        int nbVertexes = rigGeom->getVertexArray()->getNumElements();
+
+        attributes->getMaps()["Bones"] = createJSONBufferArray(bones, rigGeom);
+        attributes->getMaps()["Weights"] = createJSONBufferArray(weights, rigGeom);
+        int nb = bones->getNumElements();
+        if (nbVertexes != nb) {
+            osg::notify(osg::FATAL) << "Fatal nb bones " << nb << " != " << nbVertexes << std::endl;
+            error();
+        }
+        nb = weights->getNumElements();
+        if (nbVertexes != nb) {
+            osg::notify(osg::FATAL) << "Fatal nb weights " << nb << " != " << nbVertexes << std::endl;
+            error();
+        }
+    }
+
+    return json;
 }
 
 JSONObject* WriteVisitor::createJSONBlendFunc(osg::BlendFunc* sa)
