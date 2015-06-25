@@ -204,13 +204,13 @@ public:
                 for(unsigned int j = 0; j < vxtInf.size(); j++) {
                     if(vxtInf.at(j).second < 10e-2) continue; //Skip vertex if low weight
                     osg::Vec3 vx = vertices->at(vxtInf.at(j).first);
-                    vx = mtxLocalToSkl * vx;
+                    vx = vx * mtxLocalToSkl;
                     bb.expandBy(vx);
                 }
 
                 if(bb == osg::BoundingBox() || bb._min.x() == bb._max.x() || bb._min.y() == bb._max.y() || bb._min.z() == bb._max.z()) continue; //Compare initial and actual boundingBox if (no change) => no box on bone
 
-                osg::Matrix worldToBone = osg::Matrix::inverse(b->getWorldMatrices()[0]);
+                osg::Matrix worldToBone = osg::Matrix::inverse(b->getWorldMatrices(_root).at(0));
 
                 if(_createGeometry) {
                     osg::Geode *g = new osg::Geode;
