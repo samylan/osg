@@ -300,7 +300,7 @@ JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDime
 }
 
 
-JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array, osg::Geometry* geom)
+JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array, osg::Object* parent)
 {
     if (_maps.find(array) != _maps.end())
         return _maps[array]->getShadowObject();
@@ -308,13 +308,13 @@ JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array, osg::Geometry
     osg::ref_ptr<JSONBufferArray> json = new JSONBufferArray(array);
     json->addUniqueID();
     _maps[array] = json;
-    if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json.get(), geom);
+    if(_mergeAllBinaryFiles) {
+        setBufferName(json.get(), parent, array);
     }
     return json.get();
 }
 
-JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Geometry* geom)
+JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Object* parent)
 {
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
@@ -322,13 +322,13 @@ JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de, 
     JSONDrawElements<osg::DrawElementsUInt>* json = new JSONDrawElements<osg::DrawElementsUInt>(*de);
     json->addUniqueID();
     _maps[de] = json;
-    if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json, geom);
+    if(_mergeAllBinaryFiles) {
+        setBufferName(json, parent, de);
     }
     return json;
 }
 
-JSONObject* WriteVisitor::createJSONDrawElementsUShort(osg::DrawElementsUShort* de, osg::Geometry* geom)
+JSONObject* WriteVisitor::createJSONDrawElementsUShort(osg::DrawElementsUShort* de, osg::Object* parent)
 {
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
@@ -336,13 +336,13 @@ JSONObject* WriteVisitor::createJSONDrawElementsUShort(osg::DrawElementsUShort* 
     JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de);
     json->addUniqueID();
     _maps[de] = json;
-    if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json, geom);
+    if(_mergeAllBinaryFiles) {
+        setBufferName(json, parent, de);
     }
     return json;
 }
 
-JSONObject* WriteVisitor::createJSONDrawElementsUByte(osg::DrawElementsUByte* de, osg::Geometry* geom)
+JSONObject* WriteVisitor::createJSONDrawElementsUByte(osg::DrawElementsUByte* de, osg::Object* parent)
 {
     if (_maps.find(de) != _maps.end())
         return _maps[de]->getShadowObject();
@@ -350,14 +350,14 @@ JSONObject* WriteVisitor::createJSONDrawElementsUByte(osg::DrawElementsUByte* de
     JSONDrawElements<osg::DrawElementsUByte>* json = new JSONDrawElements<osg::DrawElementsUByte>(*de);
     json->addUniqueID();
     _maps[de] = json;
-    if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json, geom);
+    if(_mergeAllBinaryFiles) {
+        setBufferName(json, parent, de);
     }
     return json;
 }
 
 // use to convert draw array quads to draw elements triangles
-JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray, osg::Geometry* geom)
+JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray, osg::Object* parent)
 {
     if (_maps.find(drawArray) != _maps.end())
         return _maps[drawArray]->getShadowObject();
@@ -382,13 +382,13 @@ JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray, osg
     JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de);
     json->addUniqueID();
     _maps[drawArray] = json;
-    if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json, geom);
+    if(_mergeAllBinaryFiles) {
+        setBufferName(json, parent, drawArray);
     }
     return json;
 }
 
-JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da, osg::Geometry* geom)
+JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da, osg::Object* parent)
 {
     if (_maps.find(da) != _maps.end())
         return _maps[da]->getShadowObject();
@@ -396,13 +396,13 @@ JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da, osg::Geometry
     osg::ref_ptr<JSONDrawArray> json = new JSONDrawArray(*da);
     json->addUniqueID();
     _maps[da] = json;
-    if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json.get(), geom);
+    if(_mergeAllBinaryFiles) {
+        setBufferName(json.get(), parent, da);
     }
     return json.get();
 }
 
-JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da, osg::Geometry* geom)
+JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da, osg::Object* parent)
 {
     if (_maps.find(da) != _maps.end())
         return _maps[da]->getShadowObject();
@@ -410,8 +410,8 @@ JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da, 
     osg::ref_ptr<JSONDrawArrayLengths> json = new JSONDrawArrayLengths(*da);
     json->addUniqueID();
     _maps[da] = json;
-    if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json.get(), geom);
+    if(_mergeAllBinaryFiles) {
+        setBufferName(json.get(), parent, da);
     }
     return json.get();
 }

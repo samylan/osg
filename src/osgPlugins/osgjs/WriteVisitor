@@ -88,7 +88,7 @@ public:
         }
     }
 
-    std::string getBinaryFilename(const std::string& buffer = "") {
+    std::string getBinaryFilename(const std::string& buffer = "") const {
         std::string suffix;
         if(!buffer.empty()) {
             suffix = "_" + buffer;
@@ -103,9 +103,9 @@ public:
         }
     }
 
-    unsigned int getBuffersSize() {
+    unsigned int getBuffersSize() const {
         unsigned int size = 0;
-        for(std::map<std::string, std::ofstream*>::iterator buffer = _buffers.begin() ;
+        for(std::map<std::string, std::ofstream*>::const_iterator buffer = _buffers.begin() ;
             buffer != _buffers.end() ; ++ buffer) {
             size += buffer->second->tellp();
         }
@@ -136,12 +136,19 @@ public:
         throw "Error occur";
     }
 
-    void setBufferName(JSONObject *json, osg::Geometry* geometry) {
+    void setBufferName(JSONObject *json, osg::Object* parent=0, osg::Object* object=0) const {
         if(!_mergeAllBinaryFiles || _specificBuffers.empty())
             return;
-        std::string bufferName = getBufferName(geometry);
+
+        // try to fetch buffer name for object
+        std::string bufferName = getBufferName(object);
         std::string defaultBufferName = getBinaryFilename();
         std::string jsonBufferName = json->getBufferName();
+
+        if(bufferName == defaultBufferName) {
+            // in case none is set, fallback to parent buffer name
+            bufferName = getBufferName(parent);
+        }
         // if the buffer is shared we will always favor dumping it in the default
         // buffer and otherwise we keep the first buffer name set.
         if(!jsonBufferName.empty()) {
@@ -154,14 +161,16 @@ public:
         }
     }
 
-    std::string getBufferName(osg::Geometry* geometry) {
+    std::string getBufferName(osg::Object* object) const {
         std::string name("");
         bool isSpecific = false;
-        for(std::vector<std::string>::iterator it_flag = _specificBuffers.begin() ;
-            it_flag != _specificBuffers.end() ; ++ it_flag) {
-            if(geometry->getUserValue(*it_flag, isSpecific) && isSpecific) {
-                name = *it_flag;
-                break;
+        if(object) {
+            for(std::vector<std::string>::const_iterator it_flag = _specificBuffers.begin() ;
+                it_flag != _specificBuffers.end() ; ++ it_flag) {
+                if(object->getUserValue(*it_flag, isSpecific) && isSpecific) {
+                    name = *it_flag;
+                    break;
+                }
             }
         }
         return getBinaryFilename(name);
@@ -176,15 +185,15 @@ public:
     JSONObject* createJSONBlendColor(osg::BlendColor* sa);
     JSONObject* createJSONBlendFunc(osg::BlendFunc* sa);
 
-    JSONObject* createJSONBufferArray(osg::Array* array, osg::Geometry* geom = 0);
-    JSONObject* createJSONDrawElements(osg::DrawArrays* drawArray, osg::Geometry* geom = 0);
+    JSONObject* createJSONBufferArray(osg::Array* array, osg::Object* parent = 0);
+    JSONObject* createJSONDrawElements(osg::DrawArrays* drawArray, osg::Object* parent = 0);
 
-    JSONObject* createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Geometry* geom = 0);
-    JSONObject* createJSONDrawElementsUShort(osg::DrawElementsUShort* de, osg::Geometry* geom = 0);
-    JSONObject* createJSONDrawElementsUByte(osg::DrawElementsUByte* de, osg::Geometry* geom = 0);
+    JSONObject* createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Object* parent = 0);
+    JSONObject* createJSONDrawElementsUShort(osg::DrawElementsUShort* de, osg::Object* parent = 0);
+    JSONObject* createJSONDrawElementsUByte(osg::DrawElementsUByte* de, osg::Object* parent = 0);
 
-    JSONObject* createJSONDrawArray(osg::DrawArrays* drawArray, osg::Geometry* geom = 0);
-    JSONObject* createJSONDrawArrayLengths(osg::DrawArrayLengths* drawArray, osg::Geometry* geom = 0);
+    JSONObject* createJSONDrawArray(osg::DrawArrays* drawArray, osg::Object* parent = 0);
+    JSONObject* createJSONDrawArrayLengths(osg::DrawArrayLengths* drawArray, osg::Object* parent = 0);
 
     JSONObject* createJSONGeometry(osg::Geometry* geom);
     JSONObject* createJSONRigGeometry(osgAnimation::RigGeometry* rGeom);
