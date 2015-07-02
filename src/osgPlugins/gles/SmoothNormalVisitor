@@ -301,18 +301,40 @@ class TriangleMeshSmoother {
             _end = array.size();
             array.push_back(array[_i]);
         }
-
-        virtual void apply(osg::ByteArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::ShortArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::IntArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::UByteArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::UShortArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::UIntArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::Vec4ubArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::FloatArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::Vec2Array& ba) { apply_imp(ba); }
-        virtual void apply(osg::Vec3Array& ba) { apply_imp(ba); }
-        virtual void apply(osg::Vec4Array& ba) { apply_imp(ba); }
+        virtual void apply(osg::ByteArray& array) { apply_imp(array); }
+        virtual void apply(osg::ShortArray& array) { apply_imp(array); }
+        virtual void apply(osg::IntArray& array) { apply_imp(array); }
+        virtual void apply(osg::UByteArray& array) { apply_imp(array); }
+        virtual void apply(osg::UShortArray& array) { apply_imp(array); }
+        virtual void apply(osg::UIntArray& array) { apply_imp(array); }
+        virtual void apply(osg::FloatArray& array) { apply_imp(array); }
+        virtual void apply(osg::DoubleArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec2Array& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3Array& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4Array& array) { apply_imp(array); }
+        virtual void apply(osg::Vec2bArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3bArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4bArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec2sArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3sArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4sArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec2iArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3iArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4iArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec2dArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3dArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4dArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec2ubArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3ubArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4ubArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec2usArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3usArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4usArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec2uiArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3uiArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4uiArray& array) { apply_imp(array); }
+        virtual void apply(osg::MatrixfArray& array) { apply_imp(array); }
+        virtual void apply(osg::MatrixdArray& array) { apply_imp(array); }
     };
 
 public:
