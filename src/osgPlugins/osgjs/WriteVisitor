@@ -242,7 +242,7 @@ public:
                 updateCallbacks->getArray().push_back(nodeCallbackObject);
 
                 for ( unsigned int i = 0; i < am->getAnimationList().size(); i++) {
-                    osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(am->getAnimationList()[i].get());
+                    osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(am->getAnimationList()[i].get(), this);
                     if (jsonAnim) {
                         JSONObject* obj = new JSONObject;
                         obj->getMaps()["osgAnimation.Animation"] = jsonAnim;
@@ -255,7 +255,7 @@ public:
             } else {
                 osgAnimation::UpdateBone* upBone = dynamic_cast<osgAnimation::UpdateBone*>(nc);
                 if (upBone) {
-                    osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*upBone);
+                    osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*upBone, this);
                     if (jsonCallback.valid()) {
                         osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
                         jsonObject->getMaps()["osgAnimation.UpdateBone"] = jsonCallback;
@@ -264,7 +264,7 @@ public:
                 } else {
                     osgAnimation::UpdateMatrixTransform* updateMT = dynamic_cast<osgAnimation::UpdateMatrixTransform*>(nc);
                     if (updateMT) {
-                        osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*updateMT);
+                        osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*updateMT, this);
                         if (jsonCallback.valid()) {
                             osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
                             jsonObject->getMaps()["osgAnimation.UpdateMatrixTransform"] = jsonCallback;
