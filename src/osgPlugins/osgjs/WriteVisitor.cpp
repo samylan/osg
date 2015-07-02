@@ -539,11 +539,11 @@ JSONObject* WriteVisitor::createJSONRigGeometry(osgAnimation::RigGeometry* rigGe
     //TODO : Convert data to JSONVertexArray "Float32Array"
     JSONObject* json = createJSONGeometry(rigGeom);
 
-    json->getMaps()["BoneMap"] = buildRigBoneMap(*rigGeom);
-
     osg::Array* bones = getAnimationBonesArray(*rigGeom);
     osg::Array* weights = getAnimationWeightsArray(*rigGeom);
     if (bones && weights) {
+        json->getMaps()["BoneMap"] = buildRigBoneMap(*rigGeom);
+
         osg::ref_ptr<JSONObject> attributes = json->getMaps()["VertexAttributeList"];
         int nbVertexes = rigGeom->getVertexArray()->getNumElements();
 
