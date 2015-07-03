@@ -232,9 +232,18 @@ JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDime
         if (!image->getFileName().empty()) { // means that everything went ok
             if (inlineImages) {
 
-                std::ifstream in(osgDB::findDataFile(image->getFileName()).c_str());
-                if (in.is_open())
+                std::ifstream in(osgDB::findDataFile(image->getFileName()).c_str(), std::ifstream::in | std::ifstream::binary);
+                if (in.is_open() && in.good())
                 {
+                    // read file first to iterate
+                    in.seekg(0, std::ifstream::end);
+                    const std::ifstream::pos_type size = in.tellg();
+                    in.seekg(0, std::ifstream::beg);
+                    std::vector<unsigned char> rawData;
+                    rawData.resize(size);
+                    in.read(reinterpret_cast<char*>(rawData.data()),size);
+                    in.seekg(std::ios_base::beg);
+
                     std::stringstream out;
                     out << "data:image/" << osgDB::getLowerCaseFileExtension(image->getFileName()) << ";base64,";
                     base64::encode(std::istreambuf_iterator<char>(in),
@@ -633,7 +642,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     // Range List
     //osg::ref_ptr<JSONArray> rangeList = new JSONArray;
     JSONObject* rangeObject = new JSONObject;
-    for (int i =0; i< plod->getRangeList().size(); i++)
+    for (unsigned int i =0; i< plod->getRangeList().size(); i++)
     {
         std::stringstream ss;
         ss << "Range ";
@@ -645,19 +654,29 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     // File List
 
     JSONObject* fileObject = new JSONObject;
-    for (int i =0; i< plod->getNumFileNames(); i++)
+
+    for (unsigned int i =0; i< plod->getNumFileNames(); i++)
     {
         std::stringstream ss;
         ss << "File ";
         ss << i;
         std::string str = ss.str();
         // We need to convert first from osg format to osgjs format.
-        osg::ref_ptr<osg::Node> n = osgDB::readNodeFile(plod->getFileName(i)+".gles");
+        osg::ref_ptr<osg::Node> n = osgDB::readNodeFile(plod->getDatabasePath() + plod->getFileName(i)+".gles");
         if (n)
         {
-            std::string filename(osgDB::getStrippedName(plod->getFileName(i))+".osgjs");
-            osgDB::writeNodeFile(*n,filename);
-            fileObject->getMaps()[str] =  new JSONValue<std::string>(filename);
+            std::string filename(osgDB::getNameLessExtension(plod->getFileName(i))+".osgjs");
+
+            std::string fullFilePath(osgDB::getFilePath(_baseName) + osgDB::getNativePathSeparator() + filename);
+            fileObject->getMaps()[str] =  new JSONValue<std::string>(_baseLodURL + filename);
+            osgDB::makeDirectoryForFile(fullFilePath);
+            if (_baseLodURL.empty())
+                _baseLodURL = osgDB::getFilePath(filename) + osgDB::getNativePathSeparator() ;
+            osg::ref_ptr<osgDB::Options> options =  osgDB::Registry::instance()->getOptions()->cloneOptions();
+            options->setPluginStringData(std::string("baseLodURL"), _baseLodURL);
+
+            osgDB::writeNodeFile(*n,fullFilePath, options );
+
         }
         else
             fileObject->getMaps()[str] =  new JSONValue<std::string>("");
