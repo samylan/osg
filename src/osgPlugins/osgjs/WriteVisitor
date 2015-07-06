@@ -63,7 +63,7 @@ public:
     bool _inlineImages;
     bool _varint;
     int _maxTextureDimension;
-    std::vector<std::string> _specificBuffers;
+    std::map<std::string, std::string> _specificBuffers;
     std::map<std::string, std::ofstream*> _buffers;
 
     std::ofstream& getBufferFile(const std::string& name) {
@@ -90,8 +90,9 @@ public:
 
     std::string getBinaryFilename(const std::string& buffer = "") const {
         std::string suffix;
-        if(!buffer.empty()) {
-            suffix = "_" + buffer;
+        std::map<std::string, std::string>::const_iterator it_buffer = _specificBuffers.find(buffer);
+        if(it_buffer != _specificBuffers.end()) {
+            suffix = "_" + it_buffer->second;
         }
         return std::string(_baseName) + suffix + ".bin";
     }
@@ -165,10 +166,11 @@ public:
         std::string name("");
         bool isSpecific = false;
         if(object) {
-            for(std::vector<std::string>::const_iterator it_flag = _specificBuffers.begin() ;
+            for(std::map<std::string, std::string>::const_iterator it_flag = _specificBuffers.begin() ;
                 it_flag != _specificBuffers.end() ; ++ it_flag) {
-                if(object->getUserValue(*it_flag, isSpecific) && isSpecific) {
-                    name = *it_flag;
+                std::cout << "looking for user value: " << it_flag->first << std::endl;
+                if(object->getUserValue(it_flag->first, isSpecific) && isSpecific) {
+                    name = it_flag->first;
                     break;
                 }
             }
@@ -550,7 +552,18 @@ public:
     void inlineImages(bool use) { _inlineImages = use; }
     void setVarint(bool use) { _varint = use; }
     void setMaxTextureDimension(int use) { _maxTextureDimension = use; }
-    void addSpecificBuffer(const std::string& bufferFlag) { _specificBuffers.push_back(bufferFlag); }
+    void addSpecificBuffer(const std::string& bufferFlag) {
+        std::string key, value;
+        unsigned int colon = bufferFlag.find(":");
+        if(colon != std::string::npos) {
+            key = bufferFlag.substr(0, colon);
+            value = bufferFlag.substr(colon + 1, std::string::npos);
+        }
+        else {
+            key = value = bufferFlag;
+        }
+        _specificBuffers[key] = value;
+    }
 };
 
 #endif
