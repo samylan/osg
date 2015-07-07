@@ -63,7 +63,7 @@ public:
     bool _inlineImages;
     bool _varint;
     int _maxTextureDimension;
-    std::vector<std::string> _specificBuffers;
+    std::map<std::string, std::string> _specificBuffers;
     std::map<std::string, std::ofstream*> _buffers;
 
     std::ofstream& getBufferFile(const std::string& name) {
@@ -88,10 +88,11 @@ public:
         }
     }
 
-    std::string getBinaryFilename(const std::string& buffer = "") {
+    std::string getBinaryFilename(const std::string& buffer = "") const {
         std::string suffix;
-        if(!buffer.empty()) {
-            suffix = "_" + buffer;
+        std::map<std::string, std::string>::const_iterator it_buffer = _specificBuffers.find(buffer);
+        if(it_buffer != _specificBuffers.end()) {
+            suffix = "_" + it_buffer->second;
         }
         return std::string(_baseName) + suffix + ".bin";
     }
@@ -103,9 +104,9 @@ public:
         }
     }
 
-    unsigned int getBuffersSize() {
+    unsigned int getBuffersSize() const {
         unsigned int size = 0;
-        for(std::map<std::string, std::ofstream*>::iterator buffer = _buffers.begin() ;
+        for(std::map<std::string, std::ofstream*>::const_iterator buffer = _buffers.begin() ;
             buffer != _buffers.end() ; ++ buffer) {
             size += buffer->second->tellp();
         }
@@ -136,12 +137,19 @@ public:
         throw "Error occur";
     }
 
-    void setBufferName(JSONObject *json, osg::Geometry* geometry) {
+    void setBufferName(JSONObject *json, osg::Object* parent=0, osg::Object* object=0) const {
         if(!_mergeAllBinaryFiles || _specificBuffers.empty())
             return;
-        std::string bufferName = getBufferName(geometry);
+
+        // try to fetch buffer name for object
+        std::string bufferName = getBufferName(object);
         std::string defaultBufferName = getBinaryFilename();
         std::string jsonBufferName = json->getBufferName();
+
+        if(bufferName == defaultBufferName) {
+            // in case none is set, fallback to parent buffer name
+            bufferName = getBufferName(parent);
+        }
         // if the buffer is shared we will always favor dumping it in the default
         // buffer and otherwise we keep the first buffer name set.
         if(!jsonBufferName.empty()) {
@@ -154,14 +162,17 @@ public:
         }
     }
 
-    std::string getBufferName(osg::Geometry* geometry) {
+    std::string getBufferName(osg::Object* object) const {
         std::string name("");
         bool isSpecific = false;
-        for(std::vector<std::string>::iterator it_flag = _specificBuffers.begin() ;
-            it_flag != _specificBuffers.end() ; ++ it_flag) {
-            if(geometry->getUserValue(*it_flag, isSpecific) && isSpecific) {
-                name = *it_flag;
-                break;
+        if(object) {
+            for(std::map<std::string, std::string>::const_iterator it_flag = _specificBuffers.begin() ;
+                it_flag != _specificBuffers.end() ; ++ it_flag) {
+                std::cout << "looking for user value: " << it_flag->first << std::endl;
+                if(object->getUserValue(it_flag->first, isSpecific) && isSpecific) {
+                    name = it_flag->first;
+                    break;
+                }
             }
         }
         return getBinaryFilename(name);
@@ -176,15 +187,15 @@ public:
     JSONObject* createJSONBlendColor(osg::BlendColor* sa);
     JSONObject* createJSONBlendFunc(osg::BlendFunc* sa);
 
-    JSONObject* createJSONBufferArray(osg::Array* array, osg::Geometry* geom = 0);
-    JSONObject* createJSONDrawElements(osg::DrawArrays* drawArray, osg::Geometry* geom = 0);
+    JSONObject* createJSONBufferArray(osg::Array* array, osg::Object* parent = 0);
+    JSONObject* createJSONDrawElements(osg::DrawArrays* drawArray, osg::Object* parent = 0);
 
-    JSONObject* createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Geometry* geom = 0);
-    JSONObject* createJSONDrawElementsUShort(osg::DrawElementsUShort* de, osg::Geometry* geom = 0);
-    JSONObject* createJSONDrawElementsUByte(osg::DrawElementsUByte* de, osg::Geometry* geom = 0);
+    JSONObject* createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Object* parent = 0);
+    JSONObject* createJSONDrawElementsUShort(osg::DrawElementsUShort* de, osg::Object* parent = 0);
+    JSONObject* createJSONDrawElementsUByte(osg::DrawElementsUByte* de, osg::Object* parent = 0);
 
-    JSONObject* createJSONDrawArray(osg::DrawArrays* drawArray, osg::Geometry* geom = 0);
-    JSONObject* createJSONDrawArrayLengths(osg::DrawArrayLengths* drawArray, osg::Geometry* geom = 0);
+    JSONObject* createJSONDrawArray(osg::DrawArrays* drawArray, osg::Object* parent = 0);
+    JSONObject* createJSONDrawArrayLengths(osg::DrawArrayLengths* drawArray, osg::Object* parent = 0);
 
     JSONObject* createJSONGeometry(osg::Geometry* geom);
     JSONObject* createJSONRigGeometry(osgAnimation::RigGeometry* rGeom);
@@ -233,7 +244,7 @@ public:
                 updateCallbacks->getArray().push_back(nodeCallbackObject);
 
                 for ( unsigned int i = 0; i < am->getAnimationList().size(); i++) {
-                    osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(am->getAnimationList()[i].get());
+                    osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(am->getAnimationList()[i].get(), this);
                     if (jsonAnim) {
                         JSONObject* obj = new JSONObject;
                         obj->getMaps()["osgAnimation.Animation"] = jsonAnim;
@@ -246,7 +257,7 @@ public:
             } else {
                 osgAnimation::UpdateBone* upBone = dynamic_cast<osgAnimation::UpdateBone*>(nc);
                 if (upBone) {
-                    osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*upBone);
+                    osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*upBone, this);
                     if (jsonCallback.valid()) {
                         osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
                         jsonObject->getMaps()["osgAnimation.UpdateBone"] = jsonCallback;
@@ -255,7 +266,7 @@ public:
                 } else {
                     osgAnimation::UpdateMatrixTransform* updateMT = dynamic_cast<osgAnimation::UpdateMatrixTransform*>(nc);
                     if (updateMT) {
-                        osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*updateMT);
+                        osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*updateMT, this);
                         if (jsonCallback.valid()) {
                             osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
                             jsonObject->getMaps()["osgAnimation.UpdateMatrixTransform"] = jsonCallback;
@@ -541,7 +552,18 @@ public:
     void inlineImages(bool use) { _inlineImages = use; }
     void setVarint(bool use) { _varint = use; }
     void setMaxTextureDimension(int use) { _maxTextureDimension = use; }
-    void addSpecificBuffer(const std::string& bufferFlag) { _specificBuffers.push_back(bufferFlag); }
+    void addSpecificBuffer(const std::string& bufferFlag) {
+        std::string key, value;
+        unsigned int colon = bufferFlag.find(":");
+        if(colon != std::string::npos) {
+            key = bufferFlag.substr(0, colon);
+            value = bufferFlag.substr(colon + 1, std::string::npos);
+        }
+        else {
+            key = value = bufferFlag;
+        }
+        _specificBuffers[key] = value;
+    }
 };
 
 #endif
