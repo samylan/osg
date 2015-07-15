@@ -10,7 +10,6 @@
 #include <osg/Material>
 #include <osg/BlendFunc>
 #include <osgSim/ShapeAttribute>
-
 #include "Base64"
 
 
@@ -486,7 +485,7 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
         }
         json->getMaps()["PrimitiveSetList"] = primitives;
     }
-    return json;
+    return json.release();
 }
 
 JSONObject* WriteVisitor::createJSONBlendFunc(osg::BlendFunc* sa)
@@ -640,8 +639,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     }
     jsonPlod->getMaps()["RangeMode"] = rangeMode;
     // Range List
-    //osg::ref_ptr<JSONArray> rangeList = new JSONArray;
-    JSONObject* rangeObject = new JSONObject;
+    osg::ref_ptr<JSONObject> rangeObject = new JSONObject;
     for (unsigned int i =0; i< plod->getRangeList().size(); i++)
     {
         std::stringstream ss;
@@ -653,7 +651,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     jsonPlod->getMaps()["RangeList"] = rangeObject;
     // File List
 
-    JSONObject* fileObject = new JSONObject;
+    osg::ref_ptr<JSONObject> fileObject = new JSONObject;
 
     for (unsigned int i =0; i< plod->getNumFileNames(); i++)
     {
@@ -683,7 +681,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
      }
     jsonPlod->getMaps()["RangeDataList"] = fileObject;
 
-    return jsonPlod;
+    return jsonPlod.release();
 }
 
 JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)

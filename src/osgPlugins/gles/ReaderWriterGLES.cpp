@@ -85,7 +85,7 @@ public:
 
     virtual osg::Node* optimizeModel(const Node& node, const OptionsStruct& options) const
     {
-        osg::Node* model = osg::clone(&node);
+        osg::ref_ptr<osg::Node> model = osg::clone(&node);
 
         if (options.disableIndex) {
             UnIndexMeshVisitor unindex;
@@ -110,7 +110,7 @@ public:
 
             model = optimizer.optimize(*model);
         }
-        return model;
+        return model.release();
     }
 
 

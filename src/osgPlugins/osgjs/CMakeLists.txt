@@ -5,6 +5,14 @@ SET(TARGET_SRC
   Base64.cpp
   Animation.cpp)
 
+SET(TARGET_H
+    Adaptator
+    Animation
+    Base64
+    CompactBufferVisitor
+    JSON_Objects
+    WriteVisitor
+)
 #### end var setup  ###
 SET(TARGET_ADDED_LIBRARIES
     osgAnimation

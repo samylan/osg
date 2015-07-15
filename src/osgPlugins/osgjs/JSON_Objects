@@ -101,7 +101,6 @@ typedef JSONObject JSONStateSet;
 typedef JSONObject JSONMaterial;
 typedef JSONObject JSONLight;
 
-
 struct JSONArray : public JSONObject
 {
     typedef std::vector<osg::ref_ptr<JSONObject> > JSONList;
