@@ -10,6 +10,7 @@
 #include <osg/Material>
 #include <osg/BlendFunc>
 #include <osgSim/ShapeAttribute>
+#include <osgText/Text>
 #include "Base64"
 
 
@@ -190,6 +191,44 @@ static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
     return 0;
 }
 
+static JSONValue<std::string>* getJSONAlignmentType(osgText::Text::AlignmentType type)
+{
+    switch(type) {
+        case osgText::Text::LEFT_TOP:
+            return new JSONValue<std::string>("LEFT_TOP");
+        case osgText::Text::LEFT_CENTER:
+            return new JSONValue<std::string>("LEFT_CENTER");
+        case osgText::Text::LEFT_BOTTOM:
+            return new JSONValue<std::string>("LEFT_BOTTOM");
+        case osgText::Text::CENTER_TOP:
+            return new JSONValue<std::string>("CENTER_TOP");
+        case osgText::Text::CENTER_CENTER:
+            return new JSONValue<std::string>("CENTER_CENTER");
+        case osgText::Text::CENTER_BOTTOM:
+            return new JSONValue<std::string>("CENTER_BOTTOM");
+        case osgText::Text::RIGHT_TOP:
+            return new JSONValue<std::string>("RIGHT_TOP");
+        case osgText::Text::RIGHT_CENTER:
+            return new JSONValue<std::string>("RIGHT_CENTER");
+        case osgText::Text::RIGHT_BOTTOM:
+            return new JSONValue<std::string>("RIGHT_BOTTOM");
+        case osgText::Text::LEFT_BASE_LINE:
+            return new JSONValue<std::string>("LEFT_BASE_LINE");
+        case osgText::Text::CENTER_BASE_LINE:
+            return new JSONValue<std::string>("CENTER_BASE_LINE");
+        case osgText::Text::RIGHT_BASE_LINE:
+            return new JSONValue<std::string>("RIGHT_BASE_LINE");
+        case osgText::Text::LEFT_BOTTOM_BASE_LINE:
+            return new JSONValue<std::string>("LEFT_BOTTOM_BASE_LINE");
+        case osgText::Text::CENTER_BOTTOM_BASE_LINE:
+            return new JSONValue<std::string>("CENTER_BOTTOM_BASE_LINE");
+        case osgText::Text::RIGHT_BOTTOM_BASE_LINE:
+            return new JSONValue<std::string>("RIGHT_BOTTOM_BASE_LINE");
+        default:
+            return 0;
+    }
+    return 0;
+}
 
 JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDimension, const std::string &baseName)
 {
@@ -534,7 +573,7 @@ JSONObject* WriteVisitor::createJSONCullFace(osg::CullFace* sa)
 
     osg::ref_ptr<JSONValue<std::string> > mode = new JSONValue<std::string>("BACK");
     if (sa->getMode() == osg::CullFace::FRONT) {
-        mode = new JSONValue<std::string>("BACK");
+        mode = new JSONValue<std::string>("FRONT");
     }
     if (sa->getMode() == osg::CullFace::FRONT_AND_BACK) {
         mode = new JSONValue<std::string>("FRONT_AND_BACK");
@@ -542,7 +581,6 @@ JSONObject* WriteVisitor::createJSONCullFace(osg::CullFace* sa)
     json->getMaps()["Mode"] = mode;
     return json.release();
 }
-
 
 
 
@@ -606,6 +644,33 @@ template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSO
     }
     return 0;
 }
+
+JSONObject* WriteVisitor::createJSONText(osgText::Text* text)
+{
+    if (_maps.find(text) != _maps.end())
+        return _maps[text]->getShadowObject();
+
+    osg::ref_ptr<JSONObject> jsonText = new JSONNode;
+    jsonText->addUniqueID();
+    _maps[text] = jsonText;
+    jsonText->getMaps()["Text"] = new JSONValue<std::string>( text->getText().createUTF8EncodedString()  );
+    jsonText->getMaps()["Position"] = new JSONVec3Array(text->getPosition());
+    jsonText->getMaps()["Color"] = new JSONVec4Array(osg::Vec4(text->getColor().x(),text->getColor().y(),text->getColor().z(), text->getColor().w() ));
+    jsonText->getMaps()["CharacterSize"] = new JSONValue<int>(text->getCharacterHeight() );
+    jsonText->getMaps()["AutoRotateToScreen"] = new JSONValue<int>(text->getAutoRotateToScreen() );
+    jsonText->getMaps()["Alignment"] = getJSONAlignmentType(text->getAlignment());
+
+    osg::ref_ptr<JSONValue<std::string> > layout = new JSONValue<std::string>("LEFT_TO_RIGHT");
+    if (text->getLayout() == osgText::Text::RIGHT_TO_LEFT) {
+        layout = new JSONValue<std::string>("RIGHT_TO_LEFT");
+    }
+    if (text->getLayout() == osgText::Text::VERTICAL) {
+        layout = new JSONValue<std::string>("VERTICAL");
+    }
+    jsonText->getMaps()["Layout"] = layout;
+    return jsonText.release();
+}
+
 
 JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
 {
@@ -825,15 +890,8 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
         attributeList->getArray().push_back(obj);
     }
 
-
     if (!attributeList->getArray().empty()) {
         jsonStateSet->getMaps()["AttributeList"] = attributeList;
-    }
-
-
-    osg::StateSet::ModeList modeList = stateset->getModeList();
-    for (unsigned int i = 0; i < modeList.size(); ++i) {
-        // add modes
     }
 
     if (jsonStateSet->getMaps().empty())
