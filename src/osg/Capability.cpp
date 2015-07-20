@@ -38,10 +38,10 @@ Capabilityi::~Capabilityi()
 
 void Enablei::apply(State& state) const
 {
-    const GL2Extensions* extensions = state.get<GL2Extensions>();
+    const GLExtensions* extensions = state.get<GLExtensions>();
     if (extensions->glEnablei)
     {
-        OSG_NOTICE<<"extensions->glEnablei("<<_capability<<", "<<_index<<")"<<std::endl;
+        OSG_INFO<<"extensions->glEnablei("<<_capability<<", "<<_index<<")"<<std::endl;
         extensions->glEnablei(_capability, static_cast<GLuint>(_index));
     }
     else
@@ -52,10 +52,10 @@ void Enablei::apply(State& state) const
 
 void Disablei::apply(State& state) const
 {
-    const GL2Extensions* extensions = state.get<GL2Extensions>();
+    const GLExtensions* extensions = state.get<GLExtensions>();
     if (extensions->glDisablei)
     {
-        OSG_NOTICE<<"extensions->glDisablei("<<_capability<<", "<<_index<<")"<<std::endl;
+        OSG_INFO<<"extensions->glDisablei("<<_capability<<", "<<_index<<")"<<std::endl;
         extensions->glDisablei(_capability, static_cast<GLuint>(_index));
     }
     else

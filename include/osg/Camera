@@ -66,7 +66,7 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
         const View* getView() const { return _view; }
 
 
-        /** Set the Stats object used for collect various frame related
+        /** Set the Stats object used to collect various frame related
           * timing and scene graph stats. */
         void setStats(osg::Stats* stats) { _stats = stats; }
 
@@ -157,6 +157,7 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
 
         /** Get the viewport. */
         Viewport* getViewport() { return _viewport.get(); }
+
 
 
         enum TransformOrder
@@ -291,7 +292,7 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
             PIXEL_BUFFER_RTT,
             PIXEL_BUFFER,
             FRAME_BUFFER,
-            SEPERATE_WINDOW
+            SEPARATE_WINDOW
         };
 
         /** Set the render target.*/
@@ -308,14 +309,14 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
 
 
         /** Set the draw buffer used at the start of each frame draw.
-          * Note, a buffer value of GL_NONE is used to sepecify that the rendering back-end should choose the most appropriate buffer.*/
+          * Note, a buffer value of GL_NONE is used to specify that the rendering back-end should choose the most appropriate buffer.*/
         void setDrawBuffer(GLenum buffer) { _drawBuffer = buffer; applyMaskAction( DRAW_BUFFER ); }
 
         /** Get the draw buffer used at the start of each frame draw. */
         GLenum getDrawBuffer() const { return _drawBuffer; }
 
         /** Set the read buffer for any required copy operations to use.
-          * Note, a buffer value of GL_NONE is used to sepecify that the rendering back-end should choose the most appropriate buffer.*/
+          * Note, a buffer value of GL_NONE is used to specify that the rendering back-end should choose the most appropriate buffer.*/
         void setReadBuffer(GLenum buffer) { _readBuffer = buffer; applyMaskAction( READ_BUFFER ); }
 
         /** Get the read buffer for any required copy operations to use. */
@@ -416,27 +417,53 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
         const BufferAttachmentMap& getBufferAttachmentMap() const { return _bufferAttachmentMap; }
 
 
+        /** Increment the _attachementMapModifiedCount so that the rendering backend will know that it needs to be updated to handle any new settings (such as format change/resizes.).*/
+        void dirtyAttachmentMap() { ++_attachmentMapModifiedCount; }
+
+        /** Set the AttachmentMapModifiedCount to a specific value.  Note, normal usage you would simply call dirtyAttachmentMap(). */
+        void setAttachmentMapModifiedCount(unsigned int v) { _attachmentMapModifiedCount = v; }
+
+        /** Get the AttachmentMapModifiedCount. */
+        unsigned int getAttachmentMapModifiedCount() const { return _attachmentMapModifiedCount; }
+
+        /** Resize the image and textures in the AttachementMap.*/
+        void resizeAttachments(int width, int height);
+
+
+        enum ResizeMask
+        {
+            RESIZE_VIEWPORT=1,
+            RESIZE_ATTACHMENTS=2,
+            RESIZE_PROJECTIONMATRIX=4,
+            RESIZE_DEFAULT=RESIZE_VIEWPORT|RESIZE_ATTACHMENTS
+        };
+
+        /** Resize, to the specified width and height, the viewport, attachments and projection matrix according to the resizeMask provided.
+          * Note, the adjustment of the projection matrix is done if the RESIZE_PROJECTIONMATRIX mask to set and according to the rules specified in the ProjectionResizePolicy. */
+        void resize(int width, int height, int resizeMask=RESIZE_DEFAULT);
+
+
         /** Explicit control over implicit allocation of buffers when using FBO.
          Implicit buffers are automatically substituted when user have not attached such buffer.
 
          Camera may set up two FBOs: primary Render FBO and secondary Resolve FBO for multisample usage.
-         So in practive we have two masks defined for the Camera:
+         So in practice we have two masks defined for the Camera:
             implicitBufferAttachmentRenderMask
             implicitBufferAttachmentResolveMask
          They can be set together by setImplicitBufferAttachmentMask method, or separately
          by setImplicitBufferAttachmentRenderMask and setImplicitBufferAttachmentResolveMask.
 
          Camera defaults are USE_DISPLAY_SETTINGS_MASK which means that by default
-         Camera chooses to substitue buffer attachments as defined by DisplaySettings.
+         Camera chooses to substitute buffer attachments as defined by DisplaySettings.
 
          Usually DisplaySettings implicit buffer attachment selection defaults to: DEPTH and COLOR
          for both primary (Render) FBO and seconday Multisample (Resolve) FBO
-         ie: IMPLICT_DEPTH_BUFFER_ATTACHMENT | IMPLICIT_COLOR_BUFFER_ATTACHMENT
+         ie: IMPLICIT_DEPTH_BUFFER_ATTACHMENT | IMPLICIT_COLOR_BUFFER_ATTACHMENT
 
          If these masks are not changed and user did not attach depth buffer and/or color buffer
-         to Camera, then OSG implicitly substitues these buffers.
+         to Camera, then OSG implicitly substitutes these buffers.
          By default it does not implicitly allocate a stencil buffer.
-         Use implicti buffer attachment  masks to override default behavior:
+         Use implicit buffer attachment  masks to override default behavior:
          to turn off DEPTH or COLOR buffer substitution or to enforce STENCIL buffer substitution.
 
          Note that both values are ignored if not using FBO.
@@ -469,7 +496,7 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
         }
 
         /**
-        Get mask selecting implict buffer attachments for Camera primary FBO
+        Get mask selecting implicit buffer attachments for Camera primary FBO
         if effectiveMask parameter is set, method follows USE_DISPLAY_SETTINGS_MASK dependence and returns effective mask
         if effectiveMask parameter is reset, method returns nominal mask set by the Camera
         */
@@ -487,7 +514,7 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
         }
 
         /**
-        Get mask selecting implict buffer attachments for Camera secondary MULTISAMPLE FBO
+        Get mask selecting implicit buffer attachments for Camera secondary MULTISAMPLE FBO
         if effectiveMask parameter is set, method follows USE_DISPLAY_SETTINGS_MASK dependence and returns effective mask
         if effectiveMask parameter is reset, method returns nominal mask set by the Camera
         */
@@ -667,6 +694,8 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
         ImplicitBufferAttachmentMask        _implicitBufferAttachmentRenderMask;
         ImplicitBufferAttachmentMask        _implicitBufferAttachmentResolveMask;
 
+        unsigned int                        _attachmentMapModifiedCount;
+
         ref_ptr<OperationThread>            _cameraThread;
 
         ref_ptr<GraphicsContext>            _graphicsContext;
@@ -681,7 +710,7 @@ class OSG_EXPORT Camera : public Transform, public CullSettings
 };
 
 
-/** Functor to assist with ordering camers in the order they should be rendered in.*/
+/** Functor to assist with ordering cameras in the order they should be rendered in.*/
 struct CameraRenderOrderSortOp
 {
     inline bool operator() (const Camera* lhs,const Camera* rhs) const

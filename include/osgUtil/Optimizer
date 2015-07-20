@@ -461,15 +461,15 @@ class OSGUTIL_EXPORT Optimizer
 
             protected:
 
-                void addStateSet(osg::StateSet* stateset,osg::Object* obj);
+                void addStateSet(osg::StateSet* stateset, osg::Node* node);
 
                 inline bool optimize(osg::Object::DataVariance variance)
                 {
                     return _optimize[variance];
                 }
 
-                typedef std::set<osg::Object*>              ObjectSet;
-                typedef std::map<osg::StateSet*,ObjectSet>  StateSetMap;
+                typedef std::set<osg::Node*>               NodeSet;
+                typedef std::map<osg::StateSet*, NodeSet>  StateSetMap;
 
                 // note, one element for DYNAMIC, STATIC and UNSPECIFIED
                 bool _optimize[3];
@@ -793,7 +793,7 @@ class OSGUTIL_EXPORT Optimizer
 
 
         /** Optimize texture usage in the scene graph by combining textures into texture atlas
-          * Use of texture atlas cuts down on the number of seperate states in the scene, reducing
+          * Use of texture atlas cuts down on the number of separate states in the scene, reducing
           * state changes and improving the chances of using larger batches of geometry.*/
         class OSGUTIL_EXPORT TextureAtlasVisitor : public BaseOptimizerVisitor
         {

@@ -66,6 +66,7 @@ public:
         supportsOption("noTesselateLargePolygons","Do not do the default tesselation of large polygons");
         supportsOption("noTriStripPolygons","Do not do the default tri stripping of polygons");
         supportsOption("generateFacetNormals","generate facet normals for verticies without normals");
+        supportsOption("noReverseFaces","avoid to reverse faces when normals and triangles orientation are reversed");
 
         supportsOption("DIFFUSE=<unit>", "Set texture unit for diffuse texture");
         supportsOption("AMBIENT=<unit>", "Set texture unit for ambient texture");
@@ -144,6 +145,7 @@ protected:
         bool noTriStripPolygons;
         bool generateFacetNormals;
         bool fixBlackMaterials;
+        bool noReverseFaces;
         // This is the order in which the materials will be assigned to texture maps, unless
         // otherwise overriden
         typedef std::vector< std::pair<int,obj::Material::Map::TextureMapType> > TextureAllocationMap;
@@ -649,11 +651,13 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
         geometry->setNormalArray(normals, osg::Array::BIND_PER_VERTEX);
     }
 
-    if (texcoords) {
+    if (texcoords)
+    {
         geometry->setTexCoordArray(0,texcoords);
     }
 
-    if (colors) {
+    if (colors)
+    {
         geometry->setColorArray(colors);
         geometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
     }
@@ -674,7 +678,8 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                     ++index_itr)
                 {
                     // if use color extension ( not standard but used by meshlab)
-                    if (colors) {
+                    if (colors)
+                    {
                         colors->push_back(model.colors[*index_itr]);
                     }
                     vertices->push_back(transformVertex(model.vertices[*index_itr],localOptions.rotate));
@@ -724,7 +729,8 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                     ++index_itr)
                 {
                     // if use color extension ( not standard but used by meshlab)
-                    if (colors) {
+                    if (colors)
+                    {
                         colors->push_back(model.colors[*index_itr]);
                     }
 
@@ -756,7 +762,7 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
     }
 
     // #define USE_DRAWARRAYLENGTHS
-
+    bool hasReversedFaces = false ;
     if (numPolygonElements>0)
     {
         unsigned int startPos = vertices->size();
@@ -804,15 +810,17 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                 #endif
 
 
-                if (model.needReverse(element))
+                if (model.needReverse(element) && !localOptions.noReverseFaces)
                 {
+                    hasReversedFaces = true;
                     // need to reverse so add to OSG arrays in same order as in OBJ, as OSG assume anticlockwise ordering.
                     for(obj::Element::IndexList::reverse_iterator index_itr = element.vertexIndices.rbegin();
                         index_itr != element.vertexIndices.rend();
                         ++index_itr)
                     {
                         // if use color extension ( not standard but used by meshlab)
-                        if (colors) {
+                        if (colors)
+                        {
                             colors->push_back(model.colors[*index_itr]);
                         }
 
@@ -847,7 +855,8 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                         ++index_itr)
                     {
                         // if use color extension ( not standard but used by meshlab)
-                        if (colors) {
+                        if (colors)
+                        {
                             colors->push_back(model.colors[*index_itr]);
                         }
 
@@ -874,6 +883,11 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
                 }
             }
         }
+    }
+
+    if(hasReversedFaces)
+    {
+        OSG_WARN << "Warning: [ReaderWriterOBJ::convertElementListToGeometry] Some faces from geometry '" << geometry->getName() << "' were reversed by the plugin" << std::endl;
     }
 
     return geometry;
@@ -973,6 +987,7 @@ ReaderWriterOBJ::ObjOptionsStruct ReaderWriterOBJ::parseOptions(const osgDB::Rea
     localOptions.noTriStripPolygons = false;
     localOptions.generateFacetNormals = false;
     localOptions.fixBlackMaterials = true;
+    localOptions.noReverseFaces = false;
 
     if (options!=NULL)
     {
@@ -1010,6 +1025,10 @@ ReaderWriterOBJ::ObjOptionsStruct ReaderWriterOBJ::parseOptions(const osgDB::Rea
             else if (pre_equals == "generateFacetNormals")
             {
                 localOptions.generateFacetNormals = true;
+            }
+            else if (pre_equals == "noReverseFaces")
+            {
+                localOptions.noReverseFaces = true;
             }
             else if (post_equals.length()>0)
             {

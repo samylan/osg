@@ -36,8 +36,8 @@ public:
                 osg::ref_ptr<osg::StateSet> stateSet = drawable->getStateSet();
                 if (stateSet) {
                     bool bothFaces = false;
-                    apply(stateSet, bothFaces);
-                    
+                    apply(stateSet.get(), bothFaces);
+
                     // clone the geometries to fake back faces. But reverse normals so lighting isn't messed up.
                     osg::Geometry* geometry = drawable->asGeometry();
                     size_t primitiveSetCount = geometry->getNumPrimitiveSets();
@@ -48,7 +48,7 @@ public:
                 }
             }
         }
-        
+
         osg::NodeVisitor::apply(geode);
     }
 
@@ -67,8 +67,8 @@ public:
 
                 if (bothFaces) {
                     // mirror the vertex array
-                    if (vertexArray && _mirroredVec3Array.count(vertexArray) == 0) {
-                        _mirroredVec3Array.insert(vertexArray);
+                    if (vertexArray && _mirroredVec3Array.count(vertexArray.get()) == 0) {
+                        _mirroredVec3Array.insert(vertexArray.get());
 
                         unsigned int num = vertexArray->size();
                         for (unsigned int i = 0; i < num; i++) {
@@ -81,8 +81,8 @@ public:
                     }
 
                     // mirror the texcoords
-                    if (texCoordArray && _mirroredVec2Array.count(texCoordArray) == 0) {
-                        _mirroredVec2Array.insert(texCoordArray);
+                    if (texCoordArray && _mirroredVec2Array.count(texCoordArray.get()) == 0) {
+                        _mirroredVec2Array.insert(texCoordArray.get());
 
                         unsigned int num = texCoordArray->size();
                         for (unsigned int i = num; i > 0; i--) {
@@ -111,13 +111,13 @@ public:
             // apply the texture filter
             for (unsigned int i = 0; i < stateSet->getTextureAttributeList().size(); i++) {
                 osg::Texture* texture = dynamic_cast<osg::Texture*>(stateSet->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
-                
-                texture->setFilter(osg::Texture2D::MIN_FILTER, _min); 
+
+                texture->setFilter(osg::Texture2D::MIN_FILTER, _min);
                 texture->setFilter(osg::Texture2D::MAG_FILTER, _mag);
                 //texture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-                //texture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE); 
+                //texture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
                 //texture->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
-                //texture->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT); 
+                //texture->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
             }
 
             // enable culling for materials mean't to be seen from both sides
@@ -126,9 +126,9 @@ public:
             bool isBackFaceCulled = backFaceCulledMaterials.count(material->getName()) > 0;
 
             if (isDoubleSided || isBackFaceCulled) {
-                osg::CullFace* cull = new osg::CullFace(); 
-                cull->setMode(osg::CullFace::BACK); 
-                stateSet->setAttributeAndModes(cull, osg::StateAttribute::ON); 
+                osg::CullFace* cull = new osg::CullFace();
+                cull->setMode(osg::CullFace::BACK);
+                stateSet->setAttributeAndModes(cull, osg::StateAttribute::ON);
             }
             if (isDoubleSided) {
                 bothFaces = true;
@@ -159,7 +159,7 @@ public:
         backFaceCulledMaterials.clear();
         backFaceCulledMaterials.insert("water");
     }
-    
+
     virtual const char* className() const
     {
         return "ReaderWriterMinecraft";
@@ -201,5 +201,3 @@ public:
 REGISTER_OSGPLUGIN(minecraft, ReaderWriterMinecraft)
 
 /*EOF*/
-
-

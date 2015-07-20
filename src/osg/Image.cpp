@@ -638,7 +638,7 @@ unsigned int Image::computePixelSizeInBits(GLenum format,GLenum type)
 
     // note, haven't yet added proper handling of the ARB GL_COMPRESSRED_* pathways
     // yet, no clear size for these since its probably implementation dependent
-    // which raises the question of how to actually querry for these sizes...
+    // which raises the question of how to actually query for these sizes...
     // will need to revisit this issue, for now just report an error.
     // this is possible a bit of mute point though as since the ARB compressed formats
     // arn't yet used for storing images to disk, so its likely that users wont have
@@ -833,7 +833,11 @@ int Image::computeNumberOfMipmapLevels(int s,int t, int r)
 {
     int w = maximum(s, t);
     w = maximum(w, r);
-    return 1 + static_cast<int>(floor(logf(w)/logf(2.0f)));
+
+    int n = 0;
+    while (w >>= 1)
+        ++n;
+    return n+1;
 }
 
 bool Image::isCompressed() const
@@ -1053,7 +1057,7 @@ void Image::readImageFromCurrentTexture(unsigned int contextID, bool copyMipMaps
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
     // OSG_NOTICE<<"Image::readImageFromCurrentTexture()"<<std::endl;
 
-    const osg::GL2Extensions* extensions = osg::GL2Extensions::Get(contextID,true);
+    const osg::GLExtensions* extensions = osg::GLExtensions::Get(contextID,true);
 
     GLboolean binding1D = GL_FALSE, binding2D = GL_FALSE, binding3D = GL_FALSE, binding2DArray = GL_FALSE, bindingCubeMap = GL_FALSE;
 
@@ -1141,6 +1145,13 @@ void Image::readImageFromCurrentTexture(unsigned int contextID, bool copyMipMaps
     else if (textureMode==GL_TEXTURE_2D_ARRAY_EXT)
     {
         if (extensions->isCompressedTexImage3DSupported())
+        {
+            glGetTexLevelParameteriv(textureMode, 0, GL_TEXTURE_COMPRESSED_ARB,&compressed);
+        }
+    }
+    else if(bindingCubeMap)
+    {
+        if (extensions->isCompressedTexImage2DSupported())
         {
             glGetTexLevelParameteriv(textureMode, 0, GL_TEXTURE_COMPRESSED_ARB,&compressed);
         }
@@ -1551,16 +1562,18 @@ void Image::flipVertical()
             {
                 if (!dxtc_tool::VerticalFlip(s,t,_pixelFormat,_data+_mipmapData[i]))
                 {
-                    OSG_NOTICE << "Notice Image::flipVertical(): Vertical flip do not succeed" << std::endl;
+                    OSG_NOTICE << "Notice Image::flipVertical(): Vertical flip did not succeed" << std::endl;
                 }
             }
             else
             {
-                // its not a compressed image, so implement flip oursleves.
+                // it's not a compressed image, so implement flip ourselves.
+                unsigned int mipRowSize = computeRowWidthInBytes(s, _pixelFormat, _dataType, _packing);
+                unsigned int mipRowStep = mipRowSize;
                 unsigned char* top = _data+_mipmapData[i];
-                unsigned char* bottom = top + (t-1)*rowStep;
+                unsigned char* bottom = top + (t-1)*mipRowStep;
 
-                flipImageVertical(top, bottom, rowSize, rowStep);
+                flipImageVertical(top, bottom, mipRowSize, mipRowStep);
             }
        }
     }

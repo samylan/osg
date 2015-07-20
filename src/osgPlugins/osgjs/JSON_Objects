@@ -16,11 +16,25 @@
 #include <vector>
 #include <algorithm>
 
-#include <fstream>
-#include <iostream>
+#include "json_stream"
 
 #ifdef WIN32
-  #include <cstdint>
+
+#if defined(__MINGW32__) || (!defined(_MSC_VER) || _MSC_VER<1600)
+
+typedef unsigned __int8 uint8_t;
+typedef unsigned __int16 uint16_t;
+typedef unsigned __int32 uint32_t;
+typedef signed __int8 int8_t;
+typedef signed __int16 int16_t;
+typedef signed __int32 int32_t;
+
+#else
+
+#include <cstdint>
+
+#endif
+
 #endif
 
 class WriteVisitor;
@@ -44,7 +58,7 @@ struct JSONObjectBase : public osg::Referenced
 {
     static int level;
     static std::string indent();
-    virtual void write(std::ostream& str, WriteVisitor& visitor) {}
+    virtual void write(json_stream& str, WriteVisitor& visitor) {}
 };
 
 template <class T> struct JSONValue;
@@ -56,8 +70,8 @@ struct JSONObject : public JSONObjectBase
     typedef std::vector<std::string> OrderList;
     JSONMap _maps;
     JSONMap& getMaps() { return _maps; }
-    void writeOrder(std::ostream& str, const OrderList& order, WriteVisitor& visitor);
-    virtual void write(std::ostream& str, WriteVisitor& visitor);
+    void writeOrder(json_stream& str, const OrderList& order, WriteVisitor& visitor);
+    virtual void write(json_stream& str, WriteVisitor& visitor);
     void addChild(const std::string& type, JSONObject* child);
     virtual JSONArray* asArray() { return 0; }
     template<class T> JSONValue<T>* asValue() {
@@ -94,7 +108,7 @@ JSONObject* createLight(osg::Light* light);
 
 struct JSONNode : public JSONObject
 {
-    void write(std::ostream& str, WriteVisitor& visitor);
+    void write(json_stream& str, WriteVisitor& visitor);
 };
 
 typedef JSONObject JSONStateSet;
@@ -106,14 +120,14 @@ struct JSONArray : public JSONObject
     typedef std::vector<osg::ref_ptr<JSONObject> > JSONList;
     JSONList _array;
     JSONArray() {}
-    virtual void write(std::ostream& str, WriteVisitor& visitor);
+    virtual void write(json_stream& str, WriteVisitor& visitor);
     JSONList& getArray() { return _array; }
     JSONArray* asArray() { return this; }
 };
 
 struct JSONKeyframes : public JSONArray
 {
-    virtual void write(std::ostream& str, WriteVisitor& visitor);
+    virtual void write(json_stream& str, WriteVisitor& visitor);
 };
 
 
@@ -121,7 +135,7 @@ struct JSONVec3Array : public JSONArray
 {
     JSONVec3Array() {}
     JSONVec3Array(const osg::Vec3&);
-    virtual void write(std::ostream& str, WriteVisitor& visitor);
+    virtual void write(json_stream& str, WriteVisitor& visitor);
 };
 
 struct JSONVec4Array : public JSONVec3Array
@@ -147,7 +161,7 @@ struct JSONValue : public JSONObject
         _value = v;
     }
     T& getValue() { return _value; }
-    virtual void write(std::ostream& str, WriteVisitor& visitor) {
+    virtual void write(json_stream& str, WriteVisitor& visitor) {
         str << _value ;
     }
 
@@ -160,7 +174,7 @@ struct JSONValue<double> : public JSONObject
     JSONValue(const double& v) {
         _value = v;
     }
-    void write(std::ostream& str, WriteVisitor& visitor) {
+    void write(json_stream& str, WriteVisitor& visitor) {
         if (osg::isNaN(_value)) {
             _value = 0.0;
         }
@@ -177,7 +191,7 @@ struct JSONValue<std::string> : public JSONObject
         _value = jsonEscape(v);
     }
 
-    void write(std::ostream& str, WriteVisitor& visitor) {
+    void write(json_stream& str, WriteVisitor& visitor) {
         str << '"' << _value  << '"';
     }
 
@@ -213,7 +227,7 @@ struct JSONMatrix : public JSONArray
             _array.push_back(new JSONValue<double>(matrix.ptr()[i]));
         }
     }
-    void write(std::ostream& str, WriteVisitor& visitor);
+    void write(json_stream& str, WriteVisitor& visitor);
 };
 
 
@@ -239,7 +253,7 @@ struct JSONVertexArray : public JSONArray
         return fsize;
     }
 
-    template <class T> void writeInlineArray(std::ostream& str, unsigned int size, const T* array) {
+    template <class T> void writeInlineArray(json_stream& str, unsigned int size, const T* array) {
         str << JSONObjectBase::indent() << "\"Elements\": [ " << array[0];
         for (unsigned int i = 1; i < size; i++) {
             T v = array[i];
@@ -248,7 +262,7 @@ struct JSONVertexArray : public JSONArray
         str << " ]," << std::endl;
     }
 
-    template <typename T, typename U> void writeInlineArray(std::ostream& str, unsigned int size, const T* array) {
+    template <typename T, typename U> void writeInlineArray(json_stream& str, unsigned int size, const T* array) {
         str << JSONObjectBase::indent() << "\"Elements\": [ " << static_cast<U>(array[0]);
         for (unsigned int i = 1; i < size; i++) {
             str << ", " << static_cast<U>(array[i]);
@@ -256,7 +270,7 @@ struct JSONVertexArray : public JSONArray
         str << " ]," << std::endl;
     }
 
-    template <class T> void writeInlineArrayReal(std::ostream& str, unsigned int size, const T* array) {
+    template <class T> void writeInlineArrayReal(json_stream& str, unsigned int size, const T* array) {
         str << JSONObjectBase::indent() << "\"Elements\": [ " << array[0];
         for (unsigned int i = 1; i < size; i++) {
             float v = array[i];
@@ -268,7 +282,7 @@ struct JSONVertexArray : public JSONArray
     }
 
 
-    void write(std::ostream& str, WriteVisitor& visitor);
+    void write(json_stream& str, WriteVisitor& visitor);
 
     JSONVertexArray() {}
     JSONVertexArray(const osg::Array* array) {

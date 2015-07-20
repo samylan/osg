@@ -10,6 +10,7 @@ USE_SERIALIZER_WRAPPER(osgAnimation_AnimationManagerBase)
 USE_SERIALIZER_WRAPPER(osgAnimation_BasicAnimationManager)
 USE_SERIALIZER_WRAPPER(osgAnimation_Bone)
 USE_SERIALIZER_WRAPPER(osgAnimation_MorphGeometry)
+USE_SERIALIZER_WRAPPER(osgAnimation_RigComputeBoundingBoxCallback)
 USE_SERIALIZER_WRAPPER(osgAnimation_RigGeometry)
 USE_SERIALIZER_WRAPPER(osgAnimation_Skeleton)
 USE_SERIALIZER_WRAPPER(osgAnimation_StackedMatrixElement)
@@ -25,6 +26,8 @@ USE_SERIALIZER_WRAPPER(osgAnimation_UpdateMaterial)
 USE_SERIALIZER_WRAPPER(osgAnimation_UpdateMatrixTransform)
 USE_SERIALIZER_WRAPPER(osgAnimation_UpdateMorph)
 USE_SERIALIZER_WRAPPER(osgAnimation_UpdateSkeleton)
+USE_SERIALIZER_WRAPPER(osgAnimation_UpdateMorphGeometry)
+USE_SERIALIZER_WRAPPER(osgAnimation_UpdateRigGeometry)
 
 extern "C" void wrapper_serializer_library_osgAnimation(void) {}
 

@@ -1,0 +1,525 @@
+#include <vector>
+#include <list>
+#include <set>
+#include <limits>
+#include <algorithm>
+#include <cmath>
+#include <cassert>
+
+#include <osg/Geometry>
+#include <osg/Array>
+#include <osg/Notify>
+#include <osg/TriangleIndexFunctor>
+
+#include "GeometryUniqueVisitor"
+
+
+// Smoothing steps:
+//
+// 1. compute the vertex/triangles graph (TriangleMeshSmoother::buildMeshGraph)
+// 2. compute triangle normals (vertexTriangles::addTriangle)
+// 3. determine *piecewise* one-ring for each *unique* vertex (vertexTriangle::oneRing)
+//    Each piece of the one-ring contains triangles that are neighbors and do not share a sharp edge
+// 4. for each one-ring piece sum the triangle normals (TriangleMeshSmoother::smoothVertexNormals)
+// 5. if the vertex has been processed already: duplicate and update triangles
+//    otherwise set the normal
+//
+// **triangle normals are not normalized to weight the ring sum by triangle area**
+
+class TriangleMeshSmoother {
+    class Vertex;
+    class Triangle;
+    typedef std::vector<unsigned int> IndexVector;
+    typedef std::list<unsigned int> IndexList;
+    typedef std::set<Vertex>::const_iterator VertexIterator;
+    typedef std::vector<Triangle> TriangleVector;
+    typedef std::vector< osg::ref_ptr<osg::Array> > ArrayVector;
+
+    class Triangle {
+    public:
+        unsigned int _v[3];
+        osg::Vec3 _normal;
+
+        Triangle(unsigned int v1, unsigned int v2, unsigned int v3, const osg::Vec3& normal):
+            _normal(normal)
+        { _v[0] = v1; _v[1] = v2; _v[2] = v3; }
+
+        Triangle unique(const std::vector<unsigned int>& toUnique) const {
+            return Triangle(toUnique[v1()], toUnique[v2()], toUnique[v3()], _normal);
+        }
+
+        bool operator==(const Triangle& other) const {
+            return v1() == other.v1() &&
+                   v2() == other.v2() &&
+                   v3() == other.v3();
+        }
+
+        inline unsigned int& v1() {
+            return _v[0];
+        }
+
+        inline unsigned int v1() const {
+            return _v[0];
+        }
+
+        inline unsigned int& v2() {
+            return _v[1];
+        }
+
+        inline unsigned int v2() const {
+            return _v[1];
+        }
+
+        inline unsigned int& v3() {
+            return _v[2];
+        }
+
+        inline unsigned int v3() const {
+            return _v[2];
+        }
+
+        bool hasEdge(unsigned int e1, unsigned int e2) const {
+            return hasVertex(e1) && hasVertex(e2);
+        }
+
+        inline bool hasVertex(unsigned int vertex) const {
+            return v1() == vertex || v2() == vertex || v3() == vertex;
+        }
+
+        bool intersect(const Triangle& other) const {
+            return other.hasEdge(v1(), v2()) ||
+                   other.hasEdge(v1(), v3()) ||
+                   other.hasEdge(v2(), v3());
+        }
+
+        inline float angleCosine(const Triangle& other) const {
+            const osg::Vec3& n1 = _normal;
+            const osg::Vec3& n2 = other._normal;
+            const float length1TimesLength2 = std::max(n1.length(), 0.0001f) *
+                                              std::max(n2.length(), 0.0001f);
+            return (n1 * n2) / length1TimesLength2;
+        }
+
+        inline float clamp(float value, float minValue, float maxValue) const {
+            return std::min(maxValue, std::max(minValue, value));
+        }
+
+        inline float angle(const Triangle& other) const {
+            return acos(clamp(angleCosine(other), -1.f, 1.f));
+        }
+    };
+
+
+    class Vertex {
+    public:
+        Vertex(const osg::Vec3 position): _position(position),
+                                          _index(std::numeric_limits<unsigned int>::max())
+        {}
+
+        bool operator<(const Vertex& other) const {
+            return _position < other._position;
+        }
+
+        const osg::Vec3 _position;
+        mutable unsigned int _index; // not used in operator<
+    };
+
+    class VertexTriangles {
+    public:
+        VertexTriangles(const osg::Vec3Array* positions, bool comparePosition=true):
+            _positions(positions),
+            _comparePosition(comparePosition)
+        {
+            unsigned int nbVertex = _positions->getNumElements();
+            _unique.resize(nbVertex, std::numeric_limits<unsigned int>::max());
+            _vertexTriangles.resize(nbVertex, IndexVector());
+        }
+
+        VertexIterator begin() const {
+            return _vertices.begin();
+        }
+
+        VertexIterator end() const {
+            return _vertices.end();
+        }
+
+        void setComparePosition(bool use) {
+            _comparePosition = use;
+        }
+
+        unsigned int getNumTriangles() const {
+            return _triangles.size();
+        }
+
+        const Triangle& triangle(unsigned int index) const {
+            return _triangles[index];
+        }
+
+        Triangle& triangle(unsigned int index) {
+            return _triangles[index];
+        }
+
+        void addTriangle(unsigned int v1, unsigned int v2, unsigned int v3) {
+            osg::Vec3f p1 = (*_positions)[v1],
+                       p2 = (*_positions)[v2],
+                       p3 = (*_positions)[v3];
+
+            registerTriangleForVertex(_triangles.size(), v1, unify(v1));
+            registerTriangleForVertex(_triangles.size(), v2, unify(v2));
+            registerTriangleForVertex(_triangles.size(), v3, unify(v3));
+
+            _triangles.push_back(Triangle(v1, v2, v3, (p2 - p1) ^ (p3 - p1)));
+        }
+
+        inline void registerTriangleForVertex(unsigned int triangle, unsigned int vertex, unsigned int deduplicate) {
+            _vertexTriangles[vertex].push_back(triangle);
+            if(vertex != deduplicate) {
+                _vertexTriangles[deduplicate].push_back(triangle);
+            }
+        }
+
+        unsigned int unify(unsigned int i) {
+            if(_unique[i] == std::numeric_limits<unsigned int>::max()) {
+                if(_comparePosition) {
+                    std::pair<std::set<Vertex>::iterator, bool> result = _vertices.insert(Vertex((*_positions)[i]));
+                    if(result.second) { // new element
+                        result.first->_index = i;
+                    }
+                    _unique[i] = result.first->_index;
+                }
+                else {
+                    _unique[i] = i;
+                }
+            }
+            return _unique[i];
+        }
+
+        void add(unsigned int newIndex, unsigned int oldIndex) {
+            if(newIndex >= _unique.size()) {
+                _unique.resize(newIndex + 1);
+            }
+            _unique[newIndex] = _unique[oldIndex];
+        }
+
+        const IndexVector& triangles(unsigned int index) const {
+            return _vertexTriangles[index];
+        }
+
+        std::vector<IndexVector> oneRing(unsigned int index, const float creaseAngle) const {
+            std::vector<IndexVector> oneRing;
+
+            IndexList triangles(_vertexTriangles[index].begin(), _vertexTriangles[index].end());
+
+            while(!triangles.empty()) {
+                IndexList cluster;
+                cluster.push_front(triangles.front());
+                triangles.pop_front();
+
+                IndexList::iterator neighbor;
+                // expand from front
+                while(!triangles.empty()) {
+                    neighbor = findNeighbor(triangles, cluster.front(), creaseAngle);
+                    if(neighbor == triangles.end()) {
+                        break;
+                    }
+                    cluster.push_front(*neighbor);
+                    triangles.erase(neighbor);
+                }
+
+                // expand from back
+                while(!triangles.empty()) {
+                    neighbor = findNeighbor(triangles, cluster.back(), creaseAngle);
+                    if(neighbor == triangles.end()) {
+                        break;
+                    }
+                    cluster.push_back(*neighbor);
+                    triangles.erase(neighbor);
+                }
+                oneRing.push_back(IndexVector(cluster.begin(), cluster.end()));
+            }
+            return oneRing;
+        }
+
+    protected:
+        IndexList::iterator findNeighbor(IndexList& candidates,
+                                         const unsigned int index,
+                                         const float creaseAngle) const {
+            Triangle triangle = _triangles[index].unique(_unique);
+
+            for(IndexList::iterator candidate = candidates.begin() ; candidate != candidates.end() ; ++ candidate) {
+                Triangle other = _triangles[*candidate].unique(_unique);
+
+                if(triangle.intersect(other) && isSmoothEdge(triangle, other, creaseAngle)) {
+                    return candidate;
+                }
+            }
+            return candidates.end();
+        }
+
+        inline bool isSmoothEdge(const Triangle& triangle1, const Triangle& triangle2, const float creaseAngle) const {
+            return triangle1.angle(triangle2) < creaseAngle;
+        }
+
+        const osg::Vec3Array* _positions;
+        bool _comparePosition;
+        std::set<Vertex> _vertices;
+        IndexVector _unique;
+        std::vector<IndexVector> _vertexTriangles;
+        TriangleVector _triangles;
+    };
+
+    class TriangleRegistror {
+    public:
+        void operator() (unsigned int p1, unsigned int p2, unsigned int p3) {
+            if (p1 == p2 || p2 == p3 || p1 == p3) {
+                return;
+            }
+
+            _graph->addTriangle(p1, p2, p3);
+        }
+
+        void setGraph(VertexTriangles* graph) {
+            _graph = graph;
+        }
+
+    protected:
+        VertexTriangles* _graph;
+    };
+
+
+
+    class DuplicateVertex : public osg::ArrayVisitor {
+    public:
+        unsigned int _i;
+        unsigned int _end;
+
+        DuplicateVertex(unsigned int i): _i(i), _end(i)
+        {}
+
+        template <class ARRAY>
+        void apply_imp(ARRAY& array) {
+            _end = array.size();
+            array.push_back(array[_i]);
+        }
+
+        virtual void apply(osg::ByteArray& ba) { apply_imp(ba); }
+        virtual void apply(osg::ShortArray& ba) { apply_imp(ba); }
+        virtual void apply(osg::IntArray& ba) { apply_imp(ba); }
+        virtual void apply(osg::UByteArray& ba) { apply_imp(ba); }
+        virtual void apply(osg::UShortArray& ba) { apply_imp(ba); }
+        virtual void apply(osg::UIntArray& ba) { apply_imp(ba); }
+        virtual void apply(osg::Vec4ubArray& ba) { apply_imp(ba); }
+        virtual void apply(osg::FloatArray& ba) { apply_imp(ba); }
+        virtual void apply(osg::Vec2Array& ba) { apply_imp(ba); }
+        virtual void apply(osg::Vec3Array& ba) { apply_imp(ba); }
+        virtual void apply(osg::Vec4Array& ba) { apply_imp(ba); }
+    };
+
+public:
+    TriangleMeshSmoother(osg::Geometry& geometry, float creaseAngle, bool comparePosition=false):
+        _geometry(geometry),
+        _creaseAngle(creaseAngle),
+        _graph(0)
+    {
+        if(!_geometry.getVertexArray() || !_geometry.getVertexArray()->getNumElements()) {
+            return;
+        }
+
+        // build a unifier to consider deduplicated vertex indices
+        _graph = new VertexTriangles(static_cast<osg::Vec3Array*>(_geometry.getVertexArray()),
+                                     comparePosition);
+
+        unsigned int nbTriangles = 0;
+        for(unsigned int i = 0 ; i < geometry.getNumPrimitiveSets() ; ++ i) {
+            osg::PrimitiveSet* primitive = geometry.getPrimitiveSet(i);
+
+            if(!primitive || !primitive->getNumIndices()) {
+                continue;
+            }
+            else if(primitive->getMode() > osg::PrimitiveSet::TRIANGLES) {
+                OSG_INFO << "[smoother] Cannot smooth geometry '" << geometry.getName()
+                         << "' due to not tessellated primitives" << std::endl;
+                return;
+            }
+            else if(primitive->getMode() == osg::PrimitiveSet::TRIANGLES) {
+                nbTriangles += primitive->getNumIndices() / 3;
+            }
+        }
+        _triangles.reserve(nbTriangles);
+
+        // collect all buffers that are BIND_PER_VERTEX for eventual vertex duplication
+        addArray(_geometry.getVertexArray());
+        addArray(_geometry.getColorArray());
+        addArray(_geometry.getSecondaryColorArray());
+        addArray(_geometry.getFogCoordArray());
+        for(unsigned int i = 0; i < _geometry.getNumTexCoordArrays(); ++ i) {
+           addArray(_geometry.getTexCoordArray(i));
+        }
+        for(unsigned int i = 0; i < _geometry.getNumVertexAttribArrays(); ++ i) {
+           addArray(_geometry.getVertexAttribArray(i));
+        }
+
+        buildMeshGraph();
+        smoothVertexNormals();
+    }
+
+    ~TriangleMeshSmoother() {
+        if(_graph) {
+            delete _graph;
+        }
+    }
+
+protected:
+    void buildMeshGraph() {
+        osg::TriangleIndexFunctor<TriangleRegistror> functor;
+        functor.setGraph(_graph);
+        _geometry.accept(functor);
+    }
+
+    unsigned int duplicateVertex(unsigned int index) {
+        DuplicateVertex duplicate(index);
+        for(ArrayVector::iterator array = _vertexArrays.begin(); array != _vertexArrays.end(); ++ array) {
+            (*array)->accept(duplicate);
+        }
+#if 0
+        OSG_INFO << "[normals] [[TriangleMeshSmoother]] vertex " << index
+                 << " duplicated => " << duplicate._end << std::endl;
+#endif
+        _graph->add(duplicate._end, index);
+        return duplicate._end;
+    }
+
+    void smoothVertexNormals() {
+        osg::Vec3Array* normals = new osg::Vec3Array(osg::Array::BIND_PER_VERTEX,
+                                                     _geometry.getVertexArray()->getNumElements());
+        addArray(normals);
+
+        for(unsigned int i = 0 ; i < normals->getNumElements() ; ++ i) {
+            (*normals)[i].set(0.f, 0.f, 0.f);
+        }
+
+        for(VertexIterator uniqueIndex = _graph->begin() ; uniqueIndex != _graph->end() ; ++ uniqueIndex) {
+            unsigned int index = uniqueIndex->_index;
+            std::set<unsigned int> processed;
+
+            std::vector<IndexVector> oneRing = _graph->oneRing(index, _creaseAngle);
+            for(std::vector<IndexVector>::iterator cluster = oneRing.begin() ; cluster != oneRing.end() ; ++ cluster) {
+                osg::Vec3f clusterNormal = cumulateTriangleNormals(*cluster);
+                clusterNormal.normalize();
+
+                std::set<unsigned int> duplicates;
+                for(IndexVector::const_iterator tri = cluster->begin() ; tri != cluster->end() ; ++ tri) {
+                    const Triangle& triangle = _graph->triangle(*tri);
+
+                    if(_graph->unify(triangle.v1()) == index) {
+                        duplicates.insert(triangle.v1());
+                    }
+                    else if(_graph->unify(triangle.v2()) == index) {
+                        duplicates.insert(triangle.v2());
+                    }
+                    else if(_graph->unify(triangle.v3()) == index) {
+                        duplicates.insert(triangle.v3());
+                    }
+                }
+
+                for(std::set<unsigned int>::iterator vertex = duplicates.begin() ; vertex != duplicates.end() ; ++ vertex) {
+                    if(processed.find(*vertex) == processed.end()) {
+                        // vertex not yet processed
+                        (*normals)[*vertex] = clusterNormal;
+                        processed.insert(*vertex);
+                    }
+                    else {
+                        // vertex already processed in a previous cluster: need to duplicate
+                        unsigned int duplicate = duplicateVertex(*vertex);
+                        replaceVertexIndexInTriangles(*cluster, *vertex, duplicate);
+                        (*normals)[duplicate] = clusterNormal;
+
+                        processed.insert(duplicate);
+                    }
+                }
+            }
+        }
+
+        _geometry.setNormalArray(normals, osg::Array::BIND_PER_VERTEX);
+        updateGeometryPrimitives();
+    }
+
+    osg::Vec3f cumulateTriangleNormals(const IndexVector& triangles) const {
+        osg::Vec3f normal;
+        normal.set(0.f, 0.f, 0.f);
+        for(IndexVector::const_iterator triangle = triangles.begin() ; triangle != triangles.end() ; ++ triangle) {
+            normal += _graph->triangle(*triangle)._normal;
+        }
+        return normal;
+    }
+
+    void replaceVertexIndexInTriangles(const IndexVector& triangles, unsigned int oldIndex, unsigned int newIndex) {
+        for(IndexVector::const_iterator tri = triangles.begin() ; tri != triangles.end() ; ++ tri) {
+            Triangle& triangle = _graph->triangle(*tri);
+            if(triangle.v1() == oldIndex) {
+                triangle.v1() = newIndex;
+            }
+            else if(triangle.v2() == oldIndex) {
+                triangle.v2() = newIndex;
+            }
+            else if(triangle.v3() == oldIndex) {
+                triangle.v3() = newIndex;
+            }
+        }
+    }
+
+    void addArray(osg::Array* array) {
+        if (array && array->getBinding() == osg::Array::BIND_PER_VERTEX) {
+            _vertexArrays.push_back(array);
+        }
+    }
+
+    void updateGeometryPrimitives() {
+        osg::Geometry::PrimitiveSetList primitives;
+        for(unsigned int i = 0 ; i < _geometry.getNumPrimitiveSets() ; ++ i) {
+            osg::PrimitiveSet* primitive = _geometry.getPrimitiveSet(i);
+            if(primitive && primitive->getMode() < osg::PrimitiveSet::TRIANGLES) {
+                primitives.push_back(primitive);
+            }
+        }
+
+        osg::DrawElementsUInt* triangles = new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES);
+        for(unsigned int i = 0 ; i < _graph->getNumTriangles() ; ++ i) {
+            const Triangle& triangle = _graph->triangle(i);
+            triangles->push_back(triangle.v1());
+            triangles->push_back(triangle.v2());
+            triangles->push_back(triangle.v3());
+        }
+        primitives.push_back(triangles);
+
+        _geometry.setPrimitiveSetList(primitives);
+    }
+
+
+    osg::Geometry& _geometry;
+    float _creaseAngle;
+    VertexTriangles* _graph;
+    TriangleVector _triangles;
+    ArrayVector _vertexArrays;
+};
+
+
+
+class SmoothNormalVisitor : public GeometryUniqueVisitor {
+public:
+    SmoothNormalVisitor(float creaseAngle, bool comparePosition=false):
+        GeometryUniqueVisitor("SmoothNormalVisitor"),
+        _creaseAngle(creaseAngle),
+        _comparePosition(comparePosition)
+    {}
+
+    void apply(osg::Geometry& geometry) {
+        if(!geometry.getNormalArray()) {
+            TriangleMeshSmoother(geometry, _creaseAngle, _comparePosition);
+        }
+    }
+
+protected:
+    float _creaseAngle;
+    bool _comparePosition;
+};

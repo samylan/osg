@@ -278,7 +278,7 @@ void Texture1D::applyTexImage1D(GLenum target, Image* image, State& state, GLsiz
         return;
 
     // get extension object
-    const GL2Extensions* extensions = state.get<GL2Extensions>();
+    const GLExtensions* extensions = state.get<GLExtensions>();
 
     // compute the internal texture format, this set the _internalFormat to an appropriate value.
     computeInternalFormat();
@@ -400,7 +400,7 @@ void Texture1D::copyTexImage1D(State& state, int x, int y, int width)
             copyTexSubImage1D(state,0 ,x, y, width);
             return;
         }
-        // the relevent texture object is not of the right size so
+        // the relevant texture object is not of the right size so
         // needs to been deleted
         // remove previously bound textures.
         dirtyTextureObject();

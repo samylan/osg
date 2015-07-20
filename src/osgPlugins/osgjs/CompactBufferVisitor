@@ -10,7 +10,6 @@
  *
 */
 
-#
 #ifndef COMPACT_BUFFER_VISITOR
 #define COMPACT_BUFFER_VISITOR
 
@@ -25,60 +24,40 @@
 
 #include <map>
 
-class GeometryUniqueVisitor : public osg::NodeVisitor {
-public:
-    GeometryUniqueVisitor():
-        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
-    {}
 
-    virtual void apply(osg::Geode& geode){
-        for (unsigned int i = 0; i < geode.getNumDrawables(); i++) {
-            apply(*geode.getDrawable(i));
-        }
-    }
-
-    virtual void apply(osg::Drawable& drawable){
-        osg::Geometry* geometry = drawable.asGeometry();
-        if (!geometry || isProcessed(geometry)) {
-            return;
-        }
-        apply(*geometry);
-    }
-
-    virtual void apply(osg::Geometry& geometry) {} // to be implemented by actual visitors
-
-protected:
-    bool isProcessed(osg::Geometry* node) {
-        return _processed.find(node) != _processed.end();
-    }
-
-    bool isProcessed(osg::Geometry& node) {
-        return _processed.find(&node) != _processed.end();
-    }
-
-    void setProcessed(osg::Geometry* node) {
-        _processed.insert(node);
-    }
-
-    void setProcessed(osg::Geometry& node) {
-        _processed.insert(&node);
-    }
-
-    std::set<osg::Geometry*> _processed;
-};
-
-////// end of gles/GeometryUniqueVisitor
-
-
-
-class CompactBufferVisitor : public GeometryUniqueVisitor {
+class CompactBufferVisitor : public osg::NodeVisitor {
     public:
+        CompactBufferVisitor():
+            osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+        {}
+
+        void apply(osg::Geode& geode){
+            for (unsigned int i = 0; i < geode.getNumDrawables(); i++) {
+                apply(*geode.getDrawable(i));
+            }
+        }
+
+        void apply(osg::Drawable& drawable){
+            osg::Geometry* geometry = drawable.asGeometry();
+            if (!geometry || isProcessed(geometry)) {
+                return;
+            }
+            apply(*geometry);
+        }
+
         void apply(osg::Geometry& geometry) {
             compactPrimitiveSets(geometry);
+            setProcessed(&geometry);
         }
 
 
     protected:
+        bool isProcessed(const osg::Object* buffer)
+        { return (_processed.find(buffer) != _processed.end()); }
+
+        void setProcessed(const osg::Object* source, osg::Object* processed=0)
+        { _processed.insert(std::pair<const osg::Object*, osg::Object*>(source, processed)); }
+
         void compactPrimitiveSets(osg::Geometry& geometry) {
             osg::Geometry::PrimitiveSetList& primitives = geometry.getPrimitiveSetList();
 
@@ -119,10 +98,6 @@ class CompactBufferVisitor : public GeometryUniqueVisitor {
             }
             return maximum;
         }
-
-        bool isProcessed(const osg::Object* buffer) { return (_processed.find(buffer) != _processed.end()); }
-        void setProcessed(const osg::Object* source, osg::Object* compact)
-        { _processed.insert(std::pair<const osg::Object*, osg::Object*>(source, compact)); }
 
         osg::Object* getProcessedBuffer(const osg::Object* buffer) {
             std::map<const osg::Object*, osg::Object*>::iterator it = _processed.find(buffer);

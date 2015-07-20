@@ -259,7 +259,8 @@ const char* invalidNames[] =
     "VolumeTile",
     "PushStackValueVisitor",
     "RayIntersector",
-    "OpenSceneGraph-Data"
+    "OpenSceneGraph-Data",
+    "Node"
 };
 
 
@@ -352,6 +353,7 @@ TypoCorrection typoCorrections[] =
     {"Krulthof",       "Kruithof"},
     {"Lagrade",        "Lagarde"},
     {"Largade",        "Lagarde"},
+    {"Largarde",       "Lagarde"},
     {"Larshkari",      "Lashkari"},
     {"Lashakari",      "Lashkari"},
     {"Lashari",        "Lashkari"},
@@ -468,7 +470,18 @@ TypoCorrection typoCorrections[] =
     {"Blessing","Blissing"},
     {"Dannahuer","Dannhauer"},
     {"Chebeav", "Chebaev"},
-    {"Messershmidt","Messerschmidt"}
+    {"Messershmidt","Messerschmidt"},
+    {"Auelien","Aurelien"},
+    {"AurÃ©lien","Aurélien"},
+    {"McDonnel","Mc Donnell"},
+    {"McDonnell","Mc Donnell"},
+    {"DelallÃ©e","Delallée"},
+    {"GjÃ¸l","Gjøl"},
+    {"RavÅ¡elj","Rav¨elj"},
+    {"Ravsel",  "Rav¨elj"},
+    {"Ravselj", "Rav¨elj"},
+    {"Janik", "Jannik"},
+    {"ViganÃ²", "Viganò"}
 };
 
 
@@ -641,7 +654,15 @@ NameCorrection nameCorrections[] =
     {"Matthias",       "Helsing",
      "Mattias",        "Helsing"},
     {"Clement",        "Boesch",
-     "Clément",        "B½sch"}
+     "Clément",        "B½sch"},
+    {"Lauren",         "Voerman",
+     "Laurens",        "Voerman"},
+    {"Pjotr",          "Sventachov",
+     "Pjotr",          "Svetachov"},
+     {"Bradley",       "Baker",
+      "Bradley",       "Baker Searles"},
+     {"PawelKsiezopolski", "",
+      "Pawel",          "Ksiezopolski"}
 };
 
 
@@ -973,7 +994,9 @@ void printContributors(const std::string& changeLog, bool printNumEntries)
         cout << "-------------------------" << endl;
         for (SortedNameMap::reverse_iterator sitr = sortedNames.rbegin(); sitr != sortedNames.rend(); ++sitr)
         {
-            cout << sitr->first << "\t" << sitr->second.first << " " << sitr->second.second << endl;
+            cout << sitr->first << "\t" << sitr->second.first;
+            if (!sitr->second.second.empty()) cout << " " << sitr->second.second;
+            cout << endl;
         }
     }
     else
@@ -982,7 +1005,9 @@ void printContributors(const std::string& changeLog, bool printNumEntries)
         cout << "-----------------" << endl;
         for (SortedNameMap::reverse_iterator sitr = sortedNames.rbegin(); sitr != sortedNames.rend(); ++sitr)
         {
-            cout << sitr->second.first << " " << sitr->second.second << endl;
+            cout << sitr->second.first;
+            if (!sitr->second.second.empty()) cout << " " << sitr->second.second;
+            cout << endl;
         }
     }
 }

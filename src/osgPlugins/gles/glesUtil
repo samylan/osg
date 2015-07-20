@@ -1,14 +1,19 @@
 #ifndef GLES_UTIL
 #define GLES_UTIL
 
+#include <cassert>
+#include <map>
 #include <vector>
 #include <algorithm>
 
 #include <osg/Array>
 #include <osg/ref_ptr>
 #include <osgUtil/MeshOptimizers>
+#include <osg/TriangleIndexFunctor>
 
 #include "TriangleLinePointIndexFunctor"
+#include "StatLogger"
+#include "forsythtriangleorderoptimizer.h"
 
 
 namespace glesUtil {
@@ -16,6 +21,211 @@ namespace glesUtil {
     using namespace osg;
     typedef std::vector<unsigned int> IndexList;
 
+    /////////// Post-transform
+
+    // A list of triangles that use a vertex is associated with the Vertex
+    // structure in another array.
+    struct Vertex
+    {
+        int trisUsing;
+        size_t triList;             // index to start of triangle storage
+        Vertex()
+            : trisUsing(0), triList(0)
+        {
+        }
+    };
+    typedef vector<Vertex> VertexList;
+
+    struct Triangle
+    {
+        unsigned verts[3];
+    };
+    typedef vector<Triangle> TriangleList;
+
+    struct TriangleCounterOperator
+    {
+        VertexList* vertices;
+        int triangleCount;
+        TriangleCounterOperator() : vertices(0), triangleCount(0) {}
+
+        void doVertex(unsigned p)
+        {
+            if (vertices->size() <= p)
+                vertices->resize(p + 1);
+            (*vertices)[p].trisUsing++;
+        }
+
+        void operator() (unsigned int p1, unsigned int p2, unsigned int p3)
+        {
+            if (p1 == p2 || p2 == p3 || p1 == p3)
+                return;
+            doVertex(p1);
+            doVertex(p2);
+            doVertex(p3);
+            triangleCount++;
+        }
+    };
+
+    struct TriangleCounter : public TriangleIndexFunctor<TriangleCounterOperator>
+    {
+        TriangleCounter(vector<Vertex>* vertices_)
+        {
+            vertices = vertices_;
+        }
+    };
+
+    // Initialize the vertex triangle lists and the triangle data structures
+    struct TriangleAddOperator
+    {
+        VertexList* vertices;
+        TriangleList* triangles;
+        int triIdx;
+        TriangleAddOperator() : vertices(0), triIdx(0) {}
+
+        void operator() (unsigned int p1, unsigned int p2, unsigned int p3)
+        {
+            if (p1 == p2 || p2 == p3 || p1 == p3)
+                return;
+            (*triangles)[triIdx].verts[0] = p1;
+            (*triangles)[triIdx].verts[1] = p2;
+            (*triangles)[triIdx].verts[2] = p3;
+            triIdx++;
+        }
+    };
+
+    struct TriangleAdder : public TriangleIndexFunctor<TriangleAddOperator>
+    {
+        TriangleAdder(VertexList* vertices_, TriangleList* triangles_)
+        {
+            vertices = vertices_;
+            triangles = triangles_;
+        }
+    };
+
+    struct is_not_soup
+    {
+        is_not_soup(const VertexList& vertices) : _vertices(vertices) {}
+        bool operator()(const Triangle &t)
+        {
+            return _vertices[t.verts[0]].trisUsing > 1 ||
+                   _vertices[t.verts[1]].trisUsing > 1 ||
+                   _vertices[t.verts[2]].trisUsing > 1;
+        }
+
+        VertexList _vertices;
+    };
+
+
+    class VertexCacheVisitor : osgUtil::VertexCacheVisitor
+    {
+    public:
+
+        void optimizeVertices(Geometry& geom)
+        {
+            StatLogger logger("glesUtil::VertexCacheVisitor::optimizeVertices(" + geom.getName() + ")");
+
+            Array* vertArray = geom.getVertexArray();
+            if (!vertArray)
+                return;
+            unsigned vertArraySize = vertArray->getNumElements();
+            // If all the vertices fit in the cache, there's no point in
+            // doing this optimization.
+            if (vertArraySize <= 16)
+                return;
+
+            osg::ref_ptr<osg::Geometry> dummy = new osg::Geometry;
+            osg::Geometry::PrimitiveSetList newPrims;
+
+            for (int ii = geom.getNumPrimitiveSets() - 1 ; ii >= 0 ; -- ii) {
+                osg::PrimitiveSet* primitive = geom.getPrimitiveSet(ii);
+                if(!primitive || !primitive->getNumIndices()) {
+                    continue;
+                }
+
+                // Collect all 'surface' primitives in the dummy geometry
+                if(primitive->getMode() >= PrimitiveSet::TRIANGLES && primitive->getDrawElements()) {
+                    dummy->addPrimitiveSet(primitive);
+                }
+                else {
+                    newPrims.push_back(primitive);
+                }
+            }
+
+            if(!dummy->getNumPrimitiveSets()) {
+                return;
+            }
+
+            vector<unsigned> newVertList;
+            doVertexOptimization(*dummy, newVertList);
+
+            osg::DrawElementsUInt* elements = new DrawElementsUInt(GL_TRIANGLES, newVertList.begin(), newVertList.end());
+            if (geom.getUseVertexBufferObjects()) {
+                elements->setElementBufferObject(new ElementBufferObject);
+            }
+            newPrims.insert(newPrims.begin(), elements);
+
+            geom.setPrimitiveSetList(newPrims);
+
+            geom.dirtyDisplayList();
+        }
+
+        void doVertexOptimization(Geometry& geom, vector<unsigned>& vertDrawList)
+        {
+            Geometry::PrimitiveSetList& primSets = geom.getPrimitiveSetList();
+            // lists for all the vertices and triangles
+            VertexList vertices;
+            TriangleList triangles;
+            TriangleCounter triCounter(&vertices);
+            for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
+                    end = primSets.end();
+                    itr != end;
+                    ++itr)
+                (*itr)->accept(triCounter);
+            triangles.resize(triCounter.triangleCount);
+            // Get total of triangles used by all the vertices
+            size_t vertTrisSize = 0;
+            for (VertexList::iterator itr = vertices.begin(), end = vertices.end();
+                    itr != end;
+                    ++itr)
+            {
+                itr->triList = vertTrisSize;
+                vertTrisSize += itr->trisUsing;
+            }
+            // Store for lists of triangles (indices) used by the vertices
+            vector<unsigned> vertTriListStore(vertTrisSize);
+            TriangleAdder triAdder(&vertices, &triangles);
+            for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
+                    end = primSets.end();
+                    itr != end;
+                    ++itr)
+                (*itr)->accept(triAdder);
+
+            // discard triangle soup as it cannot be cache-optimized
+            TriangleList::iterator soupIterator = std::partition(triangles.begin(), triangles.end(),
+                                                                 is_not_soup(vertices));
+            TriangleList soup(soupIterator, triangles.end());
+            triangles.erase(soupIterator, triangles.end());
+            OSG_INFO << "Info: glesUtil::VertexCacheVisitor::doVertexOptimization(..) found "
+                     << soup.size() << " soup triangles" << std::endl << std::flush;
+
+            std::vector<unsigned int> indices;
+            for(TriangleList::const_iterator it_tri = triangles.begin() ; it_tri != triangles.end() ; ++ it_tri) {
+                indices.push_back(it_tri->verts[0]);
+                indices.push_back(it_tri->verts[1]);
+                indices.push_back(it_tri->verts[2]);
+            }
+
+            // call bgfx forsyth-algorithm implementation
+            vertDrawList.resize(indices.size());
+            Forsyth::OptimizeFaces(&indices[0], indices.size(), vertices.size(), &vertDrawList[0], 16);
+            for(TriangleList::iterator itr = soup.begin() ; itr != soup.end() ; ++ itr) {
+                vertDrawList.push_back(itr->verts[0]);
+                vertDrawList.push_back(itr->verts[1]);
+                vertDrawList.push_back(itr->verts[2]);
+            }
+        }
+
+    }; // Post-transform
 
     // A helper class that gathers up all the attribute arrays of an
     // osg::Geometry object that are BIND_PER_VERTEX and runs an
@@ -152,7 +362,6 @@ namespace glesUtil {
             VertexAttribComparitor& operator= (const VertexAttribComparitor&) { return *this; }
     };
 
-
     // Move the values in an array to new positions, based on the
     // remapping table. remapping[i] contains element i's new position, if
     // any.  Unlike RemapArray in TriStripVisitor, this code doesn't
@@ -180,11 +389,13 @@ namespace glesUtil {
         {
             ref_ptr<T> newarray = new T(_newsize);
             T* newptr = newarray.get();
-            for (size_t i = 0; i < array.size(); ++i)
-                if (_remapping[i] != invalidIndex)
-                    (*newptr)[_remapping[i]] = array[i];
-            array.swap(*newptr);
 
+            for (size_t i = 0; i < _remapping.size(); ++i) {
+                if (_remapping[i] != invalidIndex) {
+                    (*newptr)[_remapping[i]] = array[i];
+                }
+            }
+            array.swap(*newptr);
         }
 
         virtual void apply(osg::Array&) {}
@@ -265,16 +476,15 @@ namespace glesUtil {
     };
 
 
-    template<typename DE>
-    inline void reorderDrawElements(DE& drawElements,
-                                    const vector<unsigned>& reorder)
+    inline osg::DrawElementsUInt* reorderDrawElements(PrimitiveSet* primitive,
+                                                      const vector<unsigned>& reorder)
     {
-        for (typename DE::iterator itr = drawElements.begin(), end = drawElements.end();
-             itr != end;
-             ++itr)
-        {
-            *itr = static_cast<typename DE::value_type>(reorder[*itr]);
+        osg::DrawElementsUInt* newElements = new osg::DrawElementsUInt(primitive->getMode());
+        for (unsigned int i = 0 ; i < primitive->getNumIndices() ; ++ i) {
+            newElements->addElement(static_cast<unsigned>(reorder[primitive->index(i)]));
         }
+        newElements->setUserDataContainer(primitive->getUserDataContainer());
+        return newElements;
     }
 
 
@@ -282,12 +492,12 @@ namespace glesUtil {
     {
         struct OrderByPrimitiveMode
         {
-            inline bool operator() (const osg::PrimitiveSet* prim1, const osg::PrimitiveSet* prim2)
+            inline bool operator() (const osg::ref_ptr<osg::PrimitiveSet>& prim1, const osg::ref_ptr<osg::PrimitiveSet>& prim2)
             {
-                if(prim1 && prim2) {
-                    return prim1->getMode() >= prim2->getMode();
+                if(prim1.get() && prim2.get()) {
+                    return prim1->getMode() > prim2->getMode();
                 }
-                else if(prim1) {
+                else if(prim1.get()) {
                     return true;
                 }
                 return false;
@@ -297,6 +507,8 @@ namespace glesUtil {
     public:
         void optimizeOrder(Geometry& geom)
         {
+            StatLogger logger("glesUtil::VertexAccessOrderVisitor::optimizeOrder(" + geom.getName() + ")");
+
             Array* vertArray = geom.getVertexArray();
             if (!vertArray || !vertArray->getNumElements())
                 return;
@@ -320,33 +532,31 @@ namespace glesUtil {
                 ps->accept(vr);
             }
 
+            // search for UVs array shared only within the geometry
+            osgUtil::SharedArrayOptimizer deduplicator;
+            deduplicator.findDuplicatedUVs(geom);
+
             // duplicate shared arrays as it isn't safe to rearrange vertices when arrays are shared.
             if (geom.containsSharedArrays()) geom.duplicateSharedArrays();
             GeometryArrayGatherer gatherer(geom);
 
             Remapper remapper(vr.remap);
             gatherer.accept(remapper);
+            Geometry::PrimitiveSetList newPrimitives;
             for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
                      end = primSets.end();
                  itr != end;
                  ++itr)
             {
                 PrimitiveSet* ps = itr->get();
-                switch (ps->getType())
-                {
-                case PrimitiveSet::DrawElementsUBytePrimitiveType:
-                    reorderDrawElements(*static_cast<DrawElementsUByte*>(ps), vr.remap);
-                    break;
-                case PrimitiveSet::DrawElementsUShortPrimitiveType:
-                    reorderDrawElements(*static_cast<DrawElementsUShort*>(ps), vr.remap);
-                    break;
-                case PrimitiveSet::DrawElementsUIntPrimitiveType:
-                    reorderDrawElements(*static_cast<DrawElementsUInt*>(ps), vr.remap);
-                    break;
-                default:
-                    break;
-                }
+                newPrimitives.push_back(reorderDrawElements(ps, vr.remap));
             }
+            geom.setPrimitiveSetList(newPrimitives);
+
+
+            // deduplicate UVs array that were only shared within the geometry
+            deduplicator.deduplicateUVs(geom);
+
             geom.dirtyDisplayList();
         }
     };

@@ -326,6 +326,7 @@ void StatsHandler::setUpHUDCamera(osgViewer::ViewerBase* viewer)
 
     // only clear the depth buffer
     _camera->setClearMask(0);
+    _camera->setAllowEventFocus(false);
 
     _camera->setRenderer(new Renderer(_camera.get()));
 
@@ -1102,7 +1103,7 @@ void StatsHandler::setUpScene(osgViewer::ViewerBase* viewer)
         if ((*citr)->getGraphicsContext())
         {
             const osg::State* state = (*citr)->getGraphicsContext()->getState();
-            const osg::GL2Extensions* extensions = state->get<osg::GL2Extensions>();
+            const osg::GLExtensions* extensions = state->get<osg::GLExtensions>();
             if (extensions &&
                 (((extensions->isARBTimerQuerySupported && state->getTimestampBits() > 0)) || extensions->isTimerQuerySupported))
             {

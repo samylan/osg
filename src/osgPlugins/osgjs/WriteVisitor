@@ -29,8 +29,11 @@
 
 #include "JSON_Objects"
 #include "Animation"
+#include "json_stream"
+
 
 #define WRITER_VERSION 7
+
 
 osg::Array* getTangentSpaceArray(osg::Geometry& geometry);
 void translateObject(JSONObject* json, osg::Object* osg);
@@ -104,7 +107,7 @@ public:
         return size;
     }
 
-    void write(std::ostream& str) {
+    void write(json_stream& str) {
         osg::ref_ptr<JSONObject> o = new JSONObject();
         o->getMaps()["Version"] = new JSONValue<int>(WRITER_VERSION);
         o->getMaps()["Generator"] = new JSONValue<std::string>("OpenSceneGraph " + std::string(osgGetVersion()) );
@@ -281,10 +284,10 @@ public:
         json->addUniqueID();
         _maps[&node] = json;
 
-        applyCallback(node, json);
-        createJSONStateSet(node, json);
+        applyCallback(node, json.get());
+        createJSONStateSet(node, json.get());
 
-        parent->addChild("osg.Node", json);
+        parent->addChild("osg.Node", json.get());
         initJsonObjectFromNode(node, *json);
         _parents.push_back(json);
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i) {
@@ -305,10 +308,10 @@ public:
         osg::ref_ptr<JSONObject> json = new JSONNode;
         json->addUniqueID();
         _maps[&node] = json;
-        parent->addChild("osg.Node", json);
+        parent->addChild("osg.Node", json.get());
 
-        applyCallback(node, json);
-        createJSONStateSet(node, json);
+        applyCallback(node, json.get());
+        createJSONStateSet(node, json.get());
 
         initJsonObjectFromNode(node, *json);
 
@@ -328,13 +331,13 @@ public:
         osg::ref_ptr<JSONObject> json = createJSONPagedLOD(&node);
         json->addUniqueID();
         _maps[&node] = json;
-        parent->addChild("osg.PagedLOD", json);
+        parent->addChild("osg.PagedLOD", json.get());
 
 
-        applyCallback(node, json);
+        applyCallback(node, json.get());
 
 
-        createJSONStateSet(node, json);
+        createJSONStateSet(node, json.get());
 
         initJsonObjectFromNode(node, *json);
         _parents.push_back(json);
@@ -354,10 +357,10 @@ public:
         json->addUniqueID();
         _maps[&node] = json;
 
-        applyCallback(node, json);
-        createJSONStateSet(node, json);
+        applyCallback(node, json.get());
+        createJSONStateSet(node, json.get());
 
-        parent->addChild("osg.LightSource", json);
+        parent->addChild("osg.LightSource", json.get());
 
         initJsonObjectFromNode(node, *json);
 
@@ -383,10 +386,10 @@ public:
         json->addUniqueID();
         _maps[&node] = json;
 
-        applyCallback(node, json);
-        createJSONStateSet(node, json);
+        applyCallback(node, json.get());
+        createJSONStateSet(node, json.get());
 
-        parent->addChild("osg.Projection", json);
+        parent->addChild("osg.Projection", json.get());
 
         initJsonObjectFromNode(node, *json);
         json->getMaps()["Matrix"] = new JSONMatrix(node.getMatrix());
@@ -423,10 +426,10 @@ public:
         json->addUniqueID();
         _maps[&node] = json;
 
-        applyCallback(node, json);
-        createJSONStateSet(node, json);
+        applyCallback(node, json.get());
+        createJSONStateSet(node, json.get());
 
-        parent->addChild("osg.MatrixTransform", json);
+        parent->addChild("osg.MatrixTransform", json.get());
 
         initJsonObjectFromNode(node, *json);
         json->getMaps()["Matrix"] = new JSONMatrix(node.getMatrix());
@@ -447,10 +450,10 @@ public:
         json->addUniqueID();
         _maps[&node] = json;
 
-        applyCallback(node, json);
-        createJSONStateSet(node, json);
+        applyCallback(node, json.get());
+        createJSONStateSet(node, json.get());
 
-        parent->addChild("osg.MatrixTransform", json);
+        parent->addChild("osg.MatrixTransform", json.get());
 
         initJsonObjectFromNode(node, *json);
         osg::Matrix matrix = osg::Matrix::identity();

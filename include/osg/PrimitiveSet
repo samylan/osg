@@ -24,7 +24,6 @@
 #include <osg/Vec3d>
 #include <osg/Vec4d>
 #include <osg/MixinVector>
-#include <osg/GL2Extensions>
 
 #include <osg/BufferObject>
 
@@ -120,6 +119,14 @@ public:
 
     /// Mimics the OpenGL \c glEnd() function.
     virtual void end() = 0;
+
+    void useVertexCacheAsVertexArray()
+    {
+        setVertexArray(_vertexCache.size(),&_vertexCache.front());
+    }
+
+    std::vector<Vec3>   _vertexCache;
+    bool                _treatVertexDataAsTemporary;
 };
 
 class PrimitiveIndexFunctor
@@ -144,6 +151,14 @@ public:
     virtual void begin(GLenum mode) = 0;
     virtual void vertex(unsigned int pos) = 0;
     virtual void end() = 0;
+
+    void useVertexCacheAsVertexArray()
+    {
+        setVertexArray(_vertexCache.size(),&_vertexCache.front());
+    }
+
+    std::vector<Vec3>   _vertexCache;
+    bool                _treatVertexDataAsTemporary;
 };
 
 class DrawElements;
@@ -174,10 +189,10 @@ class OSG_EXPORT PrimitiveSet : public BufferData
             QUADS = GL_QUADS,
             QUAD_STRIP = GL_QUAD_STRIP,
             POLYGON = GL_POLYGON,
-            LINES_ADJACENCY = GL_LINES_ADJACENCY_EXT,
-            LINE_STRIP_ADJACENCY = GL_LINE_STRIP_ADJACENCY_EXT,
-            TRIANGLES_ADJACENCY = GL_TRIANGLES_ADJACENCY_EXT,
-            TRIANGLE_STRIP_ADJACENCY = GL_TRIANGLE_STRIP_ADJACENCY_EXT,
+            LINES_ADJACENCY = GL_LINES_ADJACENCY,
+            LINE_STRIP_ADJACENCY = GL_LINE_STRIP_ADJACENCY,
+            TRIANGLES_ADJACENCY = GL_TRIANGLES_ADJACENCY,
+            TRIANGLE_STRIP_ADJACENCY = GL_TRIANGLE_STRIP_ADJACENCY,
             PATCHES = GL_PATCHES
         };
 
@@ -374,6 +389,7 @@ class DrawElements : public PrimitiveSet
         /** Get the const ElementBufferObject. If no EBO is assigned returns NULL*/
         inline const osg::ElementBufferObject* getElementBufferObject() const { return dynamic_cast<const osg::ElementBufferObject*>(_bufferObject.get()); }
 
+        virtual GLenum getDataType() = 0;
         virtual void resizeElements(unsigned int numIndices) = 0;
         virtual void reserveElements(unsigned int numIndices) = 0;
         virtual void setElement(unsigned int, unsigned int) = 0;
@@ -431,6 +447,7 @@ class OSG_EXPORT DrawElementsUByte : public DrawElements, public VectorGLubyte
         virtual unsigned int index(unsigned int pos) const { return (*this)[pos]; }
         virtual void offsetIndices(int offset);
 
+        virtual GLenum getDataType() { return GL_UNSIGNED_BYTE; }
         virtual void resizeElements(unsigned int numIndices) { resize(numIndices); }
         virtual void reserveElements(unsigned int numIndices) { reserve(numIndices); }
         virtual void setElement(unsigned int i, unsigned int v)  { (*this)[i] = v; }
@@ -494,6 +511,7 @@ class OSG_EXPORT DrawElementsUShort : public DrawElements, public VectorGLushort
         virtual unsigned int index(unsigned int pos) const { return (*this)[pos]; }
         virtual void offsetIndices(int offset);
 
+        virtual GLenum getDataType() { return GL_UNSIGNED_SHORT; }
         virtual void resizeElements(unsigned int numIndices) { resize(numIndices); }
         virtual void reserveElements(unsigned int numIndices) { reserve(numIndices); }
         virtual void setElement(unsigned int i, unsigned int v) { (*this)[i] = v; }
@@ -557,6 +575,7 @@ class OSG_EXPORT DrawElementsUInt : public DrawElements, public VectorGLuint
         virtual unsigned int index(unsigned int pos) const { return (*this)[pos]; }
         virtual void offsetIndices(int offset);
 
+        virtual GLenum getDataType() { return GL_UNSIGNED_INT; }
         virtual void resizeElements(unsigned int numIndices) { resize(numIndices); }
         virtual void reserveElements(unsigned int numIndices) { reserve(numIndices); }
         virtual void setElement(unsigned int i, unsigned int v) { (*this)[i] = v; }

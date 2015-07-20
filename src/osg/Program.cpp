@@ -30,7 +30,7 @@
 #include <osg/ref_ptr>
 #include <osg/Program>
 #include <osg/Shader>
-#include <osg/GL2Extensions>
+#include <osg/GLExtensions>
 
 #include <OpenThreads/ScopedLock>
 #include <OpenThreads/Mutex>
@@ -66,7 +66,7 @@ void Program::flushDeletedGlPrograms(unsigned int contextID,double /*currentTime
     if (availableTime<=0.0) return;
 
     OpenThreads::ScopedLock<OpenThreads::Mutex> lock(s_mutex_deletedGlProgramCache);
-    const GL2Extensions* extensions = GL2Extensions::Get(contextID,true);
+    const GLExtensions* extensions = GLExtensions::Get(contextID,true);
     if( ! extensions->isGlslSupported ) return;
 
     const osg::Timer& timer = *osg::Timer::instance();
@@ -137,7 +137,7 @@ void Program::ProgramBinary::assign(unsigned int size, const unsigned char* data
 Program::Program() :
     _geometryVerticesOut(1), _geometryInputType(GL_TRIANGLES),
     _geometryOutputType(GL_TRIANGLE_STRIP),
-    _numGroupsX(0), _numGroupsY(0), _numGroupsZ(0)
+    _numGroupsX(0), _numGroupsY(0), _numGroupsZ(0), _feedbackmode(GL_SEPARATE_ATTRIBS)
 {
 }
 
@@ -180,6 +180,9 @@ Program::Program(const Program& rhs, const osg::CopyOp& copyop):
     _numGroupsX = rhs._numGroupsX;
     _numGroupsY = rhs._numGroupsY;
     _numGroupsZ = rhs._numGroupsZ;
+
+    _feedbackmode=rhs._feedbackmode;
+    _feedbackout=rhs._feedbackout;
 }
 
 
@@ -223,6 +226,9 @@ int Program::compare(const osg::StateAttribute& sa) const
     if( _numGroupsZ < rhs._numGroupsZ ) return -1;
     if( rhs._numGroupsZ < _numGroupsZ ) return 1;
 
+    if(_feedbackout<rhs._feedbackout) return -1;
+    if(_feedbackmode<rhs._feedbackmode) return -1;
+
     ShaderList::const_iterator litr=_shaderList.begin();
     ShaderList::const_iterator ritr=rhs._shaderList.begin();
     for(;
@@ -241,14 +247,30 @@ void Program::compileGLObjects( osg::State& state ) const
 {
     if( isFixedFunction() ) return;
 
-    const unsigned int contextID = state.getContextID();
-
     for( unsigned int i=0; i < _shaderList.size(); ++i )
     {
         _shaderList[i]->compileShader( state );
     }
 
-    getPCP( contextID )->linkProgram(state);
+    if(!_feedbackout.empty())
+    {
+        const PerContextProgram* pcp = getPCP(state);
+        const GLExtensions* extensions = state.get<GLExtensions>();
+
+        unsigned int numfeedback = _feedbackout.size();
+        const char**varyings = new const char*[numfeedback];
+        const char **varyingsptr = varyings;
+        for(std::vector<std::string>::const_iterator it=_feedbackout.begin();
+            it!=_feedbackout.end();
+            it++)
+        {
+            *varyingsptr++=(*it).c_str();
+        }
+
+        extensions->glTransformFeedbackVaryings( pcp->getHandle(), numfeedback, varyings, _feedbackmode);
+        delete [] varyings;
+    }
+    getPCP( state )->linkProgram(state);
 }
 
 void Program::setThreadSafeRefUnref(bool threadSafe)
@@ -267,6 +289,20 @@ void Program::dirtyProgram()
     for( unsigned int cxt=0; cxt < _pcpList.size(); ++cxt )
     {
         if( _pcpList[cxt].valid() ) _pcpList[cxt]->requestLink();
+    }
+
+    // update list of defines required.
+    _shaderDefines.clear();
+    for(ShaderList::iterator itr = _shaderList.begin();
+        itr != _shaderList.end();
+        ++itr)
+    {
+        Shader* shader = itr->get();
+        ShaderDefines& sd = shader->getShaderDefines();
+        _shaderDefines.insert(sd.begin(), sd.end());
+
+        ShaderDefines& sr = shader->getShaderRequirements();
+        _shaderDefines.insert(sr.begin(), sr.end());
     }
 }
 
@@ -352,14 +388,17 @@ void Program::setParameter( GLenum pname, GLint value )
 {
     switch( pname )
     {
+        case GL_GEOMETRY_VERTICES_OUT:
         case GL_GEOMETRY_VERTICES_OUT_EXT:
             _geometryVerticesOut = value;
             dirtyProgram();
             break;
+        case GL_GEOMETRY_INPUT_TYPE:
         case GL_GEOMETRY_INPUT_TYPE_EXT:
             _geometryInputType = value;
             dirtyProgram();    // needed?
             break;
+        case GL_GEOMETRY_OUTPUT_TYPE:
         case GL_GEOMETRY_OUTPUT_TYPE_EXT:
             _geometryOutputType = value;
             //dirtyProgram();    // needed?
@@ -377,9 +416,15 @@ GLint Program::getParameter( GLenum pname ) const
 {
     switch( pname )
     {
-        case GL_GEOMETRY_VERTICES_OUT_EXT: return _geometryVerticesOut;
-        case GL_GEOMETRY_INPUT_TYPE_EXT:   return _geometryInputType;
-        case GL_GEOMETRY_OUTPUT_TYPE_EXT:  return _geometryOutputType;
+        case GL_GEOMETRY_VERTICES_OUT:
+        case GL_GEOMETRY_VERTICES_OUT_EXT:
+            return _geometryVerticesOut;
+        case GL_GEOMETRY_INPUT_TYPE:
+        case GL_GEOMETRY_INPUT_TYPE_EXT:
+            return _geometryInputType;
+        case GL_GEOMETRY_OUTPUT_TYPE:
+        case GL_GEOMETRY_OUTPUT_TYPE_EXT:
+            return _geometryOutputType;
     }
     OSG_WARN << "getParameter invalid param " << pname << std::endl;
     return 0;
@@ -437,11 +482,10 @@ void Program::removeBindUniformBlock(const std::string& name)
 
 
 
-
+#include <iostream>
 void Program::apply( osg::State& state ) const
 {
-    const unsigned int contextID = state.getContextID();
-    const GL2Extensions* extensions = state.get<GL2Extensions>();
+    const GLExtensions* extensions = state.get<GLExtensions>();
     if( ! extensions->isGlslSupported ) return;
 
     if( isFixedFunction() )
@@ -451,7 +495,66 @@ void Program::apply( osg::State& state ) const
         return;
     }
 
-    PerContextProgram* pcp = getPCP( contextID );
+#if 0
+    State::DefineMap& defMap = state.getDefineMap();
+
+    OSG_NOTICE<<"Program::apply() defMap.changed="<<defMap.changed<<std::endl;
+    for(State::DefineMap::DefineStackMap::const_iterator itr = defMap.map.begin();
+        itr != defMap.map.end();
+        ++itr)
+    {
+        const State::DefineStack& ds = itr->second;
+        OSG_NOTICE<<"  define ["<<itr->first<<"] ds.changed="<<ds.changed<<" ";
+        if (ds.defineVec.empty())
+        {
+            OSG_NOTICE<<" DefineStack empty "<<std::endl;
+        }
+        else
+        {
+            const StateSet::DefinePair& dp = ds.defineVec.back();
+            OSG_NOTICE<<"  value = ["<<dp.first<<"], overridevalue = ["<<dp.second<<"]"<< std::endl;
+        }
+    }
+
+    if (defMap.changed) defMap.updateCurrentDefines();
+
+    std::string shaderDefineStr = state.getDefineString(getShaderDefines());
+    OSG_NOTICE<<"TailoredShaderDefineStr={"<<std::endl;
+    OSG_NOTICE<<shaderDefineStr;
+    OSG_NOTICE<<"}"<<std::endl;
+
+
+    shaderDefineStr.clear();
+    const StateSet::DefineList& currentDefines = defMap.currentDefines;
+    for(StateSet::DefineList::const_iterator itr = currentDefines.begin();
+        itr != currentDefines.end();
+        ++itr)
+    {
+        const StateSet::DefinePair& dp = itr->second;
+        shaderDefineStr += "#define ";
+        shaderDefineStr += itr->first;
+        if (itr->second.first.empty())
+        {
+            shaderDefineStr += "\n";
+        }
+        else
+        {
+            shaderDefineStr += " ";
+            shaderDefineStr += itr->second.first;
+            shaderDefineStr += "\n";
+        }
+        OSG_NOTICE<<"  active-define = ["<<itr->first<<"], value="<<itr->second.first<<", overridevalue = ["<<itr->second.second<<"]"<< std::endl;
+    }
+
+    OSG_NOTICE<<"FullShaderDefineStr={"<<std::endl;
+    OSG_NOTICE<<shaderDefineStr;
+    OSG_NOTICE<<"}"<<std::endl;
+
+
+#endif
+
+
+    PerContextProgram* pcp = getPCP( state );
     if( pcp->needsLink() ) compileGLObjects( state );
     if( pcp->isLinked() )
     {
@@ -473,20 +576,102 @@ void Program::apply( osg::State& state ) const
 }
 
 
-Program::PerContextProgram* Program::getPCP(unsigned int contextID) const
+Program::ProgramObjects::ProgramObjects(const osg::Program* program, unsigned int contextID):
+    _contextID(contextID),
+    _program(program)
 {
-    if( ! _pcpList[contextID].valid() )
-    {
-        _pcpList[contextID] = new PerContextProgram( this, contextID );
+}
 
-        // attach all PCSs to this new PCP
-        for( unsigned int i=0; i < _shaderList.size(); ++i )
+
+Program::PerContextProgram* Program::ProgramObjects::getPCP(const std::string& defineStr) const
+{
+    for(PerContextPrograms::const_iterator itr = _perContextPrograms.begin();
+        itr != _perContextPrograms.end();
+        ++itr)
+    {
+        if ((*itr)->getDefineString()==defineStr)
         {
-            _pcpList[contextID]->addShaderToAttach( _shaderList[i].get() );
+            // OSG_NOTICE<<"Returning PCP "<<itr->get()<<" DefineString = "<<(*itr)->getDefineString()<<std::endl;
+            return itr->get();
         }
     }
+    return 0;
+}
 
-    return _pcpList[contextID].get();
+Program::PerContextProgram* Program::ProgramObjects::createPerContextProgram(const std::string& defineStr)
+{
+    Program::PerContextProgram* pcp = new PerContextProgram( _program, _contextID );
+    _perContextPrograms.push_back( pcp );
+    pcp->setDefineString(defineStr);
+    // OSG_NOTICE<<"Creating PCP "<<pcp<<" PCP DefineString = ["<<pcp->getDefineString()<<"]"<<std::endl;
+    return pcp;
+}
+
+void Program::ProgramObjects::requestLink()
+{
+    for(PerContextPrograms::iterator itr = _perContextPrograms.begin();
+        itr != _perContextPrograms.end();
+        ++itr)
+    {
+        (*itr)->requestLink();
+    }
+}
+
+void Program::ProgramObjects::addShaderToAttach(Shader* shader)
+{
+    for(PerContextPrograms::iterator itr = _perContextPrograms.begin();
+        itr != _perContextPrograms.end();
+        ++itr)
+    {
+        (*itr)->addShaderToAttach(shader);
+    }
+}
+
+void Program::ProgramObjects::addShaderToDetach(Shader* shader)
+{
+    for(PerContextPrograms::iterator itr = _perContextPrograms.begin();
+        itr != _perContextPrograms.end();
+        ++itr)
+    {
+        (*itr)->addShaderToDetach(shader);
+    }
+}
+
+
+bool Program::ProgramObjects::getGlProgramInfoLog(std::string& log) const
+{
+    bool result = false;
+    for(PerContextPrograms::const_iterator itr = _perContextPrograms.begin();
+        itr != _perContextPrograms.end();
+        ++itr)
+    {
+        result = (*itr)->getInfoLog( log ) | result;
+    }
+    return result;
+}
+
+Program::PerContextProgram* Program::getPCP(State& state) const
+{
+    unsigned int contextID = state.getContextID();
+    const std::string defineStr = state.getDefineString(getShaderDefines());
+
+    if( ! _pcpList[contextID].valid() )
+    {
+        _pcpList[contextID] = new ProgramObjects( this, contextID );
+    }
+
+    Program::PerContextProgram* pcp = _pcpList[contextID]->getPCP(defineStr);
+    if (pcp) return pcp;
+
+    pcp = _pcpList[contextID]->createPerContextProgram(defineStr);
+
+    // attach all PCSs to this new PCP
+    for( unsigned int i=0; i < _shaderList.size(); ++i )
+    {
+        pcp->addShaderToAttach( _shaderList[i].get() );
+    }
+
+    return pcp;
 }
 
 
@@ -501,9 +686,11 @@ bool Program::isFixedFunction() const
 
 bool Program::getGlProgramInfoLog(unsigned int contextID, std::string& log) const
 {
-    return getPCP( contextID )->getInfoLog( log );
+    if (contextID<_pcpList.size()) return (_pcpList[ contextID ])->getGlProgramInfoLog( log );
+    else return false;
 }
 
+#if 0
 const Program::ActiveUniformMap& Program::getActiveUniforms(unsigned int contextID) const
 {
     return getPCP( contextID )->getActiveUniforms();
@@ -518,6 +705,7 @@ const Program::UniformBlockMap& Program::getUniformBlocks(unsigned contextID) co
 {
     return getPCP( contextID )->getUniformBlocks();
 }
+#endif
 
 ///////////////////////////////////////////////////////////////////////////
 // osg::Program::PerContextProgram
@@ -534,7 +722,7 @@ Program::PerContextProgram::PerContextProgram(const Program* program, unsigned i
     _program = program;
     if (_glProgramHandle == 0)
     {
-        _extensions = GL2Extensions::Get( _contextID, true );
+        _extensions = GLExtensions::Get( _contextID, true );
         _glProgramHandle = _extensions->glCreateProgram();
         _ownsProgramHandle = true;
     }
@@ -579,19 +767,20 @@ void Program::PerContextProgram::linkProgram(osg::State& state)
         _loadedBinary = _isLinked = (linked == GL_TRUE);
     }
 
+    if (!_loadedBinary && _extensions->isGeometryShader4Supported)
+    {
+        _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_VERTICES_OUT_EXT, _program->_geometryVerticesOut );
+        _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_INPUT_TYPE_EXT, _program->_geometryInputType );
+        _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_OUTPUT_TYPE_EXT, _program->_geometryOutputType );
+    }
+
     if (!_loadedBinary)
     {
-        if (_extensions->isGeometryShader4Supported)
-        {
-            _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_VERTICES_OUT_EXT, _program->_geometryVerticesOut );
-            _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_INPUT_TYPE_EXT, _program->_geometryInputType );
-            _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_OUTPUT_TYPE_EXT, _program->_geometryOutputType );
-        }
-
         // Detach removed shaders
         for( unsigned int i=0; i < _shadersToDetach.size(); ++i )
         {
-            _shadersToDetach[i]->detachShader( _contextID, _glProgramHandle );
+            Shader::PerContextShader* pcs = _shadersToDetach[i]->getPCS(state);
+            if (pcs) _extensions->glDetachShader( _glProgramHandle, pcs->getHandle() );
         }
     }
     _shadersToDetach.clear();
@@ -601,9 +790,12 @@ void Program::PerContextProgram::linkProgram(osg::State& state)
         // Attach new shaders
         for( unsigned int i=0; i < _shadersToAttach.size(); ++i )
         {
-            _shadersToAttach[i]->attachShader( _contextID, _glProgramHandle );
+            Shader::PerContextShader* pcs = _shadersToAttach[i]->getPCS(state);
+            if (pcs) _extensions->glAttachShader( _glProgramHandle, pcs->getHandle() );
         }
     }
+    //state.checkGLErrors("After attaching shaders.");
+
     _shadersToAttach.clear();
 
     _uniformInfoMap.clear();
@@ -885,6 +1077,10 @@ void Program::PerContextProgram::linkProgram(osg::State& state)
         delete [] name;
     }
     OSG_INFO << std::endl;
+
+
+    //state.checkGLErrors("After Program::PerContextProgram::linkProgram.");
+
 }
 
 bool Program::PerContextProgram::validateProgram()

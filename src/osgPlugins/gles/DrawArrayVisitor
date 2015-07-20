@@ -1,4 +1,4 @@
-#/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson
  *
  * This application is open source and may be redistributed and/or modified
  * freely and without restriction, both in commercial and non commercial
@@ -19,6 +19,9 @@
 
 class DrawArrayVisitor : public GeometryUniqueVisitor {
 public:
+    DrawArrayVisitor(): GeometryUniqueVisitor("DrawArrayVisitor")
+    {}
+
     void apply(osg::Geometry& geometry) {
         GeometryArrayList srcArrays(geometry);
 
@@ -26,8 +29,8 @@ public:
         osg::Geometry* newGeometry = new osg::Geometry;
         GeometryArrayList dst = srcArrays.cloneType();
 
-        for (unsigned int i = 0; i < geometry.getPrimitiveSetList().size(); i++) {
-            osg::PrimitiveSet* ps = geometry.getPrimitiveSetList()[i];
+        for (unsigned int i = 0; i < geometry.getNumPrimitiveSets(); i++) {
+            osg::PrimitiveSet* ps = geometry.getPrimitiveSet(i);
             switch (ps->getType()) {
                 case osg::PrimitiveSet::DrawArraysPrimitiveType:
                     {
@@ -78,7 +81,6 @@ public:
 
         dst.setToGeometry(geometry);
         geometry.setPrimitiveSetList(newGeometry->getPrimitiveSetList());
-        setProcessed(&geometry);
     }
 };
 

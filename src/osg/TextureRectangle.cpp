@@ -157,7 +157,7 @@ void TextureRectangle::setImage(Image* image)
 
 void TextureRectangle::apply(State& state) const
 {
-    if (!state.get<GL2Extensions>()->isRectangleSupported)
+    if (!state.get<GLExtensions>()->isRectangleSupported)
     {
         OSG_WARN<<"Warning: TextureRectangle::apply(..) failed, texture rectangle is not support by your OpenGL drivers."<<std::endl;
         return;
@@ -308,7 +308,7 @@ void TextureRectangle::applyTexImage_load(GLenum target, Image* image, State& st
     // get the contextID (user defined ID of 0 upwards) for the
     // current OpenGL context.
     const unsigned int contextID = state.getContextID();
-    const GL2Extensions* extensions = state.get<GL2Extensions>();
+    const GLExtensions* extensions = state.get<GLExtensions>();
 
     // update the modified count to show that it is upto date.
     getModifiedCount(contextID) = image->getModifiedCount();
@@ -390,7 +390,7 @@ void TextureRectangle::applyTexImage_subload(GLenum target, Image* image, State&
     // get the contextID (user defined ID of 0 upwards) for the
     // current OpenGL context.
     const unsigned int contextID = state.getContextID();
-    const GL2Extensions* extensions = state.get<GL2Extensions>();
+    const GLExtensions* extensions = state.get<GLExtensions>();
 
 
     // update the modified count to show that it is upto date.
@@ -477,7 +477,7 @@ void TextureRectangle::copyTexImage2D(State& state, int x, int y, int width, int
             copyTexSubImage2D(state,0 ,0, x, y, width, height);
             return;
         }
-        // the relevent texture object is not of the right size so
+        // the relevant texture object is not of the right size so
         // needs to been deleted
         // remove previously bound textures.
         dirtyTextureObject();
@@ -499,24 +499,6 @@ void TextureRectangle::copyTexImage2D(State& state, int x, int y, int width, int
 
     applyTexParameters(GL_TEXTURE_RECTANGLE,state);
 
-
-/*    bool needHardwareMipMap = (_min_filter != LINEAR && _min_filter != NEAREST);
-    bool hardwareMipMapOn = false;
-    if (needHardwareMipMap)
-    {
-        const Extensions* extensions = getExtensions(contextID,true);
-        bool generateMipMapSupported = extensions->isGenerateMipMapSupported();
-
-        hardwareMipMapOn = _useHardwareMipMapGeneration && generateMipMapSupported;
-
-        if (!hardwareMipMapOn)
-        {
-            // have to swtich off mip mapping
-            OSG_NOTICE<<"Warning: Texture2D::copyTexImage2D(,,,,) switch of mip mapping as hardware support not available."<<std::endl;
-            _min_filter = LINEAR;
-        }
-    }
-*/
 //    if (hardwareMipMapOn) glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS,GL_TRUE);
 
     glCopyTexImage2D( GL_TEXTURE_RECTANGLE, 0, _internalFormat, x, y, width, height, 0 );
@@ -551,23 +533,6 @@ void TextureRectangle::copyTexSubImage2D(State& state, int xoffset, int yoffset,
 
         applyTexParameters(GL_TEXTURE_RECTANGLE,state);
 
-/*        bool needHardwareMipMap = (_min_filter != LINEAR && _min_filter != NEAREST);
-        bool hardwareMipMapOn = false;
-        if (needHardwareMipMap)
-        {
-            const Extensions* extensions = getExtensions(contextID,true);
-            bool generateMipMapSupported = extensions->isGenerateMipMapSupported();
-
-            hardwareMipMapOn = _useHardwareMipMapGeneration && generateMipMapSupported;
-
-            if (!hardwareMipMapOn)
-            {
-                // have to swtich off mip mapping
-                OSG_NOTICE<<"Warning: Texture2D::copyTexImage2D(,,,,) switch of mip mapping as hardware support not available."<<std::endl;
-                _min_filter = LINEAR;
-            }
-        }
-*/
 //        if (hardwareMipMapOn) glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS,GL_TRUE);
 
         glCopyTexSubImage2D( GL_TEXTURE_RECTANGLE, 0, xoffset, yoffset, x, y, width, height);

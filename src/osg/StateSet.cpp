@@ -50,6 +50,7 @@ class TextureGLModeSet
             _textureModeSet.insert(GL_TEXTURE_1D);
             _textureModeSet.insert(GL_TEXTURE_2D);
             _textureModeSet.insert(GL_TEXTURE_3D);
+            _textureModeSet.insert(GL_TEXTURE_BUFFER);
 
             _textureModeSet.insert(GL_TEXTURE_CUBE_MAP);
             _textureModeSet.insert(GL_TEXTURE_RECTANGLE_NV);
@@ -176,6 +177,8 @@ StateSet::StateSet(const StateSet& rhs,const CopyOp& copyop):Object(rhs,copyop),
             uni->addParent(this);
         }
     }
+
+    _defineList = rhs._defineList;
 
     _renderingHint = rhs._renderingHint;
 
@@ -800,6 +803,32 @@ void StateSet::merge(const StateSet& rhs)
         }
     }
 
+    // merge the defines of rhs into this,
+    // this overrides rhs if OVERRIDE defined in this.
+    for(DefineList::const_iterator rhs_mitr = rhs._defineList.begin();
+        rhs_mitr != rhs._defineList.end();
+        ++rhs_mitr)
+    {
+        DefineList::iterator lhs_mitr = _defineList.find(rhs_mitr->first);
+        if (lhs_mitr!=_defineList.end())
+        {
+            // take the rhs mode unless the lhs is override and the rhs is not protected
+            if (!(lhs_mitr->second.second & StateAttribute::OVERRIDE ) ||
+                 (rhs_mitr->second.second & StateAttribute::PROTECTED))
+            {
+                // override isn't on in rhs, so override it with incoming
+                // value.
+                lhs_mitr->second = rhs_mitr->second;
+            }
+        }
+        else
+        {
+            // entry doesn't exist so insert it.
+            _defineList.insert(*rhs_mitr);
+        }
+    }
+
+
     // Merge RenderBin state from rhs into this.
     // Only do so if this's RenderBinMode is INHERIT.
     if (getRenderBinMode() == INHERIT_RENDERBIN_DETAILS)
@@ -1127,6 +1156,27 @@ const StateSet::RefUniformPair* StateSet::getUniformPair(const std::string& name
     if (itr!=_uniformList.end()) return &(itr->second);
     else return 0;
 }
+
+void StateSet::setDefine(const std::string& defineName, StateAttribute::OverrideValue value)
+{
+    DefinePair& dp = _defineList[defineName];
+    dp.first = "";
+    dp.second = value;
+}
+
+void StateSet::setDefine(const std::string& defineName, const std::string& defineValue, StateAttribute::OverrideValue value)
+{
+    DefinePair& dp = _defineList[defineName];
+    dp.first = defineValue;
+    dp.second = value;
+}
+
+void StateSet::removeDefine(const std::string& defineName)
+{
+    DefineList::iterator itr = _defineList.find(defineName);
+    if (itr != _defineList.end()) _defineList.erase(itr);
+}
+
 
 void StateSet::setTextureMode(unsigned int unit,StateAttribute::GLMode mode, StateAttribute::GLModeValue value)
 {

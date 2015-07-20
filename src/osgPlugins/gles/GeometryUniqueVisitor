@@ -18,11 +18,16 @@
 #include <osg/Geode>
 
 #include <set>
+#include <string>
+
+#include "StatLogger"
+
 
 class GeometryUniqueVisitor : public osg::NodeVisitor {
 public:
-    GeometryUniqueVisitor():
-        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+    GeometryUniqueVisitor(const std::string label=std::string("GeometryUniqueVisitor")):
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _logger(formatStatLabel(label))
     {}
 
     virtual void apply(osg::Geode& geode){
@@ -33,10 +38,17 @@ public:
 
     virtual void apply(osg::Drawable& drawable){
         osg::Geometry* geometry = drawable.asGeometry();
+
+        // skip already processed geometry
         if (!geometry || isProcessed(geometry)) {
             return;
         }
+
+        // call overloaded geometry processing
         apply(*geometry);
+
+        // flag geometry as processed
+        setProcessed(geometry);
     }
 
     virtual void apply(osg::Geometry& geometry) {} // to be implemented by actual visitors
@@ -50,7 +62,12 @@ protected:
         _processed.insert(node);
     }
 
+    std::string formatStatLabel(const std::string& label) const {
+        return label + "::apply(..)";
+    }
+
     std::set<osg::Geometry*> _processed;
+    StatLogger _logger;
 };
 
 #endif

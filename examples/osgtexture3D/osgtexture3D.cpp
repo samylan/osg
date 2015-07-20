@@ -31,10 +31,8 @@
 #include <iostream>
 
 //
-// A simple demo demonstrating different texturing modes,
-// including using of texture extensions.
+// A simple demo demonstrating use osg::Texture3D to create a blended animation between four separate images packed together into a 3d texture
 //
-
 
 typedef std::vector< osg::ref_ptr<osg::Image> > ImageList;
 
@@ -134,13 +132,13 @@ class UpdateStateCallback : public osg::NodeCallback
             osg::StateSet* stateset = node->getStateSet();
             if (stateset)
             {
-                // we have an exisitng stateset, so lets animate it.
+                // we have an existing stateset, so lets animate it.
                 animateState(stateset);
             }
 
-            // note, callback is repsonsible for scenegraph traversal so
+            // note, callback is responsible for scenegraph traversal so
             // should always include call the traverse(node,nv) to ensure
-            // that the rest of cullbacks and the scene graph are traversed.
+            // that the rest of callbacks and the scene graph are traversed.
             traverse(node,nv);
         }
 };
@@ -176,27 +174,16 @@ osg::Drawable* createSquare(float textureCoordMax=1.0f)
 
 osg::Node* createModel()
 {
-
     // create the geometry of the model, just a simple 2d quad right now.
     osg::Geode* geode = new osg::Geode;
+
     geode->addDrawable(createSquare());
 
-    // normally we'd create the stateset's to contain all the textures
-    // etc here, but, the above technique uses osg::Image::scaleImage and
-    // osg::Image::copySubImage() which are implemented with OpenGL utility
-    // library, which unfortunately can't be used until we have a valid
-    // OpenGL context, and at this point in initilialization we don't have
-    // a valid OpenGL context, so we have to delay creation of state until
-    // there is a valid OpenGL context.  I'll manage this by using an
-    // app callback which will create the state during the first traversal.
-    // A bit hacky, and my plan is to reimplement the osg::scaleImage and
-    // osg::Image::copySubImage() without using GLU which will get round
-    // this current limitation.
     geode->setUpdateCallback(new UpdateStateCallback());
+
     geode->setStateSet(createState());
 
     return geode;
-
 }
 
 

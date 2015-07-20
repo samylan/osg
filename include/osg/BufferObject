@@ -16,7 +16,7 @@
 #define OSG_BUFFEROBJECT 1
 
 #include <osg/GL>
-#include <osg/GL2Extensions>
+#include <osg/GLExtensions>
 #include <osg/Object>
 #include <osg/buffered_value>
 #include <osg/FrameStamp>
@@ -26,8 +26,6 @@
 #include <map>
 
 #ifndef GL_ARB_vertex_buffer_object
-    #define GL_ARB_vertex_buffer_object
-
     #define GL_ARRAY_BUFFER_ARB               0x8892
     #define GL_ELEMENT_ARRAY_BUFFER_ARB       0x8893
     #define GL_ARRAY_BUFFER_BINDING_ARB       0x8894
@@ -268,7 +266,7 @@ class OSG_EXPORT GLBufferObject : public Referenced
         unsigned int            _frameLastUsed;
 
     public:
-        GL2Extensions*          _extensions;
+        GLExtensions*          _extensions;
 
 };
 
@@ -732,6 +730,7 @@ class OSG_EXPORT PixelDataBufferObject : public BufferObject
 
 };
 
+
 class OSG_EXPORT UniformBufferObject : public BufferObject
 {
  public:
@@ -758,6 +757,20 @@ inline void GLBufferObject::bindBuffer()
     _extensions->glBindBuffer(_profile._target,_glObjectID);
     if (_set) _set->moveToBack(this);
 }
+
+
+class OSG_EXPORT ShaderStorageBufferObject : public BufferObject
+{
+ public:
+
+    ShaderStorageBufferObject();
+    ShaderStorageBufferObject(const ShaderStorageBufferObject& ubo, const CopyOp& copyop=CopyOp::SHALLOW_COPY);
+    META_Object(osg, ShaderStorageBufferObject);
+ protected:
+    virtual ~ShaderStorageBufferObject();
+};
+
+
 
 }
 

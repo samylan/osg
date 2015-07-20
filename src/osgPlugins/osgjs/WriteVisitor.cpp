@@ -66,6 +66,9 @@ void translateObject(JSONObject* json, osg::Object* osg)
                 value = new JSONValue<std::string>(ss.str());
             }
             break;
+            case osgSim::ShapeAttribute::UNKNOWN:
+            default:
+                break;
             }
             jsonEntry->getMaps()["Value"] = value;
             jsonUDCArray->getArray().push_back(jsonEntry);
@@ -308,9 +311,9 @@ JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array, osg::Geometry
     json->addUniqueID();
     _maps[array] = json;
     if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json, geom);
+        setBufferName(json.get(), geom);
     }
-    return json;
+    return json.get();
 }
 
 JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Geometry* geom)
@@ -396,9 +399,9 @@ JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da, osg::Geometry
     json->addUniqueID();
     _maps[da] = json;
     if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json, geom);
+        setBufferName(json.get(), geom);
     }
-    return json;
+    return json.get();
 }
 
 JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da, osg::Geometry* geom)
@@ -410,9 +413,9 @@ JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da, 
     json->addUniqueID();
     _maps[da] = json;
     if(geom && _mergeAllBinaryFiles) {
-        setBufferName(json, geom);
+        setBufferName(json.get(), geom);
     }
-    return json;
+    return json.get();
 }
 
 
@@ -429,15 +432,16 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
     _maps[geom] = json;
 
     if (geom->getStateSet())
-        createJSONStateSet(json, geom->getStateSet());
+        createJSONStateSet(json.get(), geom->getStateSet());
 
     translateObject(json.get(), geom);
 
     osg::ref_ptr<JSONObject> attributes = new JSONObject;
 
-    int nbVertexes = geom->getVertexArray()->getNumElements();
+    int nbVertexes = 0;
 
     if (geom->getVertexArray()) {
+        nbVertexes = geom->getVertexArray()->getNumElements();
         attributes->getMaps()["Vertex"] = createJSONBufferArray(geom->getVertexArray(), geom);
     }
     if (geom->getNormalArray()) {
@@ -486,9 +490,9 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
 
     if (!geom->getPrimitiveSetList().empty()) {
         osg::ref_ptr<JSONArray> primitives = new JSONArray();
-        for (unsigned int i = 0; i < geom->getPrimitiveSetList().size(); ++i) {
+        for (unsigned int i = 0; i < geom->getNumPrimitiveSets(); ++i) {
             osg::ref_ptr<JSONObject> obj = new JSONObject;
-            osg::PrimitiveSet* primitive = geom->getPrimitiveSetList()[i];
+            osg::PrimitiveSet* primitive = geom->getPrimitiveSet(i);
             if(!primitive) continue;
 
             if (primitive->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType) {
@@ -524,7 +528,7 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
         }
         json->getMaps()["PrimitiveSetList"] = primitives;
     }
-    return json.release();
+    return json.get();
 }
 
 JSONObject* WriteVisitor::createJSONBlendFunc(osg::BlendFunc* sa)
@@ -704,7 +708,8 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     }
     jsonPlod->getMaps()["RangeMode"] = rangeMode;
     // Range List
-    osg::ref_ptr<JSONObject> rangeObject = new JSONObject;
+    //osg::ref_ptr<JSONArray> rangeList = new JSONArray;
+    JSONObject* rangeObject = new JSONObject;
     for (unsigned int i =0; i< plod->getRangeList().size(); i++)
     {
         std::stringstream ss;
@@ -717,7 +722,6 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     // File List
 
     osg::ref_ptr<JSONObject> fileObject = new JSONObject;
-
     for (unsigned int i =0; i< plod->getNumFileNames(); i++)
     {
         std::stringstream ss;
@@ -746,7 +750,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
      }
     jsonPlod->getMaps()["RangeDataList"] = fileObject;
 
-    return jsonPlod.release();
+    return jsonPlod.get();
 }
 
 JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
@@ -771,7 +775,7 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
 
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture, this->_inlineImages,
+        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture.get(), this->_inlineImages,
                                                                  this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
@@ -779,7 +783,7 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture, this->_inlineImages,
+        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture.get(), this->_inlineImages,
                                                                  this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
@@ -787,7 +791,7 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture, this->_inlineImages,
+        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture.get(), this->_inlineImages,
                                                                         this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
@@ -877,7 +881,7 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
             if (!cullFace) {
                 cullFace = new osg::CullFace();
             }
-            cf = createJSONCullFace(cullFace);
+            cf = createJSONCullFace(cullFace.get());
         }
         obj->getMaps()["osg.CullFace"] = cf;
         attributeList->getArray().push_back(obj);
@@ -898,4 +902,3 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
         return 0;
     return jsonStateSet.release();
 }
-

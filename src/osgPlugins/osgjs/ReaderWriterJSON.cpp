@@ -24,6 +24,7 @@
 
 #include <vector>
 
+#include "json_stream"
 #include "JSON_Objects"
 #include "Animation"
 #include "CompactBufferVisitor"
@@ -45,6 +46,7 @@ public:
          bool disableCompactBuffer;
          bool inlineImages;
          bool varint;
+         bool strictJson;
          std::vector<std::string> useSpecificBuffer;
          std::string baseLodURL;
          OptionsStruct() {
@@ -54,6 +56,7 @@ public:
              disableCompactBuffer = false;
              inlineImages = false;
              varint = false;
+             strictJson = true;
          }
     };
 
@@ -68,6 +71,7 @@ public:
         supportsOption("varint","Use varint encoding to serialize integer buffers");
         supportsOption("useSpecificBuffer=uservalue1,uservalue2","uses specific buffers for unshared buffers attached to geometries having a specified user value");
         supportsOption("disableCompactBuffer","keep source types and do not try to optimize buffers size");
+        supportsOption("disableStrictJson","do not clean string (to utf8) or floating point (should be finite) values");
     }
 
     virtual const char* className() const { return "OSGJS json Writer"; }
@@ -81,22 +85,18 @@ public:
         std::string ext = osgDB::getFileExtension(fileName);
         if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
 
-        {
-            std::ofstream fout(fileName.c_str());
-            if (fout)
-            {
-                OptionsStruct _options;
-                _options = parseOptions(options);
-                WriteResult res = writeNodeModel(node, fout, osgDB::getNameLessExtension(fileName), _options);
-                fout.close();
-                return res;
-            }
+        OptionsStruct _options = parseOptions(options);
+        json_stream fout(fileName, _options.strictJson);
+
+        if(fout) {
+            WriteResult res = writeNodeModel(node, fout, osgDB::getNameLessExtension(fileName), _options);
+            return res;
         }
         return WriteResult("Unable to open file for output");
     }
 
     virtual WriteResult writeNode(const Node& node,
-                                  std::ostream& fout,
+                                  json_stream& fout,
                                   const osgDB::ReaderWriter::Options* options) const
     {
         if (!fout) {
@@ -108,7 +108,7 @@ public:
         return writeNodeModel(node, fout, "stream", _options);
     }
 
-    virtual WriteResult writeNodeModel(const Node& node, std::ostream& fout, const std::string& basename, const OptionsStruct& options) const
+    virtual WriteResult writeNodeModel(const Node& node, json_stream& fout, const std::string& basename, const OptionsStruct& options) const
     {
         // process regular model
         osg::ref_ptr<osg::Node> model = osg::clone(&node);
@@ -182,6 +182,11 @@ public:
                 {
                     localOptions.disableCompactBuffer = true;
                 }
+                if (pre_equals == "disableStrictJson")
+                {
+                    localOptions.strictJson = false;
+                }
+
 
                 if (pre_equals == "inlineImages")
                 {
