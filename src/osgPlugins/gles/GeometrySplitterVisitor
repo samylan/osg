@@ -21,6 +21,7 @@
 #include <osg/PrimitiveSet>
 #include <osg/ValueObject>
 #include <osgUtil/MeshOptimizers>
+#include <osgText/Text>
 
 #include "GeometryArray"
 #include "GeometryUniqueVisitor"
@@ -333,11 +334,11 @@ class GeometrySplitterVisitor : public GeometryUniqueVisitor {
 public:
     typedef std::vector< osg::ref_ptr<osg::Drawable> > GeometryList;
 
-    GeometrySplitterVisitor(unsigned int maxIndexValue = 65535, bool disablePostTransform=false):
+    GeometrySplitterVisitor(unsigned int maxIndexValue = 65535, bool disablePostTransform=false, bool exportNonGeometryDrawables = false):
         GeometryUniqueVisitor("GeometrySplitterVisitor"),
         _maxIndexValue(maxIndexValue),
         _disablePostTransform(disablePostTransform),
-        _strictMode(true)
+        _exportNonGeometryDrawables(exportNonGeometryDrawables)
     {}
 
     void apply(osg::Geode& geode) {
@@ -350,9 +351,14 @@ public:
                 if(lookup != _split.end() && !lookup->second.empty()) {
                     remapped.insert(remapped.end(), lookup->second.begin(), lookup->second.end());
                 }
-            } else if (!_strictMode)
-            {
-                remapped.push_back(geode.getDrawable(i));
+            } else if (_exportNonGeometryDrawables){
+                // Export non-geometry drawables, right now only text is supported
+                osgText::Text* text = dynamic_cast<osgText::Text*>(geode.getDrawable(i));
+                if (text)
+                {
+                    remapped.push_back(text);
+                }
+                // More non-geometry drawables...
             }
         }
 
@@ -378,11 +384,10 @@ protected:
     void setProcessed(osg::Geometry* node, const GeometryList& list) {
         _split.insert(std::pair<osg::Geometry*, GeometryList>(node, GeometryList(list)));
     }
-
     unsigned int _maxIndexValue;
     std::map<osg::Geometry*, GeometryList> _split;
     bool _disablePostTransform;
-    bool _strictMode;
+    bool _exportNonGeometryDrawables;
 };
 
 #endif

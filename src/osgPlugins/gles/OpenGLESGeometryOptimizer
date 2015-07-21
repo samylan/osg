@@ -44,7 +44,8 @@ public:
         _generateTangentSpace(false),
         _tangentUnit(0),
         _maxIndexValue(65535),
-        _wireframe("")
+        _wireframe(""),
+        _exportNonGeometryDrawables(false)
     {}
 
     // run the optimizer
@@ -59,7 +60,7 @@ public:
     void setDisablePostTransform(bool s) { _disablePostTransform = s; }
     void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
     void setTripStripMinSize(unsigned int size) { _triStripMinSize = std::max<unsigned int>(size, 2); }
-
+    void setExportNonGeometryDrawables(bool value) { _exportNonGeometryDrawables = value; }
     void setTexCoordChannelForTangentSpace(int uv) {
         _tangentUnit = uv;
         _generateTangentSpace = true;
@@ -106,7 +107,7 @@ protected:
     }
 
     void makeSplit(osg::Node* node) {
-        GeometrySplitterVisitor splitter(_maxIndexValue, _disablePostTransform);
+        GeometrySplitterVisitor splitter(_maxIndexValue, _disablePostTransform, _exportNonGeometryDrawables );
         node->accept(splitter);
     }
 
@@ -144,6 +145,7 @@ protected:
 
     unsigned int _maxIndexValue;
     std::string _wireframe;
+    bool _exportNonGeometryDrawables;
 };
 
 #endif
