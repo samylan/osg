@@ -65,6 +65,11 @@ public:
         }
     }
 
+    inline void normalizeWeight(osg::Vec4f &v) const {
+        float sum = v[0] + v[1] + v[2] + v[3];
+        if (sum > 0) v /= sum;
+    }
+
     void apply(osgAnimation::RigGeometry& geometry) {
         // find skeleton
         osgAnimation::UpdateRigGeometry rigUpdater;
@@ -99,6 +104,8 @@ public:
                 vertexBones[j] = maxVertexBoneWeight[j].first;
                 vertexWeights[j] = maxVertexBoneWeight[j].second;
             }
+
+            normalizeWeight(vertexWeights);
 
             bones->push_back(vertexBones);
             weights->push_back(vertexWeights);
