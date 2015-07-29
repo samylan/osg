@@ -30,7 +30,13 @@
 
 struct sort_weights {
     bool operator()(const std::pair<unsigned int, float> &left, const std::pair<unsigned int, float> &right) {
-        return left.second > right.second;
+        // in case weights are equal, order elements by ascending bone ids
+        if(left.second == right.second) {
+            return left.first < right.first;
+        }
+        else {
+            return left.second > right.second;
+        }
     }
 };
 
