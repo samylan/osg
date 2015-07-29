@@ -236,22 +236,21 @@ public:
             if (am) {
                 JSONArray* array = new JSONArray;
                 JSONObject* bam = new JSONObject;
+                translateObject(bam, am);
                 bam->getMaps()["Animations"] = array;
-
 
                 JSONObject* nodeCallbackObject = new JSONObject;
                 nodeCallbackObject->getMaps()["osgAnimation.BasicAnimationManager"] = bam;
                 updateCallbacks->getArray().push_back(nodeCallbackObject);
 
                 for ( unsigned int i = 0; i < am->getAnimationList().size(); i++) {
-                    osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(am->getAnimationList()[i].get(), this);
+                    osgAnimation::Animation* animation = am->getAnimationList()[i].get();
+                    osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(animation, this);
                     if (jsonAnim) {
+                        translateObject(jsonAnim.get(), animation);
                         JSONObject* obj = new JSONObject;
                         obj->getMaps()["osgAnimation.Animation"] = jsonAnim;
                         array->getArray().push_back(obj);
-                        //std::stringstream ss;
-                        //jsonAnim->write(ss);
-                        //std::cout << ss.str() << std::endl;
                     }
                 }
             } else {

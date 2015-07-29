@@ -16,7 +16,7 @@
 #include "JSON_Objects"
 #include "WriteVisitor"
 
-static bool addJSONChannelVec3(osgAnimation::Vec3LinearChannel* channel, JSONObject& anim, WriteVisitor* writer)
+static bool addJSONChannelVec3(osgAnimation::Vec3LinearChannel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
 {
     if (channel && channel->getSampler()) {
         osg::ref_ptr<JSONObject> json = new JSONObject;
@@ -37,11 +37,11 @@ static bool addJSONChannelVec3(osgAnimation::Vec3LinearChannel* channel, JSONObj
         }
 
         osg::ref_ptr<JSONArray> keysArray = new JSONArray;
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayX.get()));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayY.get()));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayZ.get()));
+        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayX.get(), parent));
+        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayY.get(), parent));
+        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayZ.get(), parent));
 
-        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timesArray.get());
+        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timesArray.get(), parent);
         jsKeys->getMaps()["Key"] = keysArray;
         json->getMaps()["KeyFrames"] = jsKeys;
 
@@ -53,7 +53,7 @@ static bool addJSONChannelVec3(osgAnimation::Vec3LinearChannel* channel, JSONObj
     return false;
 }
 
-static bool addJSONChannelFloat(osgAnimation::FloatLinearChannel* channel, JSONObject& anim, WriteVisitor* writer)
+static bool addJSONChannelFloat(osgAnimation::FloatLinearChannel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
 {
     if (channel->getSampler()) {
         osg::ref_ptr<JSONObject> json = new JSONObject;
@@ -69,8 +69,8 @@ static bool addJSONChannelFloat(osgAnimation::FloatLinearChannel* channel, JSONO
             keysArray->push_back((*keys)[i].getValue());
         }
 
-        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timesArray.get());
-        jsKeys->getMaps()["Key"] = writer->createJSONBufferArray(keysArray.get());
+        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timesArray.get(), parent);
+        jsKeys->getMaps()["Key"] = writer->createJSONBufferArray(keysArray.get(), parent);
         json->getMaps()["KeyFrames"] = jsKeys;
 
         osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
@@ -81,7 +81,7 @@ static bool addJSONChannelFloat(osgAnimation::FloatLinearChannel* channel, JSONO
     return false;
 }
 
-static bool addJSONChannelQuaternion(osgAnimation::QuatSphericalLinearChannel* channel, JSONObject& anim, WriteVisitor* writer)
+static bool addJSONChannelQuaternion(osgAnimation::QuatSphericalLinearChannel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
 {
     if (channel->getSampler()) {
         osg::ref_ptr<JSONObject> json = new JSONObject;
@@ -105,12 +105,12 @@ static bool addJSONChannelQuaternion(osgAnimation::QuatSphericalLinearChannel* c
         }
 
         osg::ref_ptr<JSONArray> keysArray = new JSONArray;
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayX.get()));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayY.get()));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayZ.get()));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayW.get()));
+        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayX.get(), parent));
+        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayY.get(), parent));
+        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayZ.get(), parent));
+        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayW.get(), parent));
 
-        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timesArray.get());
+        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timesArray.get(), parent);
         jsKeys->getMaps()["Key"] = keysArray;
         json->getMaps()["KeyFrames"] = jsKeys;
 
@@ -122,7 +122,7 @@ static bool addJSONChannelQuaternion(osgAnimation::QuatSphericalLinearChannel* c
     return false;
 }
 
-static bool addJSONChannelFloatCubicBezier(osgAnimation::FloatCubicBezierChannel* channel, JSONObject& anim, WriteVisitor* writer)
+static bool addJSONChannelFloatCubicBezier(osgAnimation::FloatCubicBezierChannel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
 {
     if(channel->getSampler()) {
         osg::ref_ptr<JSONObject> json = new JSONObject;
@@ -143,13 +143,13 @@ static bool addJSONChannelFloatCubicBezier(osgAnimation::FloatCubicBezierChannel
         }
         osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
 
-        jsKeys->getMaps()["ControlPointOut"] = writer->createJSONBufferArray(controlPointOutArray.get());
+        jsKeys->getMaps()["ControlPointOut"] = writer->createJSONBufferArray(controlPointOutArray.get(), parent);
 
-        jsKeys->getMaps()["ControlPointIn"] = writer->createJSONBufferArray(controlPointInArray.get());
+        jsKeys->getMaps()["ControlPointIn"] = writer->createJSONBufferArray(controlPointInArray.get(), parent);
 
-        jsKeys->getMaps()["Position"] = writer->createJSONBufferArray(positionArray.get());
+        jsKeys->getMaps()["Position"] = writer->createJSONBufferArray(positionArray.get(), parent);
 
-        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timeArray.get());
+        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timeArray.get(), parent);
 
         json->getMaps()["KeyFrames"] = jsKeys;
 
@@ -161,7 +161,7 @@ static bool addJSONChannelFloatCubicBezier(osgAnimation::FloatCubicBezierChannel
     return false;
 }
 
-static bool addJSONChannelVec3CubicBezier(osgAnimation::Vec3CubicBezierChannel* channel, JSONObject& anim, WriteVisitor* writer)
+static bool addJSONChannelVec3CubicBezier(osgAnimation::Vec3CubicBezierChannel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
 {
     if(channel->getSampler()) {
         osg::ref_ptr<JSONObject> json = new JSONObject;
@@ -200,24 +200,24 @@ static bool addJSONChannelVec3CubicBezier(osgAnimation::Vec3CubicBezierChannel* 
         osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
 
         osg::ref_ptr<JSONArray> jsControlPointOutArray = new JSONArray;
-        jsControlPointOutArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointOutArrayX.get()));
-        jsControlPointOutArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointOutArrayY.get()));
-        jsControlPointOutArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointOutArrayZ.get()));
+        jsControlPointOutArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointOutArrayX.get(), parent));
+        jsControlPointOutArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointOutArrayY.get(), parent));
+        jsControlPointOutArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointOutArrayZ.get(), parent));
         jsKeys->getMaps()["ControlPointOut"] = jsControlPointOutArray;
 
         osg::ref_ptr<JSONArray> jsControlPointInArray = new JSONArray;
-        jsControlPointInArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointInArrayX.get()));
-        jsControlPointInArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointInArrayY.get()));
-        jsControlPointInArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointInArrayZ.get()));
+        jsControlPointInArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointInArrayX.get(), parent));
+        jsControlPointInArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointInArrayY.get(), parent));
+        jsControlPointInArray->asArray()->getArray().push_back(writer->createJSONBufferArray(controlPointInArrayZ.get(), parent));
         jsKeys->getMaps()["ControlPointIn"] = jsControlPointInArray;
 
         osg::ref_ptr<JSONArray> jsPositionVertexArray = new JSONArray;
-        jsPositionVertexArray->asArray()->getArray().push_back(writer->createJSONBufferArray(positionArrayX.get()));
-        jsPositionVertexArray->asArray()->getArray().push_back(writer->createJSONBufferArray(positionArrayY.get()));
-        jsPositionVertexArray->asArray()->getArray().push_back(writer->createJSONBufferArray(positionArrayZ.get()));
+        jsPositionVertexArray->asArray()->getArray().push_back(writer->createJSONBufferArray(positionArrayX.get(), parent));
+        jsPositionVertexArray->asArray()->getArray().push_back(writer->createJSONBufferArray(positionArrayY.get(), parent));
+        jsPositionVertexArray->asArray()->getArray().push_back(writer->createJSONBufferArray(positionArrayZ.get(), parent));
         jsKeys->getMaps()["Position"] = jsPositionVertexArray;
 
-        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timeArray.get());
+        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timeArray.get(), parent);
 
         json->getMaps()["KeyFrames"] = jsKeys;
 
@@ -229,12 +229,12 @@ static bool addJSONChannelVec3CubicBezier(osgAnimation::Vec3CubicBezierChannel* 
     return false;
 }
 
-static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, WriteVisitor* writer)
+static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
 {
     {
         osgAnimation::Vec3LinearChannel* c = dynamic_cast<osgAnimation::Vec3LinearChannel*>(channel);
         if (c) {
-            if (addJSONChannelVec3(c, anim, writer))
+            if (addJSONChannelVec3(c, anim, writer, parent))
                 return;
         }
     }
@@ -242,7 +242,7 @@ static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, Wri
     {
         osgAnimation::FloatLinearChannel* c = dynamic_cast<osgAnimation::FloatLinearChannel*>(channel);
         if (c) {
-            if (addJSONChannelFloat(c, anim, writer))
+            if (addJSONChannelFloat(c, anim, writer, parent))
                 return;
         }
     }
@@ -250,7 +250,7 @@ static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, Wri
     {
         osgAnimation::QuatSphericalLinearChannel* c = dynamic_cast<osgAnimation::QuatSphericalLinearChannel*>(channel);
         if (c) {
-            if (addJSONChannelQuaternion(c, anim, writer))
+            if (addJSONChannelQuaternion(c, anim, writer, parent))
                 return;
         }
     }
@@ -258,7 +258,7 @@ static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, Wri
     {
         osgAnimation::FloatCubicBezierChannel* c = dynamic_cast<osgAnimation::FloatCubicBezierChannel*>(channel);
         if (c) {
-            if (addJSONChannelFloatCubicBezier(c, anim, writer))
+            if (addJSONChannelFloatCubicBezier(c, anim, writer, parent))
                 return;
         }
     }
@@ -266,7 +266,7 @@ static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, Wri
     {
         osgAnimation::Vec3CubicBezierChannel *c = dynamic_cast<osgAnimation::Vec3CubicBezierChannel*>(channel);
         if (c) {
-            if (addJSONChannelVec3CubicBezier(c, anim, writer))
+            if (addJSONChannelVec3CubicBezier(c, anim, writer, parent))
                 return;
         }
     }
@@ -279,7 +279,7 @@ JSONObject* createJSONAnimation(osgAnimation::Animation* anim, WriteVisitor* wri
     json->getMaps()["Name"] = new JSONValue<std::string>(anim->getName());
 
     for (unsigned int i = 0; i < anim->getChannels().size(); i++) {
-        addJSONChannel(anim->getChannels()[i].get(), *json, writer);
+        addJSONChannel(anim->getChannels()[i].get(), *json, writer, anim);
     }
     return json.release();
 }
