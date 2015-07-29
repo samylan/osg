@@ -29,6 +29,7 @@
 #include "UnIndexMeshVisitor"
 #include "WireframeVisitor"
 #include "AABBonBoneVisitor"
+#include "AnimationCleaner"
 
 
 class OpenGLESGeometryOptimizer
@@ -80,6 +81,22 @@ public:
     }
 
 protected:
+    void makeAnimation(osg::Node* node) {
+        if(_disableAnimation) {
+            makeCleanAnimation(node);
+        }
+        else {
+            AnimationVisitor anim;
+            node->accept(anim);
+            makeAABBonBone(node, _enableAABBonBone);
+        }
+    }
+
+    void makeCleanAnimation(osg::Node* node) {
+        AnimationCleaner cleaner;
+        node->accept(cleaner);
+    }
+
     void makeAABBonBone(osg::Node* node, bool enableAABBonBone) {
         FindSkeletons fs;
         node->accept(fs);
@@ -90,11 +107,6 @@ protected:
            skl->accept(cabv);
            cabv.computeBoundingBoxOnBones();
        }
-    }
-
-    void makeAnimation(osg::Node* node) {
-        AnimationVisitor anim;
-        node->accept(anim);
     }
 
     void makeWireframe(osg::Node* node) {

@@ -9,11 +9,8 @@ const unsigned glesUtil::Remapper::invalidIndex = std::numeric_limits<unsigned>:
 osg::Node* OpenGLESGeometryOptimizer::optimize(osg::Node& node) {
     osg::ref_ptr<osg::Node> model = osg::clone(&node);
 
-    // animation: create regular Geometry if RigGeometry
-    if(!_disableAnimation) {
-        makeAnimation(model.get());
-        makeAABBonBone(model.get(), _enableAABBonBone);
-    }
+    // animation: process bones/weights or remove all animation data if disabled
+    makeAnimation(model.get());
 
     // wireframe
     if (!_wireframe.empty()) {
