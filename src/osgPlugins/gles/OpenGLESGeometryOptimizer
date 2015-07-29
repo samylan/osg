@@ -113,7 +113,7 @@ protected:
     }
 
     void makeSmoothNormal(osg::Node* node) {
-        SmoothNormalVisitor smoother(osg::PI / 2.f, true);
+        SmoothNormalVisitor smoother(osg::PI / 4.f, true);
         node->accept(smoother);
     }
 
