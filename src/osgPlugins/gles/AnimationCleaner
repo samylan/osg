@@ -1,0 +1,88 @@
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Sketchfab
+ *
+ * This application is open source and may be redistributed and/or modified
+ * freely and without restriction, both in commercial and non commercial
+ * applications, as long as this copyright notice is maintained.
+ *
+ * This application is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ */
+
+#ifndef ANIMATION_CLEANER
+#define ANIMATION_CLEANER
+
+#include <osgAnimation/AnimationManagerBase>
+#include <osgAnimation/AnimationUpdateCallback>
+#include <osgAnimation/RigGeometry>
+
+#include <map>
+
+
+class AnimationCleaner : public osg::NodeVisitor
+{
+public:
+    AnimationCleaner():
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _logger("AnimationCleaner::apply(..)")
+    {}
+
+    void apply(osg::Node& node) {
+        removeAnimationCallbacks(node);
+        traverse(node);
+    }
+
+    void apply(osg::Geode& geode) {
+        // replace RigGeometry by source Geometry
+        std::map<osg::Drawable*, osg::Drawable*> remap;
+        for(unsigned int i = 0 ; i < geode.getNumDrawables() ; ++ i) {
+            osg::Drawable* drawable = geode.getDrawable(i);
+            osgAnimation::RigGeometry* geometry = dynamic_cast<osgAnimation::RigGeometry*>(drawable->asGeometry());
+            if(geometry) {
+                remap[drawable] = geometry->getSourceGeometry();
+            }
+        }
+
+        for(std::map<osg::Drawable*, osg::Drawable*>::const_iterator remapped = remap.begin() ; remapped != remap.end() ; ++ remapped) {
+            if(remapped->second) {
+                geode.addDrawable(remapped->second);
+                geode.removeDrawable(remapped->first);
+            }
+        }
+    }
+
+protected:
+    void removeAnimationCallbacks(osg::Node& node, osg::Callback* parent=0) {
+        osg::Callback* callback = node.getUpdateCallback();
+
+        if(isAnimationManager(callback)) {
+            node.setUpdateCallback(0);
+        }
+        else {
+            removeAnimationUpdateCallback(callback);
+        }
+    }
+
+    void removeAnimationUpdateCallback(osg::Callback* root) {
+        osg::Callback* callback = root;
+        while(callback) {
+            if(isAnimationCallback(callback)) {
+                root->removeNestedCallback(callback);
+            }
+            callback = callback->getNestedCallback();
+        }
+    }
+
+    inline bool isAnimationManager(osg::Callback* callback) const {
+        return callback && dynamic_cast<osgAnimation::AnimationManagerBase*>(callback);
+    }
+    inline bool isAnimationCallback(osg::Callback* callback) const {
+        return callback && dynamic_cast<osgAnimation::AnimationUpdateCallbackBase*>(callback);
+    }
+
+
+    StatLogger _logger;
+};
+
+#endif

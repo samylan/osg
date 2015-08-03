@@ -24,7 +24,7 @@
 // 5. if the vertex has been processed already: duplicate and update triangles
 //    otherwise set the normal
 //
-// **triangle normals are not normalized to weight the ring sum by triangle area**
+// **triangle normals are normalized but weighted by their area when cumulated over the ring**
 
 class TriangleMeshSmoother {
     class Vertex;
@@ -39,10 +39,14 @@ class TriangleMeshSmoother {
     public:
         unsigned int _v[3];
         osg::Vec3 _normal;
+        float _area;
 
-        Triangle(unsigned int v1, unsigned int v2, unsigned int v3, const osg::Vec3& normal):
-            _normal(normal)
-        { _v[0] = v1; _v[1] = v2; _v[2] = v3; }
+        Triangle(unsigned int v1, unsigned int v2, unsigned int v3, const osg::Vec3& normal)
+        {
+            _v[0] = v1; _v[1] = v2; _v[2] = v3;
+            _area = normal.length();
+            _normal = normal / _area;
+        }
 
         Triangle unique(const std::vector<unsigned int>& toUnique) const {
             return Triangle(toUnique[v1()], toUnique[v2()], toUnique[v3()], _normal);
@@ -93,11 +97,8 @@ class TriangleMeshSmoother {
         }
 
         inline float angleCosine(const Triangle& other) const {
-            const osg::Vec3& n1 = _normal;
-            const osg::Vec3& n2 = other._normal;
-            const float length1TimesLength2 = std::max(n1.length(), 0.0001f) *
-                                              std::max(n2.length(), 0.0001f);
-            return (n1 * n2) / length1TimesLength2;
+            // Triangle._normal is normalized so no need to divide by lengthes
+            return (_normal * other._normal);
         }
 
         inline float clamp(float value, float minValue, float maxValue) const {
@@ -302,17 +303,49 @@ class TriangleMeshSmoother {
             array.push_back(array[_i]);
         }
 
-        virtual void apply(osg::ByteArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::ShortArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::IntArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::UByteArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::UShortArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::UIntArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::Vec4ubArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::FloatArray& ba) { apply_imp(ba); }
-        virtual void apply(osg::Vec2Array& ba) { apply_imp(ba); }
-        virtual void apply(osg::Vec3Array& ba) { apply_imp(ba); }
-        virtual void apply(osg::Vec4Array& ba) { apply_imp(ba); }
+        virtual void apply(osg::ByteArray& array) { apply_imp(array); }
+        virtual void apply(osg::ShortArray& array) { apply_imp(array); }
+        virtual void apply(osg::IntArray& array) { apply_imp(array); }
+        virtual void apply(osg::UByteArray& array) { apply_imp(array); }
+        virtual void apply(osg::UShortArray& array) { apply_imp(array); }
+        virtual void apply(osg::UIntArray& array) { apply_imp(array); }
+        virtual void apply(osg::FloatArray& array) { apply_imp(array); }
+        virtual void apply(osg::DoubleArray& array) { apply_imp(array); }
+
+        virtual void apply(osg::Vec2Array& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3Array& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4Array& array) { apply_imp(array); }
+
+        virtual void apply(osg::Vec2bArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3bArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4bArray& array) { apply_imp(array); }
+
+        virtual void apply(osg::Vec2sArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3sArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4sArray& array) { apply_imp(array); }
+
+        virtual void apply(osg::Vec2iArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3iArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4iArray& array) { apply_imp(array); }
+
+        virtual void apply(osg::Vec2dArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3dArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4dArray& array) { apply_imp(array); }
+
+        virtual void apply(osg::Vec2ubArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3ubArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4ubArray& array) { apply_imp(array); }
+
+        virtual void apply(osg::Vec2usArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3usArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4usArray& array) { apply_imp(array); }
+
+        virtual void apply(osg::Vec2uiArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec3uiArray& array) { apply_imp(array); }
+        virtual void apply(osg::Vec4uiArray& array) { apply_imp(array); }
+
+        virtual void apply(osg::MatrixfArray& array) { apply_imp(array); }
+        virtual void apply(osg::MatrixdArray& array) { apply_imp(array); }
     };
 
 public:
@@ -448,7 +481,8 @@ protected:
         osg::Vec3f normal;
         normal.set(0.f, 0.f, 0.f);
         for(IndexVector::const_iterator triangle = triangles.begin() ; triangle != triangles.end() ; ++ triangle) {
-            normal += _graph->triangle(*triangle)._normal;
+            const Triangle& t = _graph->triangle(*triangle);
+            normal += (t._normal * t._area);
         }
         return normal;
     }

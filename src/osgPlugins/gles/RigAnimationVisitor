@@ -10,8 +10,8 @@
  *
  */
 
-#ifndef ANIMATION_VISITOR
-#define ANIMATION_VISITOR
+#ifndef RIG_ANIMATION_VISITOR
+#define RIG_ANIMATION_VISITOR
 
 #include <osgUtil/UpdateVisitor>
 #include <osgAnimation/RigTransformHardware>
@@ -42,13 +42,13 @@ struct sort_weights {
 
 
 // the idea is to create true Geometry if skeleton with RigGeometry
-class AnimationVisitor : public osgUtil::UpdateVisitor
+class RigAnimationVisitor : public osgUtil::UpdateVisitor
 {
 public:
     typedef std::map<unsigned int, unsigned short> boneIndices;
 
-    AnimationVisitor():
-        _logger("AnimationVisitor::apply(..)")
+    RigAnimationVisitor():
+        _logger("RigAnimationVisitor::apply(..)")
     {
         setFrameStamp(new osg::FrameStamp());
     }
