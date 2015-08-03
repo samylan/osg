@@ -32,6 +32,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <algorithm>
 
 #include "JSON_Objects"
 #include "Animation"
@@ -52,6 +53,7 @@ class WriteVisitor : public osg::NodeVisitor
 {
 public:
     typedef std::vector<osg::ref_ptr<osg::StateSet> > StateSetStack;
+    typedef std::pair<std::string, std::string> KeyValue;
 
     std::map<osg::ref_ptr<osg::Object>, osg::ref_ptr<JSONObject> > _maps;
     std::vector<osg::ref_ptr<JSONObject> > _parents;
@@ -63,7 +65,7 @@ public:
     bool _inlineImages;
     bool _varint;
     int _maxTextureDimension;
-    std::map<std::string, std::string> _specificBuffers;
+    std::map<KeyValue, std::string> _specificBuffers;
     std::map<std::string, std::ofstream*> _buffers;
 
     std::ofstream& getBufferFile(const std::string& name) {
@@ -88,9 +90,9 @@ public:
         }
     }
 
-    std::string getBinaryFilename(const std::string& buffer = "") const {
+    std::string getBinaryFilename(KeyValue flag=KeyValue()) const {
         std::string suffix;
-        std::map<std::string, std::string>::const_iterator it_buffer = _specificBuffers.find(buffer);
+        std::map<KeyValue, std::string>::const_iterator it_buffer = _specificBuffers.find(flag);
         if(it_buffer != _specificBuffers.end()) {
             suffix = "_" + it_buffer->second;
         }
@@ -163,19 +165,63 @@ public:
     }
 
     std::string getBufferName(osg::Object* object) const {
-        std::string name("");
-        bool isSpecific = false;
-        if(object) {
-            for(std::map<std::string, std::string>::const_iterator it_flag = _specificBuffers.begin() ;
-                it_flag != _specificBuffers.end() ; ++ it_flag) {
-                std::cout << "looking for user value: " << it_flag->first << std::endl;
-                if(object->getUserValue(it_flag->first, isSpecific) && isSpecific) {
-                    name = it_flag->first;
-                    break;
+        KeyValue flag;
+        if(object && object->getUserDataContainer() && object->getUserDataContainer()->getNumUserObjects()) {
+            for(std::map<KeyValue, std::string>::const_iterator it_flag = _specificBuffers.begin() ; it_flag != _specificBuffers.end() ; ++ it_flag) {
+                std::string key = it_flag->first.first,
+                            value = it_flag->first.second;
+
+                // only looking for existence of user value
+                if(value.empty()) {
+                    if(object->getUserDataContainer()->getUserObject(key)) {
+                        flag = it_flag->first;
+                        break;
+                    }
+                }
+                else {
+                    std::set<std::string> uservalues;
+
+                    bool boolValue;
+                    int numberValue;
+                    unsigned int uNumberValue;
+                    std::string stringValue;
+
+                    if(object->getUserValue(key, boolValue)) {
+                        std::ostringstream oss;
+                        if(boolValue) {
+                            uservalues.insert("1");
+                            uservalues.insert("true");
+                        }
+                        else {
+                            uservalues.insert("0");
+                            uservalues.insert("false");
+                        }
+                    }
+
+                    if(object->getUserValue(key, numberValue)) {
+                        std::ostringstream oss;
+                        oss << numberValue;
+                        uservalues.insert(oss.str());
+                    }
+
+                    if(object->getUserValue(key, uNumberValue)) {
+                        std::ostringstream oss;
+                        oss << uNumberValue;
+                        uservalues.insert(oss.str());
+                    }
+
+                    if(object->getUserValue(key, stringValue)) {
+                        uservalues.insert(stringValue);
+                    }
+
+                    if(uservalues.find(value) != uservalues.end()) {
+                        flag = it_flag->first;
+                        break;
+                    }
                 }
             }
         }
-        return getBinaryFilename(name);
+        return getBinaryFilename(flag);
     }
 
     JSONObject* createJSONPagedLOD(osg::PagedLOD* plod);
@@ -236,22 +282,21 @@ public:
             if (am) {
                 JSONArray* array = new JSONArray;
                 JSONObject* bam = new JSONObject;
+                translateObject(bam, am);
                 bam->getMaps()["Animations"] = array;
-
 
                 JSONObject* nodeCallbackObject = new JSONObject;
                 nodeCallbackObject->getMaps()["osgAnimation.BasicAnimationManager"] = bam;
                 updateCallbacks->getArray().push_back(nodeCallbackObject);
 
                 for ( unsigned int i = 0; i < am->getAnimationList().size(); i++) {
-                    osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(am->getAnimationList()[i].get(), this);
+                    osgAnimation::Animation* animation = am->getAnimationList()[i].get();
+                    osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(animation, this);
                     if (jsonAnim) {
+                        translateObject(jsonAnim.get(), animation);
                         JSONObject* obj = new JSONObject;
                         obj->getMaps()["osgAnimation.Animation"] = jsonAnim;
                         array->getArray().push_back(obj);
-                        //std::stringstream ss;
-                        //jsonAnim->write(ss);
-                        //std::cout << ss.str() << std::endl;
                     }
                 }
             } else {
@@ -562,16 +607,34 @@ public:
     void setVarint(bool use) { _varint = use; }
     void setMaxTextureDimension(int use) { _maxTextureDimension = use; }
     void addSpecificBuffer(const std::string& bufferFlag) {
-        std::string key, value;
-        unsigned int colon = bufferFlag.find(":");
+        if(bufferFlag.empty()) {
+            return;
+        }
+
+        std::string key, value, buffer;
+        size_t equal = bufferFlag.find("="),
+               colon = bufferFlag.find(":");
+
+        key = bufferFlag.substr(0, std::min(equal, colon));
+        if(equal != std::string::npos) {
+            if(colon == std::string::npos) {
+                value = bufferFlag.substr(equal + 1, std::string::npos);
+            }
+            else {
+                value = bufferFlag.substr(equal + 1, colon - equal - 1);
+            }
+        }
+
         if(colon != std::string::npos) {
-            key = bufferFlag.substr(0, colon);
-            value = bufferFlag.substr(colon + 1, std::string::npos);
+            buffer = bufferFlag.substr(colon + 1, std::string::npos);
         }
         else {
-            key = value = bufferFlag;
+            buffer = key;
         }
-        _specificBuffers[key] = value;
+
+        // buffer name should be lowercase
+        std::transform(buffer.begin(), buffer.end(), buffer.begin(), ::tolower);
+        _specificBuffers[KeyValue(key, value)] = buffer;
     }
 };
 
