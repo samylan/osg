@@ -16,7 +16,10 @@
 #include <osg/Node>
 #include <algorithm> //std::max
 
-#include "AnimationVisitor"
+#include "AnimationCleanerVisitor"
+#include "RigAnimationVisitor"
+#include "AABBonBoneVisitor"
+#include "DisableAnimationVisitor"
 #include "BindPerVertexVisitor"
 #include "DetachPrimitiveVisitor"
 #include "DrawArrayVisitor"
@@ -28,8 +31,6 @@
 #include "TriangleStripVisitor"
 #include "UnIndexMeshVisitor"
 #include "WireframeVisitor"
-#include "AABBonBoneVisitor"
-#include "AnimationCleaner"
 
 
 class OpenGLESGeometryOptimizer
@@ -83,18 +84,29 @@ public:
 protected:
     void makeAnimation(osg::Node* node) {
         if(_disableAnimation) {
-            makeCleanAnimation(node);
+            makeDisableAnimation(node);
         }
         else {
-            AnimationVisitor anim;
-            node->accept(anim);
+            makeCleanAnimation(node);
+            makeRigAnimation(node);
             makeAABBonBone(node, _enableAABBonBone);
         }
     }
 
+    void makeDisableAnimation(osg::Node* node) {
+        DisableAnimationVisitor disabler;
+        node->accept(disabler);
+    }
+
     void makeCleanAnimation(osg::Node* node) {
-        AnimationCleaner cleaner;
+        AnimationCleanerVisitor cleaner;
         node->accept(cleaner);
+        cleaner.clean();
+    }
+
+    void makeRigAnimation(osg::Node* node) {
+        RigAnimationVisitor anim;
+        node->accept(anim);
     }
 
     void makeAABBonBone(osg::Node* node, bool enableAABBonBone) {
