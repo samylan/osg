@@ -500,20 +500,29 @@ public:
             parent->addChild("osgAnimation.Bone", _maps[&node]->getShadowObject());
             return;
         }
-        osg::ref_ptr<JSONObject> json = new JSONNode;
-        applyCommonMatrixTransform("osgAnimation.Bone", json, node, parent);
 
-        json->getMaps()["InvBindMatrixInSkeletonSpace"] = new JSONMatrix(node.getInvBindMatrixInSkeletonSpace());
-        //json->getMaps()["MatrixInSkeletonSpace"] = new JSONMatrix(node.getMatrixInSkeletonSpace());
-
-        osg::Vec3 min, max;
-        if(node.getUserValue("AABBonBone_min", min) && node.getUserValue("AABBonBone_max", max)) {
-            JSONObject *obj = new JSONObject;
-            obj->getMaps()["min"] = new JSONVec3Array(min);
-            obj->getMaps()["max"] = new JSONVec3Array(max);
-
-            json->getMaps()["AABBonBone"] = obj;
+        osg::Vec3 min(0,0,0), max(0,0,0);
+        JSONObject *bboxData = new JSONObject;
+        if (node.getUserValue("AABBonBone_min", min) ) {
+            unsigned int idx = node.getUserDataContainer()->getUserObjectIndex("AABBonBone_min");
+            node.getUserDataContainer()->removeUserObject(idx);
         }
+        if ( node.getUserValue("AABBonBone_max", max) ) {
+            unsigned int idx = node.getUserDataContainer()->getUserObjectIndex("AABBonBone_max");
+            node.getUserDataContainer()->removeUserObject(idx);
+        }
+
+        if(node.getUserDataContainer() && node.getUserDataContainer()->getNumUserObjects() == 0)
+            node.setUserDataContainer(NULL);
+
+        bboxData->getMaps()["min"] = new JSONVec3Array(min);
+        bboxData->getMaps()["max"] = new JSONVec3Array(max);
+
+        osg::ref_ptr<JSONObject> json = new JSONNode;
+        json->getMaps()["InvBindMatrixInSkeletonSpace"] = new JSONMatrix(node.getInvBindMatrixInSkeletonSpace());
+        json->getMaps()["BoundingBox"] = bboxData;
+
+        applyCommonMatrixTransform("osgAnimation.Bone", json, node, parent);
 
         _parents.push_back(json);
         traverse(node);
