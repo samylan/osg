@@ -49,6 +49,9 @@ namespace osgAnimation
         void setControlPointIn(const T& v) {_controlPointIn = v;}
         void setControlPointOut(const T& v) {_controlPointOut = v;}
 
+        bool operator==(const TemplateCubicBezier<T>& other) const
+        { return _position == other._position && _controlPointIn == other._controlPointIn && _controlPointOut == other._controlPointOut; }
+
         // steaming operators.
         friend std::ostream& operator << (std::ostream& output, const TemplateCubicBezier<T>& tcb)
         {
