@@ -52,6 +52,7 @@ public:
     osg::ref_ptr<JSONObject> _root;
     StateSetStack _stateset;
     std::string _baseName;
+    std::string _baseLodURL;
     bool _useExternalBinaryArray;
     bool _mergeAllBinaryFiles;
     bool _inlineImages;
@@ -211,7 +212,7 @@ public:
     }
 
     void applyCallback(osg::Node& node, JSONObject* json) {
-        JSONArray* updateCallbacks = new JSONArray;
+        osg::ref_ptr<JSONArray> updateCallbacks = new JSONArray;
         osg::Callback* nc = node.getUpdateCallback();
         while (nc) {
             osgAnimation::BasicAnimationManager* am = dynamic_cast<osgAnimation::BasicAnimationManager*>(nc);
@@ -446,6 +447,7 @@ public:
     void setVarint(bool use) { _varint = use; }
     void setMaxTextureDimension(int use) { _maxTextureDimension = use; }
     void addSpecificBuffer(const std::string& bufferFlag) { _specificBuffers.push_back(bufferFlag); }
+    void setBaseLodURL(const std::string& baseLodURL) { _baseLodURL = baseLodURL; }
 };
 
 #endif
