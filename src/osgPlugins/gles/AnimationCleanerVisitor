@@ -17,6 +17,7 @@
 #include <osgAnimation/Bone>
 #include <osgAnimation/Skeleton>
 #include <osgAnimation/UpdateBone>
+#include <osgAnimation/Sampler>
 
 #include "StatLogger"
 
@@ -98,6 +99,7 @@ public:
         //     * BasicAnimationManager
         //     * Animation
         //     * Target
+        //         * deduplicate successive identical KeyFrames
         // 2. check if there is still valid animation data in the scene graph.
         //    If no valid BasicAnimationManager is left, then clean all collected animation data.
         if(_managers.size() == 0) {
@@ -177,6 +179,10 @@ protected:
         osgAnimation::ChannelList invalids;
 
         for(osgAnimation::ChannelList::iterator channel = channels.begin() ; channel != channels.end() ; ++ channel) {
+            if(channel->valid()) {
+                cleanChannel(*channel->get());
+            }
+
             if(!channel->valid() || !isValidChannel(*channel->get())) {
                 invalids.push_back(channel->get());
             }
@@ -184,6 +190,20 @@ protected:
 
         for(osgAnimation::ChannelList::iterator invalid = invalids.begin() ; invalid != invalids.end() ; ++ invalid) {
             animation.removeChannel(invalid->get());
+        }
+    }
+
+    void cleanChannel(osgAnimation::Channel& channel) {
+        // deduplicate successive KeyFrames that are identical
+        osgAnimation::Sampler* sampler = channel.getSampler();
+        if(sampler) {
+            osgAnimation::KeyframeContainer* container = sampler->getKeyframeContainer();
+            if(container && container->size()) {
+                unsigned int deduplicated = container->linearInterpolationDeduplicate();
+                if(deduplicated) {
+                    OSG_WARN << "Deduplicated " << deduplicated << " keyframes on channel " << channel.getName() << std::endl;
+                }
+            }
         }
     }
 
