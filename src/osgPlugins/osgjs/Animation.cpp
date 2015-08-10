@@ -286,7 +286,6 @@ JSONObject* createJSONAnimation(osgAnimation::Animation* anim, WriteVisitor* wri
 
 JSONObject* createJSONUpdateMatrixTransform(osgAnimation::UpdateMatrixTransform& acb, WriteVisitor* writer)
 {
-    std::string name = acb.getName();
     osg::ref_ptr<JSONObject> json = new JSONObject;
     json->getMaps()["Name"] = new JSONValue<std::string>(acb.getName());
 
@@ -349,7 +348,7 @@ JSONObject* createJSONUpdateMatrixTransform(osgAnimation::UpdateMatrixTransform&
                 jsonElement->getMaps()["Matrix"] = new JSONMatrix(element->getMatrix());
 
                 osg::ref_ptr<JSONObject> jsonElementObject = new JSONObject;
-                jsonElementObject->getMaps()["osgAnimation.StackedMatrixElement"] = jsonElement;
+                jsonElementObject->getMaps()["osgAnimation.StackedMatrix"] = jsonElement;
                 jsonStackedArray->getArray().push_back(jsonElementObject);
                 continue;
             }
@@ -363,7 +362,7 @@ JSONObject* createJSONUpdateMatrixTransform(osgAnimation::UpdateMatrixTransform&
                jsonElement->getMaps()["Scale"] = new JSONVec3Array(element->getScale());
 
                osg::ref_ptr<JSONObject> jsonElementObject = new JSONObject;
-               jsonElementObject->getMaps()["osgAnimation.StackedScaleElement"] = jsonElement;
+               jsonElementObject->getMaps()["osgAnimation.StackedScale"] = jsonElement;
                jsonStackedArray->getArray().push_back(jsonElementObject);
                continue;
             }
