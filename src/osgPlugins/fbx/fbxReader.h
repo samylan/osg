@@ -81,4 +81,6 @@ osgAnimation::Skeleton* getSkeleton(FbxNode*,
     const std::set<const FbxNode*>& fbxSkeletons,
     std::map<FbxNode*, osgAnimation::Skeleton*>&);
 
+bool hasParentBone(FbxNode* node);
+
 #endif

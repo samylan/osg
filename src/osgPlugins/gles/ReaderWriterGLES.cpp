@@ -43,6 +43,8 @@ public:
          bool disableMergeTriStrip;
          bool disablePreTransform;
          bool disablePostTransform;
+         bool disableAnimation;
+         bool enableAABBonBone;
          unsigned int triStripCacheSize;
          unsigned int triStripMinSize;
          bool useDrawArray;
@@ -57,6 +59,8 @@ public:
              disableMergeTriStrip = false;
              disablePreTransform = false;
              disablePostTransform = false;
+             disableAnimation = false;
+             enableAABBonBone = false;
              triStripCacheSize = 16;
              triStripMinSize = 2;
              useDrawArray = false;
@@ -79,6 +83,8 @@ public:
         supportsOption("disableTriStrip","disable generation of tristrip");
         supportsOption("disablePreTransform","disable pre-transform of geometries after split");
         supportsOption("disablePostTransform","disable post-transform of geometries (called during geometry splitting)");
+        supportsOption("disableAnimation","disable animation support");
+        supportsOption("enableAABBonBone","Create AABB on bone for rigGeometry (Adds a Geometry in the graph)");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("disableIndex","Do not index the geometry");
         supportsOption("maxIndexValue=<int>","set the maximum index value (first index is 0)");
@@ -104,6 +110,8 @@ public:
             optimizer.setDisableMergeTriStrip(options.disableMergeTriStrip);
             optimizer.setDisablePreTransform(options.disablePreTransform);
             optimizer.setDisablePostTransform(options.disablePostTransform);
+            optimizer.setDisableAnimation(options.disableAnimation);
+            optimizer.setEnableAABBonBone(options.enableAABBonBone);
             optimizer.setWireframe(options.enableWireframe);
             if (options.generateTangentSpace) {
                 optimizer.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
@@ -225,6 +233,14 @@ public:
                 if (pre_equals == "disablePostTransform")
                 {
                     localOptions.disablePostTransform = true;
+                }
+                if (pre_equals == "disableAnimation")
+                {
+                    localOptions.disableAnimation = true;
+                }
+                if (pre_equals == "enableAABBonBone")
+                {
+                    localOptions.enableAABBonBone = true;
                 }
                 if (pre_equals == "disableTriStrip")
                 {
