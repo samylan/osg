@@ -115,7 +115,7 @@ namespace osgAnimation
                 }
 
                 unsigned int count = size() - deduplicated.size();
-                swap(deduplicated);
+                VectorType::swap(deduplicated);
                 return count;
         }
     };

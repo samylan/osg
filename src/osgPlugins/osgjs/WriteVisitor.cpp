@@ -10,7 +10,6 @@
 #include <osg/Material>
 #include <osg/BlendFunc>
 #include <osgSim/ShapeAttribute>
-
 #include "Base64"
 
 
@@ -269,7 +268,8 @@ JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDime
         } else {
             // no image file so use this inline name image and create a file
             std::stringstream ss;
-            ss << osgDB::getFilePath(baseName) << osgDB::getNativePathSeparator();
+            if ( !osgDB::getFilePath(baseName).empty())
+                ss << osgDB::getFilePath(baseName) << osgDB::getNativePathSeparator();
             ss << (long int)image << ".inline_conv_generated.png"; // write the pointer location
             std::string filename = ss.str();
             if (osgDB::writeImageFile(*image, filename)) {
@@ -280,9 +280,18 @@ JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDime
         if (!image->getFileName().empty()) { // means that everything went ok
             if (inlineImages) {
 
-                std::ifstream in(osgDB::findDataFile(image->getFileName()).c_str());
-                if (in.is_open())
+                std::ifstream in(osgDB::findDataFile(image->getFileName()).c_str(), std::ifstream::in | std::ifstream::binary);
+                if (in.is_open() && in.good())
                 {
+                    // read file first to iterate
+                    in.seekg(0, std::ifstream::end);
+                    const std::ifstream::pos_type size = in.tellg();
+                    in.seekg(0, std::ifstream::beg);
+                    std::vector<unsigned char> rawData;
+                    rawData.resize(size);
+                    in.read(reinterpret_cast<char*>(rawData.data()),size);
+                    in.seekg(std::ios_base::beg);
+
                     std::stringstream out;
                     out << "data:image/" << osgDB::getLowerCaseFileExtension(image->getFileName()) << ";base64,";
                     base64::encode(std::istreambuf_iterator<char>(in),
@@ -618,7 +627,7 @@ JSONObject* WriteVisitor::createJSONCullFace(osg::CullFace* sa)
 
     osg::ref_ptr<JSONValue<std::string> > mode = new JSONValue<std::string>("BACK");
     if (sa->getMode() == osg::CullFace::FRONT) {
-        mode = new JSONValue<std::string>("BACK");
+        mode = new JSONValue<std::string>("FRONT");
     }
     if (sa->getMode() == osg::CullFace::FRONT_AND_BACK) {
         mode = new JSONValue<std::string>("FRONT_AND_BACK");
@@ -736,7 +745,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     jsonPlod->getMaps()["RangeList"] = rangeObject;
     // File List
 
-    JSONObject* fileObject = new JSONObject;
+    osg::ref_ptr<JSONObject> fileObject = new JSONObject;
     for (unsigned int i =0; i< plod->getNumFileNames(); i++)
     {
         std::stringstream ss;
@@ -744,12 +753,21 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
         ss << i;
         std::string str = ss.str();
         // We need to convert first from osg format to osgjs format.
-        osg::ref_ptr<osg::Node> n = osgDB::readNodeFile(plod->getFileName(i)+".gles");
+        osg::ref_ptr<osg::Node> n = osgDB::readNodeFile(plod->getDatabasePath() + plod->getFileName(i)+".gles");
         if (n)
         {
-            std::string filename(osgDB::getStrippedName(plod->getFileName(i))+".osgjs");
-            osgDB::writeNodeFile(*n,filename);
-            fileObject->getMaps()[str] =  new JSONValue<std::string>(filename);
+            std::string filename(osgDB::getNameLessExtension(plod->getFileName(i))+".osgjs");
+
+            std::string fullFilePath(osgDB::getFilePath(_baseName) + osgDB::getNativePathSeparator() + filename);
+            fileObject->getMaps()[str] =  new JSONValue<std::string>(_baseLodURL + filename);
+            osgDB::makeDirectoryForFile(fullFilePath);
+            if (_baseLodURL.empty())
+                _baseLodURL = osgDB::getFilePath(filename) + osgDB::getNativePathSeparator() ;
+            osg::ref_ptr<osgDB::Options> options =  osgDB::Registry::instance()->getOptions()->cloneOptions();
+            options->setPluginStringData(std::string("baseLodURL"), _baseLodURL);
+
+            osgDB::writeNodeFile(*n,fullFilePath, options );
+
         }
         else
             fileObject->getMaps()[str] =  new JSONValue<std::string>("");
@@ -903,12 +921,6 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
 
     if (!attributeList->getArray().empty()) {
         jsonStateSet->getMaps()["AttributeList"] = attributeList;
-    }
-
-
-    osg::StateSet::ModeList modeList = stateset->getModeList();
-    for (unsigned int i = 0; i < modeList.size(); ++i) {
-        // add modes
     }
 
     if (jsonStateSet->getMaps().empty())

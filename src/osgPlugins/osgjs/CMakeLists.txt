@@ -6,7 +6,7 @@ SET(TARGET_SRC
     WriteVisitor.cpp)
 
 SET(TARGET_H
-    Adaptator
+    Adaptor
     Animation
     Base64
     CompactBufferVisitor

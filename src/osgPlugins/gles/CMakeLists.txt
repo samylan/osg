@@ -5,7 +5,33 @@ SET(TARGET_SRC
     IndexMeshVisitor.cpp
     UnIndexMeshVisitor.cpp
     forsythtriangleorderoptimizer.cpp)
-
+SET(TARGET_H
+    AABBonBoneVisitor
+    AnimationCleanerVisitor
+    BindPerVertexVisitor
+    DetachPrimitiveVisitor
+    DisableAnimationVisitor
+    DrawArrayVisitor
+    EdgeIndexFunctor
+    GeometryArray
+    GeometrySplitterVisitor
+    GeometryUniqueVisitor
+    glesUtil
+    IndexMeshVisitor
+    LineIndexFunctor
+    OpenGLESGeometryOptimizer
+    PointIndexFunctor
+    PreTransformVisitor
+    PrimitiveIndexors
+    RigAnimationVisitor
+    SmoothNormalVisitor
+    StatLogger
+    TangentSpaceVisitor
+    TriangleLinePointIndexFunctor
+    TriangleStripVisitor
+    UnIndexMeshVisitor
+    WireframeVisitor
+)
 #### end var setup  ###
 SET(TARGET_ADDED_LIBRARIES
     osgUtil osgAnimation)

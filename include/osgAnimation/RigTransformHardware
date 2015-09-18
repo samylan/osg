@@ -51,7 +51,7 @@ namespace osgAnimation
         RigTransformHardware();
 
         osg::Vec4Array* getVertexAttrib(int index);
-        int getNumVertexAttrib();
+        unsigned int getNumVertexAttrib();
 
         osg::Uniform* getMatrixPaletteUniform();
         void computeMatrixPaletteUniform(const osg::Matrix& transformFromSkeletonToGeometry, const osg::Matrix& invTransformFromSkeletonToGeometry);

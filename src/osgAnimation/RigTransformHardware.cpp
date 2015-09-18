@@ -34,7 +34,7 @@ osg::Vec4Array* RigTransformHardware::getVertexAttrib(int index)
     return _boneWeightAttribArrays[index].get();
 }
 
-int RigTransformHardware::getNumVertexAttrib()
+unsigned int RigTransformHardware::getNumVertexAttrib()
 {
     return _boneWeightAttribArrays.size();
 }

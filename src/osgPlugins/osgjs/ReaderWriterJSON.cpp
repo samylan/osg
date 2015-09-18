@@ -48,7 +48,7 @@ public:
          bool varint;
          bool strictJson;
          std::vector<std::string> useSpecificBuffer;
-
+         std::string baseLodURL;
          OptionsStruct() {
              resizeTextureUpToPowerOf2 = 0;
              useExternalBinaryArray = false;
@@ -84,6 +84,7 @@ public:
     {
         std::string ext = osgDB::getFileExtension(fileName);
         if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
+
 
         OptionsStruct _options = parseOptions(options);
         json_stream fout(fileName, _options.strictJson);
@@ -127,6 +128,7 @@ public:
             writer.inlineImages(options.inlineImages);
             writer.setMaxTextureDimension(options.resizeTextureUpToPowerOf2);
             writer.setVarint(options.varint);
+            writer.setBaseLodURL(options.baseLodURL);
             for(std::vector<std::string>::const_iterator specificBuffer = options.useSpecificBuffer.begin() ;
                 specificBuffer != options.useSpecificBuffer.end() ; ++ specificBuffer) {
                 writer.addSpecificBuffer(*specificBuffer);
@@ -214,6 +216,11 @@ public:
                     localOptions.useSpecificBuffer.push_back(post_equals.substr(start_pos,
                                                                                 post_equals.length() - start_pos));
                 }
+
+            }
+            if (!options->getPluginStringData( std::string ("baseLodURL" )).empty())
+            {
+                localOptions.baseLodURL = options->getPluginStringData( std::string ("baseLodURL" ));
             }
         }
         return localOptions;
