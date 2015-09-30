@@ -43,6 +43,8 @@ public:
          bool disableMergeTriStrip;
          bool disablePreTransform;
          bool disablePostTransform;
+         bool disableAnimation;
+         bool enableAABBonBone;
          unsigned int triStripCacheSize;
          unsigned int triStripMinSize;
          bool useDrawArray;
@@ -58,6 +60,8 @@ public:
              disableMergeTriStrip = false;
              disablePreTransform = false;
              disablePostTransform = false;
+             disableAnimation = false;
+             enableAABBonBone = false;
              triStripCacheSize = 16;
              triStripMinSize = 2;
              useDrawArray = false;
@@ -74,13 +78,15 @@ public:
 
         supportsOption("enableWireframe[=inline]","create a wireframe geometry for each triangles geometry. The wire geometry will be stored along the solid geometry if 'inline' is specified.");
         supportsOption("generateTangentSpace","Build tangent space to each geometry");
-        supportsOption("tangentSpaceTextureUnit=<unit>","Specify on wich texture unit normal map is");
+        supportsOption("tangentSpaceTextureUnit=<unit>","Specify on which texture unit normal map is");
         supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
         supportsOption("triStripMinSize=<int>","set the minimum accepted length for a strip");
         supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
         supportsOption("disableTriStrip","disable generation of tristrip");
         supportsOption("disablePreTransform","disable pre-transform of geometries after split");
         supportsOption("disablePostTransform","disable post-transform of geometries (called during geometry splitting)");
+        supportsOption("disableAnimation","disable animation support");
+        supportsOption("enableAABBonBone","Create AABB on bone for rigGeometry (Adds a Geometry in the graph)");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("disableIndex","Do not index the geometry");
         supportsOption("maxIndexValue=<int>","set the maximum index value (first index is 0)");
@@ -107,6 +113,8 @@ public:
             optimizer.setDisableMergeTriStrip(options.disableMergeTriStrip);
             optimizer.setDisablePreTransform(options.disablePreTransform);
             optimizer.setDisablePostTransform(options.disablePostTransform);
+            optimizer.setDisableAnimation(options.disableAnimation);
+            optimizer.setEnableAABBonBone(options.enableAABBonBone);
             optimizer.setWireframe(options.enableWireframe);
             optimizer.setExportNonGeometryDrawables(options.exportNonGeometryDrawables);
             if (options.generateTangentSpace) {
@@ -229,6 +237,14 @@ public:
                 if (pre_equals == "disablePostTransform")
                 {
                     localOptions.disablePostTransform = true;
+                }
+                if (pre_equals == "disableAnimation")
+                {
+                    localOptions.disableAnimation = true;
+                }
+                if (pre_equals == "enableAABBonBone")
+                {
+                    localOptions.enableAABBonBone = true;
                 }
                 if (pre_equals == "disableTriStrip")
                 {

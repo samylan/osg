@@ -6,7 +6,7 @@ SET(TARGET_SRC
     WriteVisitor.cpp)
 
 SET(TARGET_H
-    Adaptator
+    Adaptor
     Animation
     Base64
     CompactBufferVisitor
@@ -15,14 +15,6 @@ SET(TARGET_H
     WriteVisitor
 )
 
-SET(TARGET_H
-    Adaptator
-    Animation
-    Base64
-    CompactBufferVisitor
-    JSON_Objects
-    WriteVisitor
-)
 #### end var setup  ###
 SET(TARGET_ADDED_LIBRARIES
     osgAnimation

@@ -18,7 +18,7 @@
 #include <osg/TriangleFunctor>
 
 
-struct DrawArrayLenghtAdaptator
+struct DrawArrayLenghtAdaptor
 {
     unsigned int _normalArraySize;
     const Vec3* _normalArrayPtr;
@@ -47,7 +47,7 @@ struct DrawArrayLenghtAdaptator
 };
 
 
-struct AdaptDraw : public osg::TriangleFunctor<DrawArrayLenghtAdaptator>
+struct AdaptDraw : public osg::TriangleFunctor<DrawArrayLenghtAdaptor>
 {
 
     virtual void drawArrays(GLenum mode,GLint first,GLsizei count)

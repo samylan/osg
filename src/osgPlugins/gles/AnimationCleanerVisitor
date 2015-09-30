@@ -1,0 +1,313 @@
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Sketchfab */
+
+#ifndef ANIMATION_CLEANER_VISITOR
+#define ANIMATION_CLEANER_VISITOR
+
+#include <map>
+#include <vector>
+
+#include <osg/ref_ptr>
+#include <osg/NodeVisitor>
+#include <osg/Geode>
+
+#include <osgAnimation/UpdateMatrixTransform>
+#include <osgAnimation/BasicAnimationManager>
+#include <osgAnimation/RigGeometry>
+#include <osgAnimation/MorphGeometry>
+#include <osgAnimation/Bone>
+#include <osgAnimation/Skeleton>
+#include <osgAnimation/UpdateBone>
+#include <osgAnimation/Sampler>
+
+#include "StatLogger"
+
+
+class HasGeometryVisitor : public osg::NodeVisitor {
+public:
+    HasGeometryVisitor():
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        geometry(false)
+    {}
+
+    void apply(osg::Geometry& object) {
+        geometry = true;
+    }
+
+    bool geometry;
+};
+
+
+class AnimationCleanerVisitor : public osg::NodeVisitor
+{
+public:
+    typedef std::map< osgAnimation::BasicAnimationManager*, osg::ref_ptr<osg::Node> > BasicAnimationManagerMap;
+    typedef std::map< osgAnimation::UpdateMatrixTransform*, osg::ref_ptr<osg::MatrixTransform> > UpdateMatrixTransformMap;
+    typedef std::vector< osg::ref_ptr<osg::MatrixTransform> > MatrixTransformList;
+    typedef std::vector< osg::ref_ptr<osgAnimation::RigGeometry> > RigGeometryList;
+
+    AnimationCleanerVisitor(std::string name="AnimationCleanerVisitor"):
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _logger(name)
+    {}
+
+    void apply(osg::Node& node) {
+        osgAnimation::BasicAnimationManager* manager = getCallbackType<osgAnimation::BasicAnimationManager>(node.getUpdateCallback());
+        if(manager) {
+            _managers[manager] = osg::ref_ptr<osg::Node>(&node);
+        }
+
+        traverse(node);
+    }
+
+    void apply(osg::MatrixTransform& transform) {
+        HasGeometryVisitor hasData;
+        transform.traverse(hasData);
+
+        if(!hasData.geometry) {
+            // if animation transforms have no child geometry they are cleanable
+            osgAnimation::Skeleton* skeleton = dynamic_cast<osgAnimation::Skeleton*>(&transform);
+            osgAnimation::Bone* bone = dynamic_cast<osgAnimation::Bone*>(&transform);
+            if(skeleton) {
+                _transforms.push_back(osg::ref_ptr<osgAnimation::Skeleton>(skeleton));
+            }
+            if(bone) {
+                _transforms.push_back(osg::ref_ptr<osgAnimation::Bone>(bone));
+            }
+        }
+
+        osgAnimation::UpdateMatrixTransform* update = getCallbackType<osgAnimation::UpdateMatrixTransform>(transform.getUpdateCallback());
+        if(update) {
+            _updates[update] = osg::ref_ptr<osg::MatrixTransform>(&transform);
+        }
+
+        traverse(transform);
+    }
+
+
+    void apply(osg::Geometry& geometry) {
+        osgAnimation::RigGeometry* rig = dynamic_cast<osgAnimation::RigGeometry*>(&geometry);
+        if(rig) {
+            if(std::find(_geometries.begin(), _geometries.end(), rig) == _geometries.end()) {
+                _geometries.push_back(rig);
+            }
+        }
+    }
+
+
+    virtual void clean() {
+        // 1. clean scene graph to only keep 'valid' objects (top to bottom):
+        //     * BasicAnimationManager
+        //     * Animation
+        //     * Target
+        //         * deduplicate successive identical KeyFrames
+        // 2. check if there is still valid animation data in the scene graph.
+        //    If no valid BasicAnimationManager is left, then clean all collected animation data.
+        if(_managers.size() == 0) {
+            OSG_WARN << "Monitor: animation.no_animation_manager" << std::endl;
+            return;
+        }
+
+        if(_managers.size() > 1) {
+            OSG_WARN << "Monitor: animation.multiple_animation_manager" << std::endl;
+            return;
+        }
+
+        OSG_WARN << "Monitor: animation.single_animation_manager" << std::endl;
+        bool keepAnimations = !_managers.empty();
+
+        for(BasicAnimationManagerMap::iterator manager = _managers.begin() ; manager != _managers.end() ; ++ manager) {
+            cleanAnimations(*manager->first);
+            if(!isValidAnimationManager(*manager->first)) {
+                if(manager->second.valid()) {
+                    manager->second->removeUpdateCallback(manager->first);
+                }
+                keepAnimations = false;
+            }
+        }
+
+        if(!keepAnimations) {
+            remove();
+        }
+    }
+
+    void remove() {
+        // * replace animation geometries by static geometries
+        // * remove animation callbacks
+        // * remove animation transforms
+        removeRigGeometries();
+        removeAnimationUpdateCallbacks();
+        removeAnimationTransforms();
+    }
+
+
+protected:
+    template<typename T>
+    T* getCallbackType(osg::Callback* callback) {
+        if(!callback) return 0;
+
+        T* callback_type = dynamic_cast<T*>(callback);
+        if(callback_type) {
+            return callback_type;
+        }
+
+        return getCallbackType<T>(callback->getNestedCallback());
+    }
+
+    void cleanAnimations(osgAnimation::BasicAnimationManager& manager)  {
+        // remove manager's invalid animations
+        osgAnimation::AnimationList& animations = manager.getAnimationList();
+
+        std::vector<osgAnimation::Animation*> invalids;
+        for(osgAnimation::AnimationList::iterator animation = animations.begin() ; animation != animations.end() ; ++ animation) {
+            if(animation->valid()) {
+                cleanAnimation(*animation->get());
+            }
+
+            if(!(animation->valid()) || !isValidAnimation(*animation->get())) {
+                invalids.push_back(animation->get());
+            }
+        }
+
+        for(std::vector<osgAnimation::Animation*>::iterator invalid = invalids.begin() ; invalid != invalids.end() ; ++ invalid) {
+            manager.unregisterAnimation(*invalid);
+        }
+    }
+
+    void cleanAnimation(osgAnimation::Animation& animation) {
+        // remove animation's invalid channels
+        osgAnimation::ChannelList& channels = animation.getChannels();
+        osgAnimation::ChannelList invalids;
+
+        for(osgAnimation::ChannelList::iterator channel = channels.begin() ; channel != channels.end() ; ++ channel) {
+            if(channel->valid()) {
+                cleanChannel(*channel->get());
+            }
+
+            if(!channel->valid() || !isValidChannel(*channel->get())) {
+                invalids.push_back(channel->get());
+            }
+        }
+
+        for(osgAnimation::ChannelList::iterator invalid = invalids.begin() ; invalid != invalids.end() ; ++ invalid) {
+            animation.removeChannel(invalid->get());
+        }
+    }
+
+    void cleanChannel(osgAnimation::Channel& channel) {
+        // deduplicate successive KeyFrames that are identical
+        osgAnimation::Sampler* sampler = channel.getSampler();
+        if(sampler) {
+            osgAnimation::KeyframeContainer* container = sampler->getKeyframeContainer();
+            if(container && container->size()) {
+                unsigned int deduplicated = container->linearInterpolationDeduplicate();
+                if(deduplicated) {
+                    OSG_WARN << "Deduplicated " << deduplicated << " keyframes on channel " << channel.getName() << std::endl;
+                }
+            }
+        }
+    }
+
+    bool isValidAnimationManager(const osgAnimation::BasicAnimationManager& manager) const {
+        // a valid manager has at least one animation and all animations must be valid
+        const osgAnimation::AnimationList& animations = manager.getAnimationList();
+
+        for(osgAnimation::AnimationList::const_iterator animation = animations.begin() ; animation != animations.end() ; ++ animation) {
+            if(!animation->valid() || !isValidAnimation(*animation->get())) {
+                return false;
+            }
+        }
+        return manager.getAnimationList().size() > 0;
+    }
+
+    bool isValidAnimation(const osgAnimation::Animation& animation) const {
+        // a valid animation has at least one channel and all channels must be valid
+        const osgAnimation::ChannelList& channels = animation.getChannels();
+
+        for(osgAnimation::ChannelList::const_iterator channel = channels.begin() ; channel != channels.end() ; ++ channel) {
+            if(!channel->valid() || !isValidChannel(*channel->get())) {
+                return false;
+            }
+        }
+
+        return channels.size() > 0;
+    }
+
+    bool isValidChannel(const osgAnimation::Channel& channel) const {
+        // a valid channel has valid target i.e. there exists some UpdateMatrixTransform with
+        // channel's target name
+        std::string target = channel.getTargetName();
+        for(UpdateMatrixTransformMap::const_iterator update = _updates.begin() ; update != _updates.end() ; ++ update) {
+            if(update->first->getName() == target) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void removeAnimationUpdateCallbacks() {
+        removeUpdateCallbacksTemplate<UpdateMatrixTransformMap, osgAnimation::UpdateMatrixTransform>(_updates);
+        removeUpdateCallbacksTemplate<BasicAnimationManagerMap, osgAnimation::BasicAnimationManager>(_managers);
+    }
+
+    template<typename C, typename T>
+    void removeUpdateCallbacksTemplate(C& callbackNodes) {
+        for(typename C::iterator callbackNode = callbackNodes.begin() ; callbackNode != callbackNodes.end() ; ++ callbackNode) {
+            if(callbackNode->first && callbackNode->second.valid()) {
+                osg::Callback* callback = callbackNode->first;
+                osg::Node* node = callbackNode->second.get();
+                do {
+                    node->removeUpdateCallback(callback);
+                    callback = getCallbackType<T>(node->getUpdateCallback());
+                }
+                while(callback);
+            }
+        }
+    }
+
+    void removeAnimationTransforms() {
+        for(MatrixTransformList::iterator transform = _transforms.begin() ; transform != _transforms.end() ; ++ transform) {
+            if(transform->valid()) {
+                removeFromParents(transform->get());
+            }
+        }
+    }
+
+    void removeRigGeometries() {
+        for(RigGeometryList::iterator geometry = _geometries.begin() ; geometry != _geometries.end() ; ++ geometry) {
+            if(geometry->valid()) {
+                replaceRigGeometryBySource(*(geometry->get()));
+            }
+        }
+    }
+
+    void removeFromParents(osg::Node* node) {
+        osg::Node::ParentList parents = node->getParents();
+        for(osg::Node::ParentList::iterator parent = parents.begin() ; parent != parents.end() ; ++ parent) {
+            if(*parent) {
+                (*parent)->removeChild(node);
+            }
+        }
+    }
+
+    void replaceRigGeometryBySource(osgAnimation::RigGeometry& geometry) const {
+        for(unsigned int i = 0 ; i < geometry.getNumParents() ; ++ i) {
+            osg::Geode* parent = (geometry.getParent(i) ? geometry.getParent(i)->asGeode() : 0);
+            if(parent) {
+                if(!dynamic_cast<osgAnimation::MorphGeometry*>(geometry.getSourceGeometry())) {
+                    parent->addDrawable(geometry.getSourceGeometry());
+                    parent->removeDrawable(&geometry);
+                }
+            }
+        }
+    }
+
+
+protected:
+    BasicAnimationManagerMap _managers;
+    UpdateMatrixTransformMap _updates;
+    MatrixTransformList _transforms;
+    RigGeometryList _geometries;
+    StatLogger _logger;
+};
+
+#endif

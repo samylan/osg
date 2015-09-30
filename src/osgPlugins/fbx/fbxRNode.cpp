@@ -494,7 +494,7 @@ osgDB::ReaderWriter::ReadResult OsgFbxReader::readFbxNode(
         {
             if (bChildIsBone)
             {
-                if (!bIsBone) bCreateSkeleton = true;
+                if (!bIsBone && !hasParentBone(pNode)) bCreateSkeleton = true;
                 skeletal.push_back(osgChild);
             }
             else
@@ -581,7 +581,7 @@ osgDB::ReaderWriter::ReadResult OsgFbxReader::readFbxNode(
         osgDB::ReaderWriter::ReadResult(0);
     }
 
-    if (!osgGroup) osgGroup = createGroupNode(pSdkManager, pNode, animName, localMatrix, bIsBone, nodeMap, fbxScene);
+    if (!osgGroup) osgGroup = createGroupNode(pSdkManager, pNode, animName, localMatrix, bIsBone || (hasParentBone(pNode) && lAttributeType == FbxNodeAttribute::eNull), nodeMap, fbxScene);
 
     osg::Group* pAddChildrenTo = osgGroup.get();
     if (bCreateSkeleton)
@@ -605,16 +605,33 @@ osgDB::ReaderWriter::ReadResult OsgFbxReader::readFbxNode(
     return osgDB::ReaderWriter::ReadResult(osgGroup.get());
 }
 
+bool hasParentBone(FbxNode* node)
+{
+    static std::set<FbxNode*> parentBone;
+
+    if(!node) return true;
+
+    FbxNode *fbxNode = node;
+    while(fbxNode)
+    {
+        if((fbxNode->GetNodeAttribute() && fbxNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton) || parentBone.find(fbxNode) != parentBone.end())
+        {
+            parentBone.insert(node);
+            return true;
+        }
+        fbxNode = fbxNode->GetParent();
+    }
+    return false;
+}
+
 osgAnimation::Skeleton* getSkeleton(FbxNode* fbxNode,
     const std::set<const FbxNode*>& fbxSkeletons,
     std::map<FbxNode*, osgAnimation::Skeleton*>& skeletonMap)
 {
     //Find the first non-skeleton ancestor of the node.
-    while (fbxNode &&
-        ((fbxNode->GetNodeAttribute() &&
-        fbxNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton) ||
-        fbxSkeletons.find(fbxNode) != fbxSkeletons.end()))
+    while (fbxNode)
     {
+        if(!hasParentBone(fbxNode)) break;
         fbxNode = fbxNode->GetParent();
     }
 

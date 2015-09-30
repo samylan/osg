@@ -9,7 +9,7 @@ const unsigned glesUtil::Remapper::invalidIndex = std::numeric_limits<unsigned>:
 osg::Node* OpenGLESGeometryOptimizer::optimize(osg::Node& node) {
     osg::ref_ptr<osg::Node> model = osg::clone(&node);
 
-    // animation: create regular Geometry if RigGeometry
+    // animation: process bones/weights or remove all animation data if disabled
     makeAnimation(model.get());
 
     // wireframe
@@ -24,7 +24,7 @@ osg::Node* OpenGLESGeometryOptimizer::optimize(osg::Node& node) {
     makeIndexMesh(model.get());
 
     // smooth vertex normals (if geometry has no normal compute smooth normals)
-    makeSmoothNormal(model);
+    makeSmoothNormal(model.get());
 
     // tangent space
     if (_generateTangentSpace) {
