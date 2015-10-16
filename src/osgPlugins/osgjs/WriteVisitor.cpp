@@ -749,7 +749,7 @@ JSONObject* WriteVisitor::createJSONText(osgText::Text* text)
     jsonText->getMaps()["Text"] = new JSONValue<std::string>( text->getText().createUTF8EncodedString()  );
     jsonText->getMaps()["Position"] = new JSONVec3Array(text->getPosition());
     jsonText->getMaps()["Color"] = new JSONVec4Array(osg::Vec4(text->getColor().x(),text->getColor().y(),text->getColor().z(), text->getColor().w() ));
-    jsonText->getMaps()["CharacterSize"] = new JSONValue<int>(text->getCharacterHeight() );
+    jsonText->getMaps()["CharacterSize"] = new JSONValue<float>(text->getCharacterHeight() );
     jsonText->getMaps()["AutoRotateToScreen"] = new JSONValue<int>(text->getAutoRotateToScreen() );
     jsonText->getMaps()["Alignment"] = getJSONAlignmentType(text->getAlignment());
 
