@@ -50,6 +50,7 @@ public:
          bool useDrawArray;
          bool disableIndex;
          unsigned int maxIndexValue;
+         bool exportNonGeometryDrawables;
 
          OptionsStruct() {
              enableWireframe = "";
@@ -66,6 +67,7 @@ public:
              useDrawArray = false;
              disableIndex = false;
              maxIndexValue = 0;
+             exportNonGeometryDrawables = false;
          }
     };
 
@@ -88,6 +90,7 @@ public:
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("disableIndex","Do not index the geometry");
         supportsOption("maxIndexValue=<int>","set the maximum index value (first index is 0)");
+        supportsOption("exportNonGeometryDrawables", "export non geometry drawables, right now only text 2D supported" );
     }
 
     virtual const char* className() const { return "GLES Optimizer"; }
@@ -113,6 +116,7 @@ public:
             optimizer.setDisableAnimation(options.disableAnimation);
             optimizer.setEnableAABBonBone(options.enableAABBonBone);
             optimizer.setWireframe(options.enableWireframe);
+            optimizer.setExportNonGeometryDrawables(options.exportNonGeometryDrawables);
             if (options.generateTangentSpace) {
                 optimizer.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
             }
@@ -254,7 +258,10 @@ public:
                 {
                     localOptions.disableIndex = true;
                 }
-
+                if (pre_equals == "exportNonGeometryDrawables")
+                {
+                    localOptions.exportNonGeometryDrawables = true;
+                }
                 if (post_equals.length() > 0) {
                     if (pre_equals == "tangentSpaceTextureUnit") {
                         localOptions.tangentSpaceTextureUnit = atoi(post_equals.c_str());

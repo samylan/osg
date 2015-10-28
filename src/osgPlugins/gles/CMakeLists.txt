@@ -5,6 +5,7 @@ SET(TARGET_SRC
     IndexMeshVisitor.cpp
     UnIndexMeshVisitor.cpp
     forsythtriangleorderoptimizer.cpp)
+
 SET(TARGET_H
     AABBonBoneVisitor
     AnimationCleanerVisitor

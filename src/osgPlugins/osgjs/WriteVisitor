@@ -21,6 +21,7 @@
 #include <osg/BlendColor>
 #include <osg/BlendFunc>
 #include <osg/ValueObject>
+#include <osgText/Text>
 #include <osg/Array>
 
 #include <osgAnimation/RigGeometry>
@@ -228,6 +229,7 @@ public:
     JSONObject* createJSONPagedLOD(osg::PagedLOD* plod);
     JSONObject* createJSONStateSet(osg::StateSet* ss);
     JSONObject* createJSONTexture(osg::Texture* sa);
+    JSONObject* createJSONText(osgText::Text* text);
     JSONObject* createJSONMaterial(osg::Material* sa);
     JSONObject* createJSONLight(osg::Light* sa);
     JSONObject* createJSONCullFace(osg::CullFace* sa);
@@ -352,6 +354,12 @@ public:
                 JSONObject* parent = getParent();
                 parent->addChild("osg.Geometry", json);
            }
+        }
+        osgText::Text* text = dynamic_cast<osgText::Text*>(&drw);
+        if (text) {
+            JSONObject* json = createJSONText(text);
+            JSONObject* parent = getParent();
+            parent->addChild("osgText.Text", json);
         }
     }
 
@@ -480,7 +488,25 @@ public:
         traverse(node);
         _parents.pop_back();
     }
+    void apply(osgText::Text& node) {
+        JSONObject* parent = getParent();
+        if (_maps.find(&node) != _maps.end()) {
+            parent->addChild("osgText.Text", _maps[&node]->getShadowObject());
+            return;
+        }
 
+        osg::ref_ptr<JSONObject> json = createJSONText(&node);
+        json->addUniqueID();
+        _maps[&node] = json;
+        parent->addChild("osgText.Text", json);
+        applyCallback(node, json);
+        createJSONStateSet(node, json);
+        initJsonObjectFromNode(node, *json);
+        _parents.push_back(json);
+        traverse(node);
+        _parents.pop_back();
+    }
+    
     void applyCommonMatrixTransform(const char * jsClassName, osg::ref_ptr<JSONObject> &json, osg::MatrixTransform &node, JSONObject* parent) {
         json->addUniqueID();
         _maps[&node] = json;
@@ -493,7 +519,6 @@ public:
         initJsonObjectFromNode(node, *json);
         json->getMaps()["Matrix"] = new JSONMatrix(node.getMatrix());
     }
-
     void apply(osg::MatrixTransform& node) {
         if (dynamic_cast<osgAnimation::Skeleton*>(&node)) {
            apply(static_cast<osgAnimation::Skeleton&>(node));

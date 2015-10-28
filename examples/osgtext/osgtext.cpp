@@ -111,15 +111,15 @@ osg::Group* createHUDText()
         text->setColor(layoutColor);
         text->setCharacterSize(layoutCharacterSize);
         text->setPosition(osg::Vec3(margin,windowHeight-margin,0.0f));
-
+        text->setAutoRotateToScreen( true );
         // the default layout is left to right, typically used in languages
         // originating from europe such as English, French, German, Spanish etc..
-        text->setLayout(osgText::Text::LEFT_TO_RIGHT);
+        text->setLayout(osgText::Text::RIGHT_TO_LEFT);
 
         text->setText("text->setLayout(osgText::Text::LEFT_TO_RIGHT);");
         geode->addDrawable(text);
     }
-
+        osgDB::writeNodeFile(*geode, std::string("text.osgjs"));
     {
         osgText::Text* text = new osgText::Text;
         text->setUseVertexBufferObjects(useVBOs);
@@ -132,7 +132,7 @@ osg::Group* createHUDText()
         text->setLayout(osgText::Text::RIGHT_TO_LEFT);
         text->setAlignment(osgText::Text::RIGHT_BASE_LINE);
 
-        text->setText("text->setLayout(osgText::Text::RIGHT_TO_LEFT);");
+        text->setText("texto ejemplo;");
         geode->addDrawable(text);
     }
 
