@@ -61,13 +61,12 @@ namespace osgAnimation
          */
         void setDuration(double duration);
 
-
         /** Compute duration from channel and keyframes
          *  if the duration is not specified you should
          *  call this method before using it
          */
         void computeDuration();
-
+        double computeDurationFromChannels() const;
         double getDuration() const;
 
 
@@ -84,8 +83,6 @@ namespace osgAnimation
         double getStartTime() const { return _startTime;}
 
     protected:
-
-        double computeDurationFromChannels() const;
 
         ~Animation() {}
 
