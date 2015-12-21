@@ -97,16 +97,12 @@ namespace osgAnimation
                         intervalSize = 0;
                     }
                 }
-                intervalSizes.push_back(1); // all final keyframes may be collapsed into first interval keyframe
+                intervalSizes.push_back(intervalSize);
 
                 // 2. build deduplicated list of keyframes
-                std::vector<unsigned int>::iterator iterator = intervalSizes.begin();
-                unsigned int cumul = *iterator;
-
+                unsigned int cumul = 0;
                 VectorType deduplicated;
-                deduplicated.push_back((*this)[cumul - 1]); // all first keyframes may be collasped into a last interval keyframe
-
-                for(++ iterator; iterator != intervalSizes.end() ; ++ iterator) {
+                for(std::vector<unsigned int>::iterator iterator = intervalSizes.begin() ; iterator != intervalSizes.end() ; ++ iterator) {
                     deduplicated.push_back((*this)[cumul]);
                     if(*iterator > 1) {
                         deduplicated.push_back((*this)[cumul + (*iterator) - 1]);
@@ -115,7 +111,7 @@ namespace osgAnimation
                 }
 
                 unsigned int count = size() - deduplicated.size();
-                VectorType::swap(deduplicated);
+                this->swap(deduplicated);
                 return count;
         }
     };
