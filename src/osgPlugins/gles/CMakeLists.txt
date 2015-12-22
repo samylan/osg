@@ -10,15 +10,19 @@ SET(TARGET_H
     AABBonBoneVisitor
     AnimationCleanerVisitor
     BindPerVertexVisitor
+    debug
     DetachPrimitiveVisitor
     DisableAnimationVisitor
     DrawArrayVisitor
     EdgeIndexFunctor
+    forsythtriangleorderoptimizer.h
     GeometryArray
+    GeometryInspector
     GeometrySplitterVisitor
     GeometryUniqueVisitor
     glesUtil
     IndexMeshVisitor
+    LimitMorphTargetCount
     LineIndexFunctor
     MostInfluencedGeometryByBone
     OpenGLESGeometryOptimizer
@@ -26,6 +30,7 @@ SET(TARGET_H
     PreTransformVisitor
     PrimitiveIndexors
     RigAnimationVisitor
+    RigAttributesVisitor
     SmoothNormalVisitor
     StatLogger
     TangentSpaceVisitor
@@ -34,6 +39,7 @@ SET(TARGET_H
     UnIndexMeshVisitor
     WireframeVisitor
 )
+
 #### end var setup  ###
 SET(TARGET_ADDED_LIBRARIES
     osgUtil osgAnimation)

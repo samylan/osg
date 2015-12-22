@@ -22,7 +22,7 @@ public:
     BindPerVertexVisitor(): GeometryUniqueVisitor("BindPerVertexVisitor")
     {}
 
-    void apply(osg::Geometry& geometry) {
+    void process(osg::Geometry& geometry) {
         if (geometry.getNormalArray() && geometry.getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) {
             bindPerVertex(geometry.getNormalArray(),
                           geometry.getNormalBinding(),

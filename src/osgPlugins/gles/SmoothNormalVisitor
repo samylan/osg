@@ -10,6 +10,7 @@
 #include <osg/Array>
 #include <osg/Notify>
 #include <osg/TriangleIndexFunctor>
+#include <osgAnimation/MorphGeometry>
 
 #include "GeometryUniqueVisitor"
 
@@ -20,13 +21,22 @@
 // 2. compute triangle normals (vertexTriangles::addTriangle)
 // 3. determine *piecewise* one-ring for each *unique* vertex (vertexTriangle::oneRing)
 //    Each piece of the one-ring contains triangles that are neighbors and do not share a sharp edge
-// 4. for each one-ring piece sum the triangle normals (TriangleMeshSmoother::smoothVertexNormals)
+// 4. for each one-ring piece sum the triangle normals (TriangleMeshSmoother::computeVertexNormals)
 // 5. if the vertex has been processed already: duplicate and update triangles
 //    otherwise set the normal
 //
 // **triangle normals are normalized but weighted by their area when cumulated over the ring**
 
 class TriangleMeshSmoother {
+public:
+    enum SmoothingMode {
+        recompute      = 1 << 0,
+        diagnose       = 1 << 1,
+        smooth_flipped = 1 << 2,
+        smooth_all     = 1 << 3
+    };
+
+protected:
     class Vertex;
     class Triangle;
     typedef std::vector<unsigned int> IndexVector;
@@ -258,7 +268,7 @@ class TriangleMeshSmoother {
         }
 
         inline bool isSmoothEdge(const Triangle& triangle1, const Triangle& triangle2, const float creaseAngle) const {
-            return triangle1.angle(triangle2) < creaseAngle;
+            return (creaseAngle == 0.f ? true : triangle1.angle(triangle2) < creaseAngle);
         }
 
         const osg::Vec3Array* _positions;
@@ -349,13 +359,18 @@ class TriangleMeshSmoother {
     };
 
 public:
-    TriangleMeshSmoother(osg::Geometry& geometry, float creaseAngle, bool comparePosition=false):
+    TriangleMeshSmoother(osg::Geometry& geometry, float creaseAngle, bool comparePosition=false, int mode=diagnose):
         _geometry(geometry),
         _creaseAngle(creaseAngle),
-        _graph(0)
+        _graph(0),
+        _mode(mode)
     {
         if(!_geometry.getVertexArray() || !_geometry.getVertexArray()->getNumElements()) {
             return;
+        }
+
+        if(!_geometry.getNormalArray() || _geometry.getNormalArray()->getNumElements() != _geometry.getVertexArray()->getNumElements()) {
+            _geometry.setNormalArray(new osg::Vec3Array(_geometry.getVertexArray()->getNumElements()), osg::Array::BIND_PER_VERTEX);
         }
 
         // build a unifier to consider deduplicated vertex indices
@@ -393,7 +408,20 @@ public:
         }
 
         buildMeshGraph();
-        smoothVertexNormals();
+        switch(_mode) {
+            case recompute:
+                computeVertexNormals();
+                break;
+            case smooth_all:
+                smoothVertexNormals(true, true);
+                break;
+            case smooth_flipped:
+                smoothVertexNormals(true, false);
+                break;
+            case diagnose:
+                smoothVertexNormals(false, false);
+                break;
+        };
     }
 
     ~TriangleMeshSmoother() {
@@ -422,7 +450,51 @@ protected:
         return duplicate._end;
     }
 
-    void smoothVertexNormals() {
+    void smoothVertexNormals(bool fix=true, bool force=false) {
+        _vertexArrays.clear(); // make sure we do not change vertex count
+        bool flipped = false;
+
+        osg::Vec3Array* normals = dynamic_cast<osg::Vec3Array*>(_geometry.getNormalArray());
+        for(unsigned int index = 0 ; index < _geometry.getVertexArray()->getNumElements() ; ++ index) {
+            std::vector<IndexVector> oneRing = _graph->oneRing(index, _creaseAngle);
+            osg::Vec3f smoothedNormal(0.f, 0.f, 0.f);
+
+            // sum normals for each cluster in the one-ring
+            for(std::vector<IndexVector>::iterator cluster = oneRing.begin() ; cluster != oneRing.end() ; ++ cluster) {
+                smoothedNormal += cumulateTriangleNormals(*cluster);
+            }
+
+            float length = smoothedNormal.normalize();
+            if(length > 0.) {
+                if(force || smoothedNormal * normals->at(index) < 1.e-6) {
+                    flipped = true;
+                    if(fix) {
+                        (*normals)[index] = smoothedNormal;
+                    }
+                }
+            }
+        }
+
+        if(flipped) {
+            OSG_WARN << std::endl << "Warning: [smoothVertexNormals] [[normals]] Geometry '" << _geometry.getName() << "' ";
+            switch(_mode) {
+                case diagnose:
+                    OSG_WARN << "has some flipped normals; please check that the shading is correct" << std::endl;
+                    OSG_WARN << "Monitor: normal.invalid" << std::endl;
+                    break;
+                case smooth_flipped:
+                    OSG_WARN << "has some flipped normals that have been fixed" << std::endl;
+                    OSG_WARN << "Monitor: normal.smooth_flipped" << std::endl;
+                    break;
+                case smooth_all:
+                    OSG_WARN << "normals have all been smoothed" << std::endl;
+                    OSG_WARN << "Monitor: normal.smooth_all" << std::endl;
+                    break;
+            }
+        }
+    }
+
+    void computeVertexNormals() {
         osg::Vec3Array* normals = new osg::Vec3Array(osg::Array::BIND_PER_VERTEX,
                                                      _geometry.getVertexArray()->getNumElements());
         addArray(normals);
@@ -475,6 +547,10 @@ protected:
 
         _geometry.setNormalArray(normals, osg::Array::BIND_PER_VERTEX);
         updateGeometryPrimitives();
+
+        OSG_WARN << std::endl <<"Warning: [computeVertexNormals] [[normals]] Geometry '" << _geometry.getName()
+                 << "' normals have been recomputed" << std::endl;
+        OSG_WARN << "Monitor: normal.recompute" << std::endl;
     }
 
     osg::Vec3f cumulateTriangleNormals(const IndexVector& triangles) const {
@@ -535,6 +611,7 @@ protected:
     VertexTriangles* _graph;
     TriangleVector _triangles;
     ArrayVector _vertexArrays;
+    int _mode; // smooth or recompute normals
 };
 
 
@@ -547,9 +624,26 @@ public:
         _comparePosition(comparePosition)
     {}
 
-    void apply(osg::Geometry& geometry) {
+    void process(osg::Geometry& geometry) {
         if(!geometry.getNormalArray()) {
-            TriangleMeshSmoother(geometry, _creaseAngle, _comparePosition);
+            TriangleMeshSmoother(geometry, _creaseAngle, _comparePosition, TriangleMeshSmoother::recompute);
+        }
+        else {
+            TriangleMeshSmoother(geometry, _creaseAngle, _comparePosition, TriangleMeshSmoother::diagnose);
+        }
+    }
+
+    void process(osgAnimation::MorphGeometry& morphGeometry) {
+        TriangleMeshSmoother(morphGeometry, 0, true, TriangleMeshSmoother::smooth_all);
+        osgAnimation::MorphGeometry::MorphTargetList targets = morphGeometry.getMorphTargetList();
+        for(osgAnimation::MorphGeometry::MorphTargetList::iterator target = targets.begin() ; target != targets.end() ; ++ target) {
+            // check normal orientation using the same primitives as parent geometry
+            osg::Geometry::PrimitiveSetList& primitives = target->getGeometry()->getPrimitiveSetList();
+            target->getGeometry()->setPrimitiveSetList(morphGeometry.getPrimitiveSetList());
+
+            TriangleMeshSmoother(*target->getGeometry(), 0, true, TriangleMeshSmoother::smooth_all);
+
+            target->getGeometry()->setPrimitiveSetList(primitives);
         }
     }
 

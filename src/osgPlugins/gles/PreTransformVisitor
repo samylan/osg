@@ -23,7 +23,7 @@ public:
     PreTransformVisitor(): GeometryUniqueVisitor("PreTransformVisitor")
     {}
 
-    void apply(osg::Geometry& geometry) {
+    void process(osg::Geometry& geometry) {
         glesUtil::VertexAccessOrderVisitor optimizer;
         optimizer.optimizeOrder(geometry);
     }

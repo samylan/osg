@@ -35,7 +35,7 @@ public:
 
     void remove() {
         if(!_removeDone) {
-            AnimationCleanerVisitor::remove();
+            AnimationCleanerVisitor::removeAnimation();
         }
         _removeDone = true;
     }

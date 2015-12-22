@@ -10,8 +10,11 @@
 #include <osg/ref_ptr>
 #include <osgUtil/MeshOptimizers>
 #include <osg/TriangleIndexFunctor>
+#include <osg/TriangleLinePointIndexFunctor>
 
-#include "TriangleLinePointIndexFunctor"
+#include <osgAnimation/MorphGeometry>
+#include <osgAnimation/RigGeometry>
+
 #include "StatLogger"
 #include "forsythtriangleorderoptimizer.h"
 
@@ -207,6 +210,9 @@ namespace glesUtil {
             triangles.erase(soupIterator, triangles.end());
             OSG_INFO << "Info: glesUtil::VertexCacheVisitor::doVertexOptimization(..) found "
                      << soup.size() << " soup triangles" << std::endl << std::flush;
+
+            if(soup.size() != 0)
+                OSG_WARN << std::endl << "Monitor: primitive.triangle_soup" << std::endl;
 
             std::vector<unsigned int> indices;
             for(TriangleList::const_iterator it_tri = triangles.begin() ; it_tri != triangles.end() ; ++ it_tri) {
@@ -520,6 +526,19 @@ namespace glesUtil {
         } order_by_primitive_mode;
 
     public:
+        void remapTargetVertices(Remapper remapper, Geometry& geom)
+        {
+            if(osgAnimation::MorphGeometry *morphGeometry = dynamic_cast<osgAnimation::MorphGeometry*>(&geom)) {
+                osgAnimation::MorphGeometry::MorphTargetList targetList = morphGeometry->getMorphTargetList();
+                for (osgAnimation::MorphGeometry::MorphTargetList::iterator ti = targetList.begin(); ti != targetList.end(); ++ti)  {
+                    osgAnimation::MorphGeometry::MorphTarget *morphTarget = &(*ti);
+                    osg::Geometry *target = morphTarget->getGeometry();
+                    GeometryArrayGatherer gatherer(*target);
+                    gatherer.accept(remapper);
+                }
+            }
+        }
+
         void optimizeOrder(Geometry& geom)
         {
             StatLogger logger("glesUtil::VertexAccessOrderVisitor::optimizeOrder(" + geom.getName() + ")");
@@ -557,6 +576,10 @@ namespace glesUtil {
 
             Remapper remapper(vr.remap);
             gatherer.accept(remapper);
+
+            //Remap morphGeometry target
+            remapTargetVertices(remapper, geom);
+
             Geometry::PrimitiveSetList newPrimitives;
             for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
                      end = primSets.end();

@@ -22,6 +22,8 @@
 #include <osg/ValueObject>
 #include <osgUtil/MeshOptimizers>
 
+#include <osgAnimation/RigGeometry>
+
 #include "GeometryArray"
 #include "GeometryUniqueVisitor"
 #include "glesUtil"
@@ -387,7 +389,7 @@ public:
         }
     }
 
-    void apply(osg::Geometry& geometry) {
+    void process(osg::Geometry& geometry) {
         GeometryIndexSplitter splitter(_maxIndexValue, _disablePostTransform);
         splitter.split(geometry);
         setProcessed(&geometry, splitter._geometryList);

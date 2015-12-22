@@ -3,6 +3,7 @@
 #include <limits> // numeric_limits
 
 #include <osg/Geometry>
+#include <osgAnimation/MorphGeometry>
 #include <osg/PrimitiveSet>
 #include <osg/ValueObject>
 #include <osgUtil/MeshOptimizers>
@@ -14,7 +15,21 @@
 
 using namespace glesUtil;
 
-void IndexMeshVisitor::apply(osg::Geometry& geom) {
+void remapGeometryVertices(RemapArray ra, osg::Geometry& geom)
+{
+    osgAnimation::MorphGeometry *morphGeometry = dynamic_cast<osgAnimation::MorphGeometry*>(&geom);
+    if(morphGeometry) {
+        osgAnimation::MorphGeometry::MorphTargetList targetList = morphGeometry->getMorphTargetList();
+        for (osgAnimation::MorphGeometry::MorphTargetList::iterator ti = targetList.begin(); ti != targetList.end(); ++ti)  {
+            osgAnimation::MorphGeometry::MorphTarget *morphTarget = &(*ti);
+            osg::Geometry *target = morphTarget->getGeometry();
+            VertexAttribComparitor arrayComparitor(*target);
+            arrayComparitor.accept(ra);
+        }
+    }
+}
+
+void IndexMeshVisitor::process(osg::Geometry& geom) {
     // TODO: this is deprecated
     if (geom.getNormalBinding() == osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
     if (geom.getColorBinding() == osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
@@ -104,6 +119,9 @@ void IndexMeshVisitor::apply(osg::Geometry& geom) {
     // remap any shared vertex attributes
     RemapArray ra(copyMapping);
     arrayComparitor.accept(ra);
+
+    //Remap morphGeometry target
+    remapGeometryVertices(ra, geom);
 
     // triangulate faces
     {

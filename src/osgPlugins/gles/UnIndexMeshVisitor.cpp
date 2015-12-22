@@ -21,7 +21,7 @@ typedef std::vector<unsigned int> IndexList;
 // this help works only for indexed primitive to unindex it
 
 
-void UnIndexMeshVisitor::apply(osg::Geometry& geom) 
+void UnIndexMeshVisitor::process(osg::Geometry& geom)
 {
     // no point optimizing if we don't have enough vertices.
     if (!geom.getVertexArray()) return;

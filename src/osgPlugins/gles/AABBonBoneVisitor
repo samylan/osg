@@ -27,13 +27,17 @@
 #include <osg/Shape>
 
 
-// Here this idea is to compute AABB by bone for a skelton
+// Here the idea is to compute AABB by bone for a skelton
 // You just need to call this visitor on a skeleton and after call computeBoundingBoxOnBones
 // If you have more than one skeleton you should crete a visitor by skeleton
 class ComputeAABBOnBoneVisitor : public osg::NodeVisitor {
-
 public:
-    osg::Geometry * createBox(const osg::BoundingBox &bb, const osg::Matrix &transform, float ratio = 1.0, osg::Vec4 color = osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f)) {
+    typedef std::vector<osgAnimation::Bone*> BoneList;
+    typedef std::vector<osgAnimation::RigGeometry*> RigGeometryList;
+
+
+    osg::Geometry* createBox(const osg::BoundingBox &bb, const osg::Matrix &transform,
+                             float ratio=1.0, osg::Vec4 color=osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f)) {
         osg::Geometry *cube = new osg::Geometry;
 
         osg::Vec3 center = bb.center();
@@ -65,40 +69,35 @@ public:
         up->push_back(0);
         cube->addPrimitiveSet(up);
 
-        osg::DrawElementsUInt* down =
-                new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
+        osg::DrawElementsUInt* down = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
         down->push_back(2);
         down->push_back(6);
         down->push_back(7);
         down->push_back(3);
         cube->addPrimitiveSet(down);
 
-        osg::DrawElementsUInt* left =
-                new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
+        osg::DrawElementsUInt* left = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
         left->push_back(2);
         left->push_back(3);
         left->push_back(0);
         left->push_back(1);
         cube->addPrimitiveSet(left);
 
-        osg::DrawElementsUInt* right =
-                new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
+        osg::DrawElementsUInt* right = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
         right->push_back(7);
         right->push_back(6);
         right->push_back(5);
         right->push_back(4);
         cube->addPrimitiveSet(right);
 
-        osg::DrawElementsUInt* front =
-                new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
+        osg::DrawElementsUInt* front = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
         front->push_back(3);
         front->push_back(7);
         front->push_back(4);
         front->push_back(0);
         cube->addPrimitiveSet(front);
 
-        osg::DrawElementsUInt* back =
-                new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
+        osg::DrawElementsUInt* back = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
         back->push_back(6);
         back->push_back(2);
         back->push_back(1);
@@ -118,22 +117,14 @@ public:
         cube->setColorArray(colors);
         cube->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
 
-
-//        osg::PolygonMode * polygonMode = new osg::PolygonMode;
-//        polygonMode->setMode( osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE );
-//        cube->getOrCreateStateSet()->setAttributeAndModes( polygonMode,
-//                                                                       osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON );
-
         return cube;
     }
 
-    ComputeAABBOnBoneVisitor(bool createGeometry) : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _root(0), _createGeometry(createGeometry) {}
-
-    void apply(osg::Node &node) {
-        osgAnimation::RigGeometry *rig = dynamic_cast<osgAnimation::RigGeometry*>(&node);
-        if(rig) apply(*rig);
-        traverse(node);
-    }
+    ComputeAABBOnBoneVisitor(bool createGeometry):
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _root(0),
+        _createGeometry(createGeometry)
+    {}
 
     void apply(osg::Transform& node) {
         if(!_root)
@@ -142,6 +133,12 @@ public:
         osgAnimation::Bone * b = dynamic_cast<osgAnimation::Bone*>(&node);
         if(b) apply(*b);
         traverse(node);
+    }
+
+    void apply(osg::Geometry& geometry) {
+        if(osgAnimation::RigGeometry *rigGeometry = dynamic_cast<osgAnimation::RigGeometry*>(&geometry)) {
+            apply(*rigGeometry);
+        }
     }
 
     void apply(osgAnimation::Bone &bone) {
@@ -153,7 +150,6 @@ public:
     }
 
     void serializeBoundingBox(const osg::BoundingBox &bb, const osg::Matrix &transform, osgAnimation::Bone &b, float ratio = 1.0) {
-
         osg::Vec3 center = bb.center();
         double halfLenghtX = (bb._max.x() - bb._min.x()) * 0.50;
         double halfLenghtY = (bb._max.y() - bb._min.y()) * 0.50;
@@ -179,7 +175,6 @@ public:
     }
 
     void computeBoundingBoxOnBones() {
-        typedef std::vector<osgAnimation::RigGeometry*>::iterator rigGeomListIter;
         //Perform Updates
 
         //Update Bones
@@ -194,23 +189,19 @@ public:
         }
 
         //We have our T pose, we can compute an AABB for each bone
-        typedef std::vector<osgAnimation::Bone*>::iterator boneListIter;
-        for ( boneListIter it = _bones.begin(); it != _bones.end(); it++) {
-            osgAnimation::Bone *b = *it;
+        for (BoneList::iterator bone = _bones.begin(); bone != _bones.end(); ++ bone) {
             osg::BoundingBox bb;
             //For each geometry
-            for (rigGeomListIter it = _rigGeometries.begin(); it != _rigGeometries.end(); it++) {
-                osgAnimation::RigGeometry *geom = *it;
-
-                osg::Matrix mtxLocalToSkl =  geom->getWorldMatrices(_root).at(0);
+            for (RigGeometryList::iterator rigGeometry = _rigGeometries.begin(); rigGeometry != _rigGeometries.end(); ++ rigGeometry) {
+                osg::Matrix mtxLocalToSkl = (*rigGeometry)->getWorldMatrices(_root).at(0);
 
                 //For each Vertex influence
-                osgAnimation::VertexInfluenceMap * infMap = geom->getInfluenceMap();
-                osgAnimation::VertexInfluenceMap::iterator itMap = infMap->find(b->getName());
+                osgAnimation::VertexInfluenceMap * infMap = (*rigGeometry)->getInfluenceMap();
+                osgAnimation::VertexInfluenceMap::iterator itMap = infMap->find((*bone)->getName());
                 if(itMap == infMap->end()) continue;
 
                 osgAnimation::VertexInfluence vxtInf = (*itMap).second;
-                osg::Vec3Array *vertices = dynamic_cast<osg::Vec3Array*>(geom->getVertexArray());
+                osg::Vec3Array *vertices = dynamic_cast<osg::Vec3Array*>((*rigGeometry)->getVertexArray());
 
                 //Expand the boundingBox with each vertex
                 for(unsigned int j = 0; j < vxtInf.size(); j++) {
@@ -220,26 +211,28 @@ public:
                     bb.expandBy(vx);
                 }
 
-                if(bb == osg::BoundingBox() || bb._min.x() == bb._max.x() || bb._min.y() == bb._max.y() || bb._min.z() == bb._max.z()) continue; //Compare initial and actual boundingBox if (no change) => no box on bone
+                // Compare initial and actual boundingBox if (no change) => no box on bone
+                if(bb == osg::BoundingBox() || bb._min.x() == bb._max.x() || bb._min.y() == bb._max.y() || bb._min.z() == bb._max.z()) {
+                    continue;
+                }
 
-                osg::Matrix worldToBone = osg::Matrix::inverse(b->getWorldMatrices(_root).at(0));
+                osg::Matrix worldToBone = osg::Matrix::inverse((*bone)->getWorldMatrices(_root).at(0));
 
                 if(_createGeometry) {
                     osg::Geode *g = new osg::Geode;
-                    g->setName("AABB_for_bone_" + b->getName());
+                    g->setName("AABB_for_bone_" + (*bone)->getName());
                     g->addDrawable(createBox(bb, worldToBone));
-                    b->addChild(g);
+                    (*bone)->addChild(g);
                 }
 
-                serializeBoundingBox(bb, worldToBone, *b);
+                serializeBoundingBox(bb, worldToBone, *(*bone));
             }
         }
 
         //Clear geometries
-        for (rigGeomListIter it = _rigGeometries.begin(); it != _rigGeometries.end(); it++) {
-            osgAnimation::RigGeometry *rig = *it;
-            rig->copyFrom(*rig->getSourceGeometry());
-            rig->setRigTransformImplementation(0);
+        for (RigGeometryList::iterator rigGeometry = _rigGeometries.begin(); rigGeometry != _rigGeometries.end(); ++ rigGeometry) {
+            (*rigGeometry)->copyFrom(*(*rigGeometry)->getSourceGeometry());
+            (*rigGeometry)->setRigTransformImplementation(0);
         }
     }
 
@@ -249,11 +242,14 @@ public:
     bool _createGeometry;
 };
 
+
 struct FindSkeletons : public osg::NodeVisitor
 {
-    FindSkeletons() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
-    void apply(osg::Transform& node)
-    {
+    FindSkeletons():
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+    {}
+
+    void apply(osg::Transform& node) {
         osgAnimation::Skeleton *skl = dynamic_cast<osgAnimation::Skeleton*>(&node);
         if(skl) _skls.push_back(skl);
         traverse(node);
