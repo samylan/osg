@@ -21,7 +21,6 @@
 #include <osg/PrimitiveSet>
 #include <osg/ValueObject>
 #include <osgUtil/MeshOptimizers>
-#include <osgText/Text>
 
 #include "GeometryArray"
 #include "GeometryUniqueVisitor"
@@ -31,7 +30,7 @@
 class GeometryIndexSplitter
 {
 public:
-    typedef std::vector<osg::ref_ptr<osg::Drawable> > GeometryList;
+    typedef std::vector< osg::ref_ptr<osg::Geometry> > GeometryList;
 
     GeometryIndexSplitter(unsigned int maxIndex, bool disablePostTransform):
         _maxIndexToSplit(maxIndex), _disablePostTransform(disablePostTransform)
@@ -332,9 +331,11 @@ public:
 
 class GeometrySplitterVisitor : public GeometryUniqueVisitor {
 public:
-    typedef std::vector< osg::ref_ptr<osg::Drawable> > GeometryList;
+    typedef std::vector< osg::ref_ptr<osg::Geometry> > GeometryList;
+    typedef std::vector< osg::ref_ptr<osg::Drawable> > DrawableList;
+    typedef std::map<osg::Geometry*, GeometryList> SplitMap;
 
-    GeometrySplitterVisitor(unsigned int maxIndexValue = 65535, bool disablePostTransform=false, bool exportNonGeometryDrawables = false):
+    GeometrySplitterVisitor(unsigned int maxIndexValue=65535, bool disablePostTransform=false, bool exportNonGeometryDrawables=false):
         GeometryUniqueVisitor("GeometrySplitterVisitor"),
         _maxIndexValue(maxIndexValue),
         _disablePostTransform(disablePostTransform),
@@ -343,30 +344,46 @@ public:
 
     void apply(osg::Geode& geode) {
         GeometryUniqueVisitor::apply(geode);
-        GeometryList remapped;
+        GeometryList remappedGeometries;
+        DrawableList nonGeometryDrawables;
+
         for(unsigned int i = 0 ; i < geode.getNumDrawables() ; ++ i) {
             osg::Geometry* geometry = geode.getDrawable(i)->asGeometry();
             if(geometry) {
-                std::map<osg::Geometry*, GeometryList>::iterator lookup = _split.find(geometry);
-                if(lookup != _split.end() && !lookup->second.empty()) {
-                    remapped.insert(remapped.end(), lookup->second.begin(), lookup->second.end());
+                if(osgAnimation::RigGeometry* rigGeometry = dynamic_cast<osgAnimation::RigGeometry*>(geometry)) {
+                    SplitMap::iterator lookup = _split.find(rigGeometry->getSourceGeometry());
+                    if(lookup != _split.end() && !lookup->second.empty()) {
+                        for(GeometryList::iterator splittedSource = lookup->second.begin() ; splittedSource != lookup->second.end() ; ++ splittedSource) {
+                            osgAnimation::RigGeometry* splittedRig = new osgAnimation::RigGeometry(*rigGeometry);
+                            splittedRig->setSourceGeometry(splittedSource->get());
+                            remappedGeometries.push_back(splittedRig);
+                        }
+                    }
                 }
-            } else if (_exportNonGeometryDrawables){
-                // Export non-geometry drawables, right now only text is supported
-                osgText::Text* text = dynamic_cast<osgText::Text*>(geode.getDrawable(i));
-                if (text)
-                {
-                    remapped.push_back(text);
+                else {
+                    SplitMap::iterator lookup = _split.find(geometry);
+                    if(lookup != _split.end() && !lookup->second.empty()) {
+                        remappedGeometries.insert(remappedGeometries.end(), lookup->second.begin(), lookup->second.end());
+                    }
                 }
-                // More non-geometry drawables...
+            }
+            else {
+                nonGeometryDrawables.push_back(geode.getDrawable(i));
             }
         }
 
         // remove all drawables
         geode.removeDrawables(0, geode.getNumDrawables());
+        // insert splitted geometries
+        for(unsigned int i = 0 ; i < remappedGeometries.size() ; ++ i) {
+            geode.addDrawable(remappedGeometries[i].get());
+        }
 
-        for(unsigned int i = 0 ; i < remapped.size() ; ++ i) {
-            geode.addDrawable(remapped[i].get());
+        if(_exportNonGeometryDrawables) {
+            // insert other drawables (e.g. osgText)
+            for(unsigned int i = 0 ; i < nonGeometryDrawables.size() ; ++ i) {
+                geode.addDrawable(nonGeometryDrawables[i].get());
+            }
         }
     }
 

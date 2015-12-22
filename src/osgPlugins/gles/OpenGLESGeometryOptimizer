@@ -49,6 +49,7 @@ public:
         _generateTangentSpace(false),
         _tangentUnit(0),
         _maxIndexValue(65535),
+        _maxMorphTarget(0),
         _wireframe(""),
         _exportNonGeometryDrawables(false)
     {}

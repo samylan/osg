@@ -20,6 +20,7 @@ SET(TARGET_H
     glesUtil
     IndexMeshVisitor
     LineIndexFunctor
+    MostInfluencedGeometryByBone
     OpenGLESGeometryOptimizer
     PointIndexFunctor
     PreTransformVisitor
