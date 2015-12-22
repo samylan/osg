@@ -361,6 +361,20 @@ void JSONVertexArray::write(json_stream& str, WriteVisitor& visitor)
     osg::ref_ptr<const osg::Array> array = _arrayData;
 
     switch (array->getType()) {
+    case osg::Array::QuatArrayType:
+    {
+        osg::ref_ptr<osg::Vec4Array> converted = new osg::Vec4Array;
+        converted->reserve(array->getNumElements());
+        const osg::QuatArray* a = dynamic_cast<const osg::QuatArray*>(array.get());
+        for (unsigned int i = 0; i < array->getNumElements(); ++i) {
+            converted->push_back(osg::Vec4(static_cast<float>((*a)[i][0]),
+                                           static_cast<float>((*a)[i][1]),
+                                           static_cast<float>((*a)[i][2]),
+                                           static_cast<float>((*a)[i][3])));
+        }
+        array = converted;
+        type = "Float32Array";
+    }
     case osg::Array::FloatArrayType:
     case osg::Array::Vec2ArrayType:
     case osg::Array::Vec3ArrayType:
@@ -450,6 +464,7 @@ void JSONVertexArray::write(json_stream& str, WriteVisitor& visitor)
             case osg::Array::Vec2dArrayType:
             case osg::Array::Vec3dArrayType:
             case osg::Array::Vec4dArrayType:
+            case osg::Array::QuatArrayType:
             {
                 const double* a = static_cast<const double*>(array->getDataPointer());
                 unsigned int size = array->getNumElements() * array->getDataSize();

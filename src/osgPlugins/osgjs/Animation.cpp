@@ -16,37 +16,68 @@
 #include "JSON_Objects"
 #include "WriteVisitor"
 
-static bool addJSONChannelVec3(osgAnimation::Vec3LinearChannel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
-{
+
+template<typename T>
+struct osg_array
+{ typedef osg::Array array_type; };
+
+#define ADD_ARRAY_TYPE(T, A)\
+template<> \
+struct osg_array<T> \
+{ typedef A array_type; }
+
+ADD_ARRAY_TYPE(osg::Vec3f,     osg::Vec3Array);
+ADD_ARRAY_TYPE(osg::Quat,      osg::QuatArray);
+ADD_ARRAY_TYPE(osg::Vec3i,     osg::Vec3iArray);
+ADD_ARRAY_TYPE(osg::Vec4i,     osg::Vec4iArray);
+ADD_ARRAY_TYPE(osg::Vec3ui,    osg::Vec3uiArray);
+ADD_ARRAY_TYPE(osg::Vec3us,    osg::Vec3usArray);
+ADD_ARRAY_TYPE(float,          osg::FloatArray);
+ADD_ARRAY_TYPE(double,         osg::FloatArray);
+ADD_ARRAY_TYPE(int,            osg::IntArray);
+ADD_ARRAY_TYPE(unsigned int,   osg::UIntArray);
+ADD_ARRAY_TYPE(unsigned short, osg::UShortArray);
+
+
+template<typename T>
+bool addJSONChannel(const std::string& channelType, T* channel, bool packByCoords, JSONObject& anim, WriteVisitor* writer, osg::Object* parent) {
     if (channel && channel->getSampler()) {
         osg::ref_ptr<JSONObject> json = new JSONObject;
+        std::string jsonType = channelType + (packByCoords ? "Packed" : "");
+
+        translateObject(json.get(), channel);
+
         json->getMaps()["Name"] = new JSONValue<std::string>(channel->getName());
         json->getMaps()["TargetName"] = new JSONValue<std::string>(channel->getTargetName());
-        osgAnimation::Vec3KeyframeContainer* keys = channel->getSamplerTyped()->getKeyframeContainerTyped();
+
+        typename T::KeyframeContainerType* keys = channel->getSamplerTyped()->getKeyframeContainerTyped();
+        typedef typename T::UsingType KeyframeType;
+        typedef typename osg_array<KeyframeType>::array_type KeyframeArray;
+
         osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
         osg::ref_ptr<osg::FloatArray> timesArray = new osg::FloatArray;
-        osg::ref_ptr<osg::FloatArray> keysArrayX = new osg::FloatArray;
-        osg::ref_ptr<osg::FloatArray> keysArrayY = new osg::FloatArray;
-        osg::ref_ptr<osg::FloatArray> keysArrayZ = new osg::FloatArray;
+        osg::ref_ptr<KeyframeArray> valuesArray = new KeyframeArray;
 
         for (unsigned int i = 0; i < keys->size(); i++) {
             timesArray->push_back((*keys)[i].getTime());
-            keysArrayX->push_back((*keys)[i].getValue()[0]);
-            keysArrayY->push_back((*keys)[i].getValue()[1]);
-            keysArrayZ->push_back((*keys)[i].getValue()[2]);
+            valuesArray->push_back((*keys)[i].getValue());
         }
 
-        osg::ref_ptr<JSONArray> keysArray = new JSONArray;
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayX.get(), parent));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayY.get(), parent));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayZ.get(), parent));
-
         jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timesArray.get(), parent);
-        jsKeys->getMaps()["Key"] = keysArray;
+
+        osg::ref_ptr<KeyframeArray> values;
+        if(packByCoords) { // data channel packing
+            values = pack<KeyframeArray, KeyframeArray>(valuesArray.get());
+        }
+        else {
+            values = valuesArray;
+        }
+
+        jsKeys->getMaps()["Key"] = writer->createJSONBufferArray(values.get(), parent);
         json->getMaps()["KeyFrames"] = jsKeys;
 
         osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
-        jsonChannel->getMaps()["osgAnimation.Vec3LerpChannel"] = json;
+        jsonChannel->getMaps()[jsonType] = json;
         anim.getMaps()["Channels"]->asArray()->getArray().push_back(jsonChannel);
         return true;
     }
@@ -75,47 +106,6 @@ static bool addJSONChannelFloat(osgAnimation::FloatLinearChannel* channel, JSONO
 
         osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
         jsonChannel->getMaps()["osgAnimation.FloatLerpChannel"] = json;
-        anim.getMaps()["Channels"]->asArray()->getArray().push_back(jsonChannel);
-        return true;
-    }
-    return false;
-}
-
-static bool addJSONChannelQuaternion(osgAnimation::QuatSphericalLinearChannel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
-{
-    if (channel->getSampler()) {
-        osg::ref_ptr<JSONObject> json = new JSONObject;
-        json->getMaps()["Name"] = new JSONValue<std::string>(channel->getName());
-        json->getMaps()["TargetName"] = new JSONValue<std::string>(channel->getTargetName());
-        osgAnimation::QuatKeyframeContainer* keys = channel->getSamplerTyped()->getKeyframeContainerTyped();
-        osg::ref_ptr<JSONObject> jsKeys = new JSONObject;
-        osg::ref_ptr<osg::FloatArray> timesArray = new osg::FloatArray;
-
-        osg::ref_ptr<osg::FloatArray> keysArrayX = new osg::FloatArray;
-        osg::ref_ptr<osg::FloatArray> keysArrayY = new osg::FloatArray;
-        osg::ref_ptr<osg::FloatArray> keysArrayZ = new osg::FloatArray;
-        osg::ref_ptr<osg::FloatArray> keysArrayW = new osg::FloatArray;
-
-        for (unsigned int i = 0; i < keys->size(); i++) {
-            timesArray->push_back((*keys)[i].getTime());
-            keysArrayX->push_back((*keys)[i].getValue()[0]);
-            keysArrayY->push_back((*keys)[i].getValue()[1]);
-            keysArrayZ->push_back((*keys)[i].getValue()[2]);
-            keysArrayW->push_back((*keys)[i].getValue()[3]);
-        }
-
-        osg::ref_ptr<JSONArray> keysArray = new JSONArray;
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayX.get(), parent));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayY.get(), parent));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayZ.get(), parent));
-        keysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(keysArrayW.get(), parent));
-
-        jsKeys->getMaps()["Time"] = writer->createJSONBufferArray(timesArray.get(), parent);
-        jsKeys->getMaps()["Key"] = keysArray;
-        json->getMaps()["KeyFrames"] = jsKeys;
-
-        osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
-        jsonChannel->getMaps()["osgAnimation.QuatSlerpChannel"] = json;
         anim.getMaps()["Channels"]->asArray()->getArray().push_back(jsonChannel);
         return true;
     }
@@ -229,12 +219,23 @@ static bool addJSONChannelVec3CubicBezier(osgAnimation::Vec3CubicBezierChannel* 
     return false;
 }
 
+
+
+
 static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, WriteVisitor* writer, osg::Object* parent=0)
 {
     {
         osgAnimation::Vec3LinearChannel* c = dynamic_cast<osgAnimation::Vec3LinearChannel*>(channel);
         if (c) {
-            if (addJSONChannelVec3(c, anim, writer, parent))
+            if (addJSONChannel<osgAnimation::Vec3LinearChannel>("osgAnimation.Vec3LerpChannel", c, false, anim, writer, parent))
+                return;
+        }
+    }
+
+    {
+        osgAnimation::Vec3usLinearChannel* c = dynamic_cast<osgAnimation::Vec3usLinearChannel*>(channel);
+        if (c) {
+            if (addJSONChannel<osgAnimation::Vec3usLinearChannel>("osgAnimation.Vec3LerpChannelCompressed", c, true, anim, writer, parent))
                 return;
         }
     }
@@ -250,7 +251,15 @@ static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, Wri
     {
         osgAnimation::QuatSphericalLinearChannel* c = dynamic_cast<osgAnimation::QuatSphericalLinearChannel*>(channel);
         if (c) {
-            if (addJSONChannelQuaternion(c, anim, writer, parent))
+            if (addJSONChannel<osgAnimation::QuatSphericalLinearChannel>("osgAnimation.QuatSlerpChannel", c, false, anim, writer, parent))
+                return;
+        }
+    }
+
+    {
+        osgAnimation::Vec3usSphericalLinearChannel* c = dynamic_cast<osgAnimation::Vec3usSphericalLinearChannel*>(channel);
+        if (c) {
+            if (addJSONChannel<osgAnimation::Vec3usSphericalLinearChannel>("osgAnimation.QuatSlerpChannelCompressed", c, true, anim, writer, parent))
                 return;
         }
     }
@@ -368,7 +377,11 @@ JSONObject* createJSONUpdateMatrixTransform(osgAnimation::UpdateMatrixTransform&
             }
         }
     }
-    if (jsonStackedArray->getArray().empty()) {
+
+    // In the case of a Bone, we serialize the UpdateBone element even if there are no stackedTransforms. The reason is
+    // that for now, we use UpdateBone to compute the transforms from bone's parents, and for a bone without UpdateBone we
+    // get a bad transform and the related geometries are messed up
+    if (jsonStackedArray->getArray().empty() && !dynamic_cast<osgAnimation::UpdateBone*>(&acb)) {
         return 0;
     }
 
