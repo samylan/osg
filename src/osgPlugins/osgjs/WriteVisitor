@@ -497,10 +497,10 @@ public:
 
         osg::ref_ptr<JSONObject> json = createJSONText(&node);
         json->addUniqueID();
-        _maps[&node] = json;
-        parent->addChild("osgText.Text", json);
-        applyCallback(node, json);
-        createJSONStateSet(node, json);
+        _maps[&node] = json.get();
+        parent->addChild("osgText.Text", json.get());
+        applyCallback(node, json.get());
+        createJSONStateSet(node, json.get());
         initJsonObjectFromNode(node, *json);
         _parents.push_back(json);
         traverse(node);

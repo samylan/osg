@@ -585,14 +585,14 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
 JSONObject* WriteVisitor::createJSONRigGeometry(osgAnimation::RigGeometry* rigGeom)
 {
     //TODO : Convert data to JSONVertexArray "Float32Array"
-    JSONObject *json = new JSONNode;
-    JSONObject *sourceGeometry = new JSONObject;
+    osg::ref_ptr<JSONObject> json = new JSONNode;
+    osg::ref_ptr<JSONObject> sourceGeometry = new JSONObject;
 
     if(dynamic_cast<osg::Geometry*>(rigGeom->getSourceGeometry())) {
         sourceGeometry->getMaps()["osg.Geometry"] = createJSONGeometry(rigGeom);
     }
 
-    json->getMaps()["SourceGeometry"] = sourceGeometry;
+    json->getMaps()["SourceGeometry"] = sourceGeometry.get();
 
     osg::Array* bones = getAnimationBonesArray(*rigGeom);
     osg::Array* weights = getAnimationWeightsArray(*rigGeom);
@@ -600,8 +600,8 @@ JSONObject* WriteVisitor::createJSONRigGeometry(osgAnimation::RigGeometry* rigGe
         json->getMaps()["BoneMap"] = buildRigBoneMap(*rigGeom);
 
         json->getMaps()["VertexAttributeList"] = new JSONObject;
-        osg::ref_ptr<JSONObject> attributes =  json->getMaps()["VertexAttributeList"];
-        int nbVertexes = rigGeom->getVertexArray()->getNumElements();
+        osg::ref_ptr<JSONObject> attributes = json->getMaps()["VertexAttributeList"];
+        int nbVertexes = rigGeometry->getSourceGeometry()->getVertexArray()->getNumElements();
 
         attributes->getMaps()["Bones"] = createJSONBufferArray(bones, rigGeom);
         attributes->getMaps()["Weights"] = createJSONBufferArray(weights, rigGeom);
@@ -831,7 +831,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
             osg::ref_ptr<osgDB::Options> options =  osgDB::Registry::instance()->getOptions()->cloneOptions();
             options->setPluginStringData(std::string("baseLodURL"), _baseLodURL);
 
-            osgDB::writeNodeFile(*n,fullFilePath, options );
+            osgDB::writeNodeFile(*n, fullFilePath, options.get());
 
         }
         else
