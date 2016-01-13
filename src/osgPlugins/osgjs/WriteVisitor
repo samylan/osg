@@ -69,8 +69,8 @@ public:
     bool _useExternalBinaryArray;
     bool _mergeAllBinaryFiles;
     bool _inlineImages;
-    bool _varint;
     int _maxTextureDimension;
+    bool _varint;
     std::map<KeyValue, std::string> _specificBuffers;
     std::map<std::string, std::ofstream*> _buffers;
 
@@ -81,13 +81,14 @@ public:
         return *_buffers[name];
     }
 
-    WriteVisitor(): osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {
-        _mergeAllBinaryFiles = false;
-        _useExternalBinaryArray = false;
-        _inlineImages = false;
-        _maxTextureDimension = 0;
-        _varint = false;
-    }
+    WriteVisitor() :
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _useExternalBinaryArray(false),
+        _mergeAllBinaryFiles(false),
+        _inlineImages(false),
+        _maxTextureDimension(0),
+        _varint(false)
+    {}
 
     ~WriteVisitor() {
         for(std::map<std::string, std::ofstream*>::iterator buffer = _buffers.begin() ;
@@ -293,8 +294,7 @@ public:
         osg::ref_ptr<JSONArray> updateCallbacks = new JSONArray;
         osg::Callback* nc = node.getUpdateCallback();
         while (nc) {
-            osgAnimation::BasicAnimationManager* am = dynamic_cast<osgAnimation::BasicAnimationManager*>(nc);
-            if (am) {
+            if(osgAnimation::BasicAnimationManager* am = dynamic_cast<osgAnimation::BasicAnimationManager*>(nc)) {
                 JSONArray* array = new JSONArray;
                 JSONObject* bam = new JSONObject;
                 translateObject(bam, am);
@@ -314,57 +314,50 @@ public:
                         array->getArray().push_back(obj);
                     }
                 }
-            } else {
-                osgAnimation::UpdateBone* upBone = dynamic_cast<osgAnimation::UpdateBone*>(nc);
-                if (upBone) {
-                    osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*upBone, this);
-                    if (jsonCallback.valid()) {
-                        osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
-                        jsonObject->getMaps()["osgAnimation.UpdateBone"] = jsonCallback;
-                        updateCallbacks->getArray().push_back(jsonObject);
-                    }
-                } else {
-                    osgAnimation::UpdateMatrixTransform* updateMT = dynamic_cast<osgAnimation::UpdateMatrixTransform*>(nc);
-                    if (updateMT) {
-                        osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*updateMT, this);
-                        if (jsonCallback.valid()) {
-                            osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
-                            jsonObject->getMaps()["osgAnimation.UpdateMatrixTransform"] = jsonCallback;
-                            updateCallbacks->getArray().push_back(jsonObject);
-                        }
-                    } else {
-                        osgAnimation::Skeleton::UpdateSkeleton* updateSk = dynamic_cast<osgAnimation::Skeleton::UpdateSkeleton*>(nc);
-                        if (updateSk) {
-                            osg::ref_ptr<JSONObject> json = new JSONNode;
-                            osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
-                            json->addUniqueID();
-                            _maps[&node] = json;
-                            jsonObject->getMaps()["osgAnimation.UpdateSkeleton"] = json;
-                            updateCallbacks->getArray().push_back(jsonObject);
-                        } else {
-                            osgAnimation::UpdateMorph* updateMorph = dynamic_cast<osgAnimation::UpdateMorph*>(nc);
-                            if(updateMorph) {
-                                osg::ref_ptr<JSONObject> json = new JSONNode;
-                                osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
-                                osg::ref_ptr<JSONObject> jsonTargetName = new JSONObject;
-                                json->addUniqueID();
-                                json->getMaps()["Name"] = new JSONValue<std::string>(updateMorph->getName());
-
-                                unsigned int numTarget = updateMorph->getNumTarget();
-                                for(unsigned int i = 0; i < numTarget; ++i) {
-                                    std::ostringstream oss;
-                                    oss << i;
-                                    jsonTargetName->getMaps()[ oss.str() ] = new JSONValue<std::string>(updateMorph->getTargetName(i));
-                                }
-                                json->getMaps()["TargetMap"] = jsonTargetName;
-
-                                _maps[&node] = json;
-                                jsonObject->getMaps()["osgAnimation.UpdateMorph"] = json;
-                                updateCallbacks->getArray().push_back(jsonObject);
-                            }
-                        }
-                    }
+            }
+            else if(osgAnimation::UpdateBone* upBone = dynamic_cast<osgAnimation::UpdateBone*>(nc)) {
+                osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*upBone, this);
+                if (jsonCallback.valid()) {
+                    osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
+                    jsonObject->getMaps()["osgAnimation.UpdateBone"] = jsonCallback;
+                    updateCallbacks->getArray().push_back(jsonObject);
                 }
+            }
+            else if(osgAnimation::UpdateMatrixTransform* updateMT = dynamic_cast<osgAnimation::UpdateMatrixTransform*>(nc)) {
+                osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*updateMT, this);
+                if (jsonCallback.valid()) {
+                    osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
+                    jsonObject->getMaps()["osgAnimation.UpdateMatrixTransform"] = jsonCallback;
+                    updateCallbacks->getArray().push_back(jsonObject);
+                }
+            }
+            else if(dynamic_cast<osgAnimation::Skeleton::UpdateSkeleton*>(nc)) {
+                osg::ref_ptr<JSONObject> json = new JSONNode;
+                osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
+                json->addUniqueID();
+                _maps[&node] = json;
+                jsonObject->getMaps()["osgAnimation.UpdateSkeleton"] = json;
+                updateCallbacks->getArray().push_back(jsonObject);
+            }
+            else if(osgAnimation::UpdateMorph* updateMorph = dynamic_cast<osgAnimation::UpdateMorph*>(nc)) {
+                osg::ref_ptr<JSONObject> json = new JSONNode;
+                osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
+                osg::ref_ptr<JSONObject> jsonTargetName = new JSONObject;
+                json->addUniqueID();
+                json->getMaps()["Name"] = new JSONValue<std::string>(updateMorph->getName());
+
+                unsigned int numTarget = updateMorph->getNumTarget();
+                for(unsigned int i = 0; i < numTarget; ++i) {
+                    std::ostringstream oss;
+                    oss << i;
+                    jsonTargetName->getMaps()[ oss.str() ] = new JSONValue<std::string>(updateMorph->getTargetName(i));
+                }
+                json->getMaps()["TargetMap"] = jsonTargetName;
+                json->getMaps()["TargetMap"] = jsonTargetName;
+
+                _maps[&node] = json;
+                jsonObject->getMaps()["osgAnimation.UpdateMorph"] = json;
+                updateCallbacks->getArray().push_back(jsonObject);
             }
             nc = nc->getNestedCallback();
         }
@@ -374,30 +367,24 @@ public:
         }
     }
 
-    void apply(osg::Drawable& drw) {
-        osgAnimation::RigGeometry * rigGeometry = dynamic_cast<osgAnimation::RigGeometry*>(&drw);
-        if (rigGeometry) {
+    void apply(osg::Drawable& drawable) {
+        if(osgAnimation::RigGeometry * rigGeometry = dynamic_cast<osgAnimation::RigGeometry*>(&drawable)) {
             JSONObject* json = createJSONRigGeometry(rigGeometry);
             translateObject(json, rigGeometry);
             JSONObject* parent = getParent();
             parent->addChild("osgAnimation.RigGeometry", json);
-        } else {
-            osgAnimation::MorphGeometry * morphGeometry = dynamic_cast<osgAnimation::MorphGeometry*>(&drw);
-            if(morphGeometry) {
-                JSONObject* json = createJSONMorphGeometry(morphGeometry);
-                JSONObject* parent = getParent();
-                parent->addChild("osgAnimation.MorphGeometry", json);
-            } else {
-                osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(&drw);
-                if (geometry) {
-                    JSONObject* json = createJSONGeometry(geometry);
-                    JSONObject* parent = getParent();
-                    parent->addChild("osg.Geometry", json);
-                }
-            }
         }
-        osgText::Text* text = dynamic_cast<osgText::Text*>(&drw);
-        if (text) {
+        else if(osgAnimation::MorphGeometry * morphGeometry = dynamic_cast<osgAnimation::MorphGeometry*>(&drawable)) {
+            JSONObject* json = createJSONMorphGeometry(morphGeometry);
+            JSONObject* parent = getParent();
+            parent->addChild("osgAnimation.MorphGeometry", json);
+        }
+        else if(osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(&drawable)) {
+            JSONObject* json = createJSONGeometry(geometry);
+            JSONObject* parent = getParent();
+            parent->addChild("osg.Geometry", json);
+        }
+        else if(osgText::Text* text = dynamic_cast<osgText::Text*>(&drawable)) {
             JSONObject* json = createJSONText(text);
             JSONObject* parent = getParent();
             parent->addChild("osgText.Text", json);
