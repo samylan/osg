@@ -21,7 +21,7 @@ class DisableAnimationVisitor : public AnimationCleanerVisitor
 {
 public:
     DisableAnimationVisitor():
-        AnimationCleanerVisitor("DisableAnimationVisitor::apply(..)"),
+        AnimationCleanerVisitor("DisableAnimationVisitor"),
         _removeDone(false)
     {}
 
