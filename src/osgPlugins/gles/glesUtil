@@ -16,7 +16,6 @@
 #include <osgAnimation/RigGeometry>
 
 #include "StatLogger"
-#include "forsythtriangleorderoptimizer.h"
 
 
 namespace glesUtil {
@@ -118,120 +117,6 @@ namespace glesUtil {
         VertexList _vertices;
     };
 
-
-    class VertexCacheVisitor : osgUtil::VertexCacheVisitor
-    {
-    public:
-
-        void optimizeVertices(Geometry& geom)
-        {
-            StatLogger logger("glesUtil::VertexCacheVisitor::optimizeVertices(" + geom.getName() + ")");
-
-            Array* vertArray = geom.getVertexArray();
-            if (!vertArray)
-                return;
-            unsigned vertArraySize = vertArray->getNumElements();
-            // If all the vertices fit in the cache, there's no point in
-            // doing this optimization.
-            if (vertArraySize <= 16)
-                return;
-
-            osg::ref_ptr<osg::Geometry> dummy = new osg::Geometry;
-            osg::Geometry::PrimitiveSetList newPrims;
-
-            for (int ii = geom.getNumPrimitiveSets() - 1 ; ii >= 0 ; -- ii) {
-                osg::PrimitiveSet* primitive = geom.getPrimitiveSet(ii);
-                if(!primitive || !primitive->getNumIndices()) {
-                    continue;
-                }
-
-                // Collect all 'surface' primitives in the dummy geometry
-                if(primitive->getMode() >= PrimitiveSet::TRIANGLES && primitive->getDrawElements()) {
-                    dummy->addPrimitiveSet(primitive);
-                }
-                else {
-                    newPrims.push_back(primitive);
-                }
-            }
-
-            if(!dummy->getNumPrimitiveSets()) {
-                return;
-            }
-
-            vector<unsigned> newVertList;
-            doVertexOptimization(*dummy, newVertList);
-
-            osg::DrawElementsUInt* elements = new DrawElementsUInt(GL_TRIANGLES, newVertList.begin(), newVertList.end());
-            if (geom.getUseVertexBufferObjects()) {
-                elements->setElementBufferObject(new ElementBufferObject);
-            }
-            newPrims.insert(newPrims.begin(), elements);
-
-            geom.setPrimitiveSetList(newPrims);
-
-            geom.dirtyDisplayList();
-        }
-
-        void doVertexOptimization(Geometry& geom, vector<unsigned>& vertDrawList)
-        {
-            Geometry::PrimitiveSetList& primSets = geom.getPrimitiveSetList();
-            // lists for all the vertices and triangles
-            VertexList vertices;
-            TriangleList triangles;
-            TriangleCounter triCounter(&vertices);
-            for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
-                    end = primSets.end();
-                    itr != end;
-                    ++itr)
-                (*itr)->accept(triCounter);
-            triangles.resize(triCounter.triangleCount);
-            // Get total of triangles used by all the vertices
-            size_t vertTrisSize = 0;
-            for (VertexList::iterator itr = vertices.begin(), end = vertices.end();
-                    itr != end;
-                    ++itr)
-            {
-                itr->triList = vertTrisSize;
-                vertTrisSize += itr->trisUsing;
-            }
-            // Store for lists of triangles (indices) used by the vertices
-            vector<unsigned> vertTriListStore(vertTrisSize);
-            TriangleAdder triAdder(&vertices, &triangles);
-            for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
-                    end = primSets.end();
-                    itr != end;
-                    ++itr)
-                (*itr)->accept(triAdder);
-
-            // discard triangle soup as it cannot be cache-optimized
-            TriangleList::iterator soupIterator = std::partition(triangles.begin(), triangles.end(),
-                                                                 is_not_soup(vertices));
-            TriangleList soup(soupIterator, triangles.end());
-            triangles.erase(soupIterator, triangles.end());
-            OSG_INFO << "Info: glesUtil::VertexCacheVisitor::doVertexOptimization(..) found "
-                     << soup.size() << " soup triangles" << std::endl << std::flush;
-
-            if(soup.size() != 0)
-                OSG_WARN << std::endl << "Monitor: primitive.triangle_soup" << std::endl;
-
-            std::vector<unsigned int> indices;
-            for(TriangleList::const_iterator it_tri = triangles.begin() ; it_tri != triangles.end() ; ++ it_tri) {
-                indices.push_back(it_tri->verts[0]);
-                indices.push_back(it_tri->verts[1]);
-                indices.push_back(it_tri->verts[2]);
-            }
-
-            // call bgfx forsyth-algorithm implementation
-            vertDrawList.resize(indices.size());
-            Forsyth::OptimizeFaces(&indices[0], indices.size(), vertices.size(), &vertDrawList[0], 16);
-            for(TriangleList::iterator itr = soup.begin() ; itr != soup.end() ; ++ itr) {
-                vertDrawList.push_back(itr->verts[0]);
-                vertDrawList.push_back(itr->verts[1]);
-                vertDrawList.push_back(itr->verts[2]);
-            }
-        }
-
-    }; // Post-transform
 
     // A helper class that gathers up all the attribute arrays of an
     // osg::Geometry object that are BIND_PER_VERTEX and runs an

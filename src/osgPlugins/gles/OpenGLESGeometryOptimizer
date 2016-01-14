@@ -56,8 +56,8 @@ public:
         _generateTangentSpace(false),
         _tangentUnit(0),
         _maxIndexValue(65535),
-        _maxMorphTarget(0),
         _wireframe(""),
+        _maxMorphTarget(0),
         _exportNonGeometryDrawables(false)
     {}
 
@@ -177,7 +177,7 @@ protected:
     }
 
     void makeSplit(osg::Node* node) {
-        GeometrySplitterVisitor splitter(_maxIndexValue, _disablePostTransform, _exportNonGeometryDrawables );
+        GeometrySplitterVisitor splitter(_maxIndexValue, _exportNonGeometryDrawables );
         node->accept(splitter);
     }
 

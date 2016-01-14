@@ -13,8 +13,6 @@
 #ifndef WIREFRAME_VISITOR
 #define WIREFRAME_VISITOR
 
-#include <set>
-
 #include <osg/ValueObject>
 #include <osg/Geode>
 #include <osg/Geometry>

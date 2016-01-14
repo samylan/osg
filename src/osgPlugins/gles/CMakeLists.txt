@@ -3,8 +3,7 @@ SET(TARGET_SRC
     OpenGLESGeometryOptimizer.cpp
     TriangleStripVisitor.cpp
     IndexMeshVisitor.cpp
-    UnIndexMeshVisitor.cpp
-    forsythtriangleorderoptimizer.cpp)
+    UnIndexMeshVisitor.cpp)
 
 SET(TARGET_H
     AABBonBoneVisitor
@@ -15,7 +14,6 @@ SET(TARGET_H
     DisableAnimationVisitor
     DrawArrayVisitor
     EdgeIndexFunctor
-    forsythtriangleorderoptimizer.h
     GeometryArray
     GeometryInspector
     GeometrySplitterVisitor
@@ -34,6 +32,7 @@ SET(TARGET_H
     RigAttributesVisitor
     SmoothNormalVisitor
     StatLogger
+    SubGeometry
     TriangleMeshGraph
     TangentSpaceVisitor
     TriangleStripVisitor
