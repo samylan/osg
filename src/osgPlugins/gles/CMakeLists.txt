@@ -23,6 +23,7 @@ SET(TARGET_H
     glesUtil
     IndexMeshVisitor
     LimitMorphTargetCount
+    Line
     LineIndexFunctor
     MostInfluencedGeometryByBone
     OpenGLESGeometryOptimizer
@@ -33,8 +34,8 @@ SET(TARGET_H
     RigAttributesVisitor
     SmoothNormalVisitor
     StatLogger
+    TriangleMeshGraph
     TangentSpaceVisitor
-    TriangleLinePointIndexFunctor
     TriangleStripVisitor
     UnIndexMeshVisitor
     WireframeVisitor
