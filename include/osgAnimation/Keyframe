@@ -17,6 +17,7 @@
 
 #include <string>
 #include <osg/Referenced>
+#include <osg/MixinVector>
 #include <osgAnimation/Vec3Packed>
 #include <osgAnimation/CubicBezier>
 #include <osg/Quat>
@@ -75,15 +76,15 @@ namespace osgAnimation
 
 
     template <class T>
-    class TemplateKeyframeContainer : public std::vector<TemplateKeyframe<T> >, public KeyframeContainer
+    class TemplateKeyframeContainer : public osg::MixinVector<TemplateKeyframe<T> >, public KeyframeContainer
     {
     public:
         //    const char* getKeyframeType() { return #T ;}
         TemplateKeyframeContainer() {}
         typedef TemplateKeyframe<T> KeyType;
-        typedef typename std::vector< TemplateKeyframe<T> > VectorType;
+        typedef typename osg::MixinVector< TemplateKeyframe<T> > VectorType;
 
-        virtual unsigned int size() const { return (unsigned int)std::vector<TemplateKeyframe<T> >::size(); }
+        virtual unsigned int size() const { return (unsigned int)osg::MixinVector<TemplateKeyframe<T> >::size(); }
         virtual unsigned int linearInterpolationDeduplicate() {
                 if(size() <= 1) {
                     return 0;
@@ -120,7 +121,7 @@ namespace osgAnimation
     };
 
     template <>
-    class TemplateKeyframeContainer<Vec3Packed> : public std::vector<TemplateKeyframe<Vec3Packed> >, public KeyframeContainer
+    class TemplateKeyframeContainer<Vec3Packed> : public osg::MixinVector<TemplateKeyframe<Vec3Packed> >, public KeyframeContainer
     {
     public:
         typedef TemplateKeyframe<Vec3Packed> KeyType;
