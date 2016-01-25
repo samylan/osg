@@ -13,8 +13,6 @@
 #ifndef WIREFRAME_VISITOR
 #define WIREFRAME_VISITOR
 
-#include <set>
-
 #include <osg/ValueObject>
 #include <osg/Geode>
 #include <osg/Geometry>
@@ -38,12 +36,10 @@ public:
 
     void apply(osg::Geode& geode) {
         handleStateSet(geode);
-        for (unsigned int i = 0; i < geode.getNumDrawables(); i++) {
-            static_cast<GeometryUniqueVisitor*>(this)->apply(*geode.getDrawable(i));
-        }
+        GeometryUniqueVisitor::apply(geode);
     }
 
-    void apply(osg::Geometry& geometry) {
+    void process(osg::Geometry& geometry) {
         const unsigned int nbSourcePrimitives = geometry.getNumPrimitiveSets();
         for(unsigned int i = 0 ; i < nbSourcePrimitives ; ++ i) {
             osg::PrimitiveSet* primitive = geometry.getPrimitiveSet(i);

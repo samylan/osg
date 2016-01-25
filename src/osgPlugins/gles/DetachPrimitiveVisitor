@@ -28,7 +28,6 @@ public:
         unsigned int nbParents = geometry.getNumParents();
         for(unsigned int i = 0 ; i < nbParents ; ++ i) {
             osg::Node* parent = geometry.getParent(i);
-            // TODO: Geode will be soon deprecated
             if(parent && parent->asGeode()) {
                 osg::Geode* geode = parent->asGeode();
                 geode->addDrawable(&duplicated);
@@ -40,16 +39,24 @@ public:
         }
     }
 
-    void apply(osg::Geometry& geometry) {
+    void process(osg::Geometry& geometry) {
         if(shouldDetach(geometry)) {
-            osg::Geometry* detached = createDetachedGeometry(geometry);
+            osg::Geometry* detached = detachGeometry(geometry);
             reparentDuplicatedGeometry(geometry, *detached);
             setProcessed(detached);
         }
     }
 
+    void process(osgAnimation::RigGeometry& rigGeometry) {
+        return process(static_cast<osg::Geometry&>(rigGeometry));
+    }
+
 protected:
     bool shouldDetach(const osg::Geometry& geometry) const {
+        if(const osgAnimation::RigGeometry* rigGeometry = dynamic_cast<const osgAnimation::RigGeometry*>(&geometry)) {
+            return shouldDetach(*rigGeometry->getSourceGeometry());
+        }
+
         bool detach = false;
         for(unsigned int i = 0 ; i < geometry.getNumPrimitiveSets() ; ++ i) {
             const osg::PrimitiveSet* primitive = geometry.getPrimitiveSet(i);
@@ -60,18 +67,40 @@ protected:
         return false;
     }
 
-    osg::Geometry* createDetachedGeometry(osg::Geometry& source) {
+    osg::Geometry* detachGeometry(osg::Geometry& source) {
         // filter vertex buffers depending on geometry type
-        osg::Geometry* detached = 0;
-        osgAnimation::RigGeometry* rigged = dynamic_cast<osgAnimation::RigGeometry*>(&source);
-        if(rigged) {
-            detached = createDetachedVertices(*rigged);
-        }
-        else {
-            detached =createDetachedVertices(source);
-        }
-        detached->setPrimitiveSetList(createDetachedPrimitives(source));
+        osg::Geometry* detached = makeDetachedGeometry(source);
         detached->setUserValue(_userValue, true);
+        return detached;
+    }
+
+    osg::Geometry* makeDetachedGeometry(osg::Geometry& geometry) {
+        if(osgAnimation::RigGeometry* rigGeometry = dynamic_cast<osgAnimation::RigGeometry*>(&geometry)) {
+            return createDetachedGeometry(*rigGeometry);
+        }
+        if(osgAnimation::MorphGeometry* morphGeometry = dynamic_cast<osgAnimation::MorphGeometry*>(&geometry)) {
+            return createDetachedGeometry(*morphGeometry);
+        }
+        return createDetachedGeometry(geometry);
+    }
+
+    osg::Geometry* createDetachedGeometry(osg::Geometry& source) {
+        osg::Geometry* detached = new osg::Geometry(source, osg::CopyOp::SHALLOW_COPY);
+        if(!_keepGeometryAttributes) {
+            // we keep only vertexes and clean all other attributes and values
+            detached->setNormalArray(0);
+            detached->setColorArray(0);
+            detached->setSecondaryColorArray(0);
+            detached->setFogCoordArray(0);
+            for (unsigned int i = 0 ; i < source.getNumTexCoordArrays(); ++ i) {
+                detached->setTexCoordArray(i, 0);
+            }
+            detached->getVertexAttribArrayList().clear();
+            detached->setStateSet(0);
+            detached->setUserDataContainer(0);
+        }
+
+        detached->setPrimitiveSetList(createDetachedPrimitives(source));
         return detached;
     }
 
@@ -89,29 +118,22 @@ protected:
         return detachedPrimitives;
     }
 
-    osg::Geometry* createDetachedVertices(osg::Geometry& source) {
-        osg::Geometry* detached = new osg::Geometry(source, osg::CopyOp::SHALLOW_COPY);
-        if(!_keepGeometryAttributes) {
-            // we keep only vertexes and clean all other attributes and values
-            detached->setNormalArray(0);
-            detached->setColorArray(0);
-            detached->setSecondaryColorArray(0);
-            detached->setFogCoordArray(0);
-            for (unsigned int i = 0 ; i < source.getNumTexCoordArrays(); ++ i) {
-                detached->setTexCoordArray(i, 0);
-            }
-            detached->getVertexAttribArrayList().clear();
-            detached->setStateSet(0);
-            detached->setUserDataContainer(0);
+    osgAnimation::MorphGeometry* createDetachedGeometry(osgAnimation::MorphGeometry& source) {
+        osgAnimation::MorphGeometry* detached = new osgAnimation::MorphGeometry(*createDetachedGeometry(static_cast<osg::Geometry&>(source)));
+        detached->setVertexArray(source.getVertexArray());
+
+        osgAnimation::MorphGeometry::MorphTargetList& targets = source.getMorphTargetList();
+        for(osgAnimation::MorphGeometry::MorphTargetList::iterator target = targets.begin() ; target != targets.end() ; ++ target) {
+            detached->addMorphTarget(target->getGeometry(), target->getWeight());
         }
         return detached;
     }
 
-    osgAnimation::RigGeometry* createDetachedVertices(osgAnimation::RigGeometry& source) {
+    osg::Geometry* createDetachedGeometry(osgAnimation::RigGeometry& source) {
         osgAnimation::RigGeometry* detached;
         if(!_keepGeometryAttributes) {
             detached = new osgAnimation::RigGeometry();
-            detached->setSourceGeometry(new osg::Geometry());
+            detached->setSourceGeometry(makeDetachedGeometry(*source.getSourceGeometry()));
 
             // Only keep vertexes and Bones/Weights attrib arrays
             detached->setVertexArray(source.getVertexArray());

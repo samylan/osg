@@ -21,7 +21,7 @@ class DisableAnimationVisitor : public AnimationCleanerVisitor
 {
 public:
     DisableAnimationVisitor():
-        AnimationCleanerVisitor("DisableAnimationVisitor::apply(..)"),
+        AnimationCleanerVisitor("DisableAnimationVisitor"),
         _removeDone(false)
     {}
 
@@ -35,7 +35,7 @@ public:
 
     void remove() {
         if(!_removeDone) {
-            AnimationCleanerVisitor::remove();
+            AnimationCleanerVisitor::removeAnimation();
         }
         _removeDone = true;
     }

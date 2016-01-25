@@ -187,46 +187,8 @@ protected:
         RemapArray& operator = (const RemapArray&) { return *this; }
 };
 
-struct MyTriangleOperator
-{
 
-    IndexList                                _remapIndices;
-    triangle_stripper::indices _in_indices;
-
-    inline void operator()(unsigned int p1, unsigned int p2, unsigned int p3)
-    {
-        if (_remapIndices.empty())
-        {
-            _in_indices.push_back(p1);
-            _in_indices.push_back(p2);
-            _in_indices.push_back(p3);
-        }
-        else
-        {
-            _in_indices.push_back(_remapIndices[p1]);
-            _in_indices.push_back(_remapIndices[p2]);
-            _in_indices.push_back(_remapIndices[p3]);
-        }
-    }
-
-};
-typedef osg::TriangleIndexFunctor<MyTriangleOperator> MyTriangleIndexFunctor;
-
-void TriStripVisitor::stripify(Geometry& geom)
-{
-    if (geom.containsDeprecatedData()) geom.fixDeprecatedData();
-
-    if (osg::getBinding(geom.getNormalArray())==osg::Array::BIND_PER_PRIMITIVE_SET) return;
-
-    if (osg::getBinding(geom.getColorArray())==osg::Array::BIND_PER_PRIMITIVE_SET) return;
-
-    if (osg::getBinding(geom.getSecondaryColorArray())==osg::Array::BIND_PER_PRIMITIVE_SET) return;
-
-    if (osg::getBinding(geom.getFogCoordArray())==osg::Array::BIND_PER_PRIMITIVE_SET) return;
-
-    // no point tri stripping if we don't have enough vertices.
-    if (!geom.getVertexArray() || geom.getVertexArray()->getNumElements()<3) return;
-
+void indexGeometry(osg::Geometry& geom, IndexList& mapping) {
     // check for the existence of surface primitives
     unsigned int numSurfacePrimitives = 0;
     unsigned int numNonSurfacePrimitives = 0;
@@ -249,7 +211,6 @@ void TriStripVisitor::stripify(Geometry& geom)
             default:
                 ++numNonSurfacePrimitives;
                 break;
-
         }
     }
 
@@ -277,21 +238,15 @@ void TriStripVisitor::stripify(Geometry& geom)
     {
         if (arrayComparitor.compare(indices[lastUnique],indices[i])==0)
         {
-            //std::cout<<"  found duplicate "<<indices[lastUnique]<<" and "<<indices[i]<<std::endl;
             ++numDuplicate;
         }
         else
         {
-            //std::cout<<"  unique "<<indices[i]<<std::endl;
             lastUnique = i;
             ++numUnique;
         }
 
     }
-//     std::cout<<"  Number of duplicates "<<numDuplicate<<std::endl;
-//     std::cout<<"  Number of unique "<<numUnique<<std::endl;
-//     std::cout<<"  Total number of vertices required "<<numUnique<<" vs original "<<numVertices<<std::endl;
-//     std::cout<<"  % size "<<(float)numUnique/(float)numVertices*100.0f<<std::endl;
 
     IndexList remapDuplicatesToOrignals(numVertices);
     lastUnique = 0;
@@ -348,12 +303,89 @@ void TriStripVisitor::stripify(Geometry& geom)
         }
     }
 
+    float minimum_ratio_of_indices_to_unique_vertices = 1;
+    unsigned int nbPrimitiveIndices = 0;
+    for(unsigned int k = 0 ; k < geom.getNumPrimitiveSets() ; ++ k) {
+        osg::PrimitiveSet* primitive = geom.getPrimitiveSet(k);
+        if(primitive) {
+            nbPrimitiveIndices += primitive->getNumIndices();
+        }
+    }
+    float ratio_of_indices_to_unique_vertices = ((float)nbPrimitiveIndices/(float)numUnique);
+
+    if(!finalMapping.empty() &&
+       ratio_of_indices_to_unique_vertices >= minimum_ratio_of_indices_to_unique_vertices) {
+
+        OSG_INFO << "TriStripVisitor::stripify(Geometry&): Number of indices" << nbPrimitiveIndices
+                 << " numUnique" << numUnique << std::endl;
+        OSG_INFO << "TriStripVisitor::stripify(Geometry&):     ratio indices/numUnique"
+                 <<  ratio_of_indices_to_unique_vertices << std::endl;
+
+        // remap any shared vertex attributes
+        RemapArray ra(copyMapping);
+        arrayComparitor.accept(ra);
+        finalMapping.swap(mapping);
+    }
+}
+
+
+struct MyTriangleOperator
+{
+
+    IndexList                                _remapIndices;
+    triangle_stripper::indices _in_indices;
+
+    inline void operator()(unsigned int p1, unsigned int p2, unsigned int p3)
+    {
+        if (_remapIndices.empty())
+        {
+            _in_indices.push_back(p1);
+            _in_indices.push_back(p2);
+            _in_indices.push_back(p3);
+        }
+        else
+        {
+            _in_indices.push_back(_remapIndices[p1]);
+            _in_indices.push_back(_remapIndices[p2]);
+            _in_indices.push_back(_remapIndices[p3]);
+        }
+    }
+
+};
+typedef osg::TriangleIndexFunctor<MyTriangleOperator> MyTriangleIndexFunctor;
+
+void TriStripVisitor::stripify(Geometry& geom)
+{
+    if (geom.containsDeprecatedData()) geom.fixDeprecatedData();
+
+    if (osg::getBinding(geom.getNormalArray())==osg::Array::BIND_PER_PRIMITIVE_SET) return;
+
+    if (osg::getBinding(geom.getColorArray())==osg::Array::BIND_PER_PRIMITIVE_SET) return;
+
+    if (osg::getBinding(geom.getSecondaryColorArray())==osg::Array::BIND_PER_PRIMITIVE_SET) return;
+
+    if (osg::getBinding(geom.getFogCoordArray())==osg::Array::BIND_PER_PRIMITIVE_SET) return;
+
+    // no point tri stripping if we don't have enough vertices.
+    if (!geom.getVertexArray() || geom.getVertexArray()->getNumElements()<3) return;
+
+    IndexList mapping;
+    if(_indexMesh) {
+        indexGeometry(geom, mapping);
+        if(mapping.empty()) {
+            return;
+        }
+    }
 
     MyTriangleIndexFunctor taf;
-    taf._remapIndices.swap(finalMapping);
+    if(!mapping.empty()) {
+        taf._remapIndices.swap(mapping);
+    }
 
+    Geometry::PrimitiveSetList& primitives = geom.getPrimitiveSetList();
     Geometry::PrimitiveSetList new_primitives;
     new_primitives.reserve(primitives.size());
+    Geometry::PrimitiveSetList::iterator itr;
 
     for(itr=primitives.begin();
         itr!=primitives.end();
@@ -372,18 +404,11 @@ void TriStripVisitor::stripify(Geometry& geom)
             default:
                 new_primitives.push_back(*itr);
                 break;
-
         }
     }
 
-    float minimum_ratio_of_indices_to_unique_vertices = 1;
-    float ratio_of_indices_to_unique_vertices = ((float)taf._in_indices.size()/(float)numUnique);
-
-    OSG_INFO<<"TriStripVisitor::stripify(Geometry&): Number of indices"<<taf._in_indices.size()<<" numUnique"<< numUnique << std::endl;
-    OSG_INFO<<"TriStripVisitor::stripify(Geometry&):     ratio indices/numUnique"<< ratio_of_indices_to_unique_vertices << std::endl;
-
     // only tri strip if there is point in doing so.
-    if (!taf._in_indices.empty() && ratio_of_indices_to_unique_vertices>=minimum_ratio_of_indices_to_unique_vertices)
+    if (!taf._in_indices.empty())
     {
         OSG_INFO<<"TriStripVisitor::stripify(Geometry&):     doing tri strip"<< std::endl;
 
@@ -395,12 +420,8 @@ void TriStripVisitor::stripify(Geometry& geom)
             if (*itr>in_numVertices) in_numVertices=*itr;
         }
         // the largest indice is in_numVertices, but indices start at 0
-        // so increment to give to the corrent number of verticies.
+        // so increment to give to the corrent number of vertices.
         ++in_numVertices;
-
-        // remap any shared vertex attributes
-        RemapArray ra(copyMapping);
-        arrayComparitor.accept(ra);
 
         triangle_stripper::tri_stripper stripifier(taf._in_indices);
         stripifier.SetCacheSize(_cacheSize);
@@ -452,7 +473,7 @@ void TriStripVisitor::stripify(Geometry& geom)
                     pitr = qitr->second;
 
                     unsigned int min_pos = 0;
-                    for(i=1;i<4;++i)
+                    for(unsigned int i = 1 ; i < 4 ; ++ i)
                     {
                         if (pitr->Indices[min_pos]>pitr->Indices[i])
                             min_pos = i;

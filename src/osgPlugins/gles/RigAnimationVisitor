@@ -17,7 +17,6 @@
 #include <osgAnimation/RigTransformHardware>
 #include <osgAnimation/RigGeometry>
 
-#include "GeometryUniqueVisitor"
 #include <osg/ValueObject>
 #include <osg/Array>
 
@@ -26,6 +25,8 @@
 #include <set>
 #include <map>
 #include <sstream>
+
+#include "StatLogger"
 
 
 struct sort_weights {
@@ -72,21 +73,22 @@ public:
     }
 
     inline void normalizeWeight(osg::Vec4f &v) const {
-        float sum = v[0] + v[1] + v[2] + v[3];
+        // do not consider positive weights only
+        float sum = std::abs(v[0]) + std::abs(v[1]) + std::abs(v[2]) + std::abs(v[3]);
         if (sum > 0) v /= sum;
     }
 
-    void apply(osgAnimation::RigGeometry& geometry) {
+    void apply(osgAnimation::RigGeometry& rigGeometry) {
         // find skeleton
         osgAnimation::UpdateRigGeometry rigUpdater;
-        rigUpdater.update(0, &geometry);
+        rigUpdater.update(0, &rigGeometry);
 
         osgAnimation::RigTransformHardware rth;
-        rth(geometry);
-        std::vector< std::vector< std::pair<unsigned int, float> > > vertexBoneWeights(geometry.getVertexArray()->getNumElements());
+        rth(rigGeometry);
+        std::vector< std::vector< std::pair<unsigned int, float> > > vertexBoneWeights(rigGeometry.getVertexArray()->getNumElements());
 
         // collect all bone/weight pairs for *all* vertices
-        for(unsigned int i = 0 ; i < rth.getNumVertexAttrib() ; ++ i) {
+        for(unsigned int i = 0 ; i < static_cast<unsigned int>(rth.getNumVertexAttrib()) ; ++ i) {
             osg::Vec4Array* weights = dynamic_cast<osg::Vec4Array*>(rth.getVertexAttrib(i));
             for(unsigned int k = 0 ; k < weights->getNumElements() ; ++ k) {
                 vertexBoneWeights[k].push_back(std::pair<unsigned int, float>((*weights)[k][0], (*weights)[k][1]));
@@ -124,10 +126,12 @@ public:
         bones->setUserValue("bones", true);
         weights->setUserValue("weights", true);
 
-        geometry.setVertexAttribArray(geometry.getNumVertexAttribArrays(), bones.get(), osg::Array::BIND_PER_VERTEX);
-        geometry.setVertexAttribArray(geometry.getNumVertexAttribArrays(), weights.get(), osg::Array::BIND_PER_VERTEX);
+        // attach bones & weights to source geometry during scene graph processing
+        osg::Geometry* source = rigGeometry.getSourceGeometry();
+        source->setVertexAttribArray(source->getNumVertexAttribArrays(), bones.get(), osg::Array::BIND_PER_VERTEX);
+        source->setVertexAttribArray(source->getNumVertexAttribArrays(), weights.get(), osg::Array::BIND_PER_VERTEX);
 
-        geometry.setRigTransformImplementation(0); //Remove current implementation to force implementation re-init
+        rigGeometry.setRigTransformImplementation(0); //Remove current implementation to force implementation re-init
     }
 
 protected:

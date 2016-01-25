@@ -12,6 +12,7 @@ SET(TARGET_H
     CompactBufferVisitor
     JSON_Objects
     json_stream
+    utf8_string
     WriteVisitor
 )
 

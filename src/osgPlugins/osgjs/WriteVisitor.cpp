@@ -9,10 +9,14 @@
 #include <osg/Texture1D>
 #include <osg/Material>
 #include <osg/BlendFunc>
-#include <osgSim/ShapeAttribute>
-#include <osgText/Text>
-#include "Base64"
 
+#include <osgSim/ShapeAttribute>
+
+#include <osgText/Text>
+
+#include <osgAnimation/MorphGeometry>
+
+#include "Base64"
 
 
 osg::Array* getTangentSpaceArray(osg::Geometry& geometry) {
@@ -27,9 +31,9 @@ osg::Array* getTangentSpaceArray(osg::Geometry& geometry) {
 }
 
 
-osg::Array* getAnimationBonesArray(osg::Geometry& geometry) {
-    for(unsigned int i = 0 ; i < geometry.getNumVertexAttribArrays() ; ++ i) {
-        osg::Array* attribute = geometry.getVertexAttribArray(i);
+osg::Array* getAnimationBonesArray(osgAnimation::RigGeometry& rigGeometry) {
+    for(unsigned int i = 0 ; i < rigGeometry.getNumVertexAttribArrays() ; ++ i) {
+        osg::Array* attribute = rigGeometry.getVertexAttribArray(i);
         bool isBones = false;
         if(attribute && attribute->getUserValue("bones", isBones) && isBones) {
             return attribute;
@@ -39,9 +43,9 @@ osg::Array* getAnimationBonesArray(osg::Geometry& geometry) {
 }
 
 
-osg::Array* getAnimationWeightsArray(osg::Geometry& geometry) {
-    for(unsigned int i = 0 ; i < geometry.getNumVertexAttribArrays() ; ++ i) {
-        osg::Array* attribute = geometry.getVertexAttribArray(i);
+osg::Array* getAnimationWeightsArray(osgAnimation::RigGeometry& rigGeometry) {
+    for(unsigned int i = 0 ; i < rigGeometry.getNumVertexAttribArrays() ; ++ i) {
+        osg::Array* attribute = rigGeometry.getVertexAttribArray(i);
         bool isWeights = false;
         if(attribute && attribute->getUserValue("weights", isWeights) && isWeights) {
             return attribute;
@@ -51,8 +55,8 @@ osg::Array* getAnimationWeightsArray(osg::Geometry& geometry) {
 }
 
 
-osg::ref_ptr<JSONObject> buildRigBoneMap(osgAnimation::RigGeometry& geometry) {
-    osg::Array* bones = getAnimationBonesArray(geometry);
+osg::ref_ptr<JSONObject> buildRigBoneMap(osgAnimation::RigGeometry& rigGeometry) {
+    osg::Array* bones = getAnimationBonesArray(rigGeometry);
     osg::ref_ptr<JSONObject> boneMap = new JSONObject;
 
     unsigned int paletteIndex = 0;
@@ -465,42 +469,43 @@ JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da, 
 }
 
 
-JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
+JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geometry, osg::Object* parent)
 {
-    if (_maps.find(geom) != _maps.end())
-        return _maps[geom]->getShadowObject();
+    if(!parent) {
+        parent = geometry;
+    }
 
-    //if (needToSplit(*geom))
-    //    error();
+    if (_maps.find(geometry) != _maps.end())
+        return _maps[geometry]->getShadowObject();
 
     osg::ref_ptr<JSONObject> json = new JSONNode;
     json->addUniqueID();
-    _maps[geom] = json;
+    _maps[geometry] = json;
 
-    if (geom->getStateSet())
-        createJSONStateSet(json.get(), geom->getStateSet());
+    if (geometry->getStateSet())
+        createJSONStateSet(json.get(), geometry->getStateSet());
 
-    translateObject(json.get(), geom);
+    translateObject(json.get(), geometry);
 
     osg::ref_ptr<JSONObject> attributes = new JSONObject;
 
     int nbVertexes = 0;
 
-    if (geom->getVertexArray()) {
-        nbVertexes = geom->getVertexArray()->getNumElements();
-        attributes->getMaps()["Vertex"] = createJSONBufferArray(geom->getVertexArray(), geom);
+    if (geometry->getVertexArray()) {
+        nbVertexes = geometry->getVertexArray()->getNumElements();
+        attributes->getMaps()["Vertex"] = createJSONBufferArray(geometry->getVertexArray(), parent);
     }
-    if (geom->getNormalArray()) {
-        attributes->getMaps()["Normal"] = createJSONBufferArray(geom->getNormalArray(), geom);
-        int nb = geom->getNormalArray()->getNumElements();
+    if (geometry->getNormalArray()) {
+        attributes->getMaps()["Normal"] = createJSONBufferArray(geometry->getNormalArray(), parent);
+        int nb = geometry->getNormalArray()->getNumElements();
         if (nbVertexes != nb) {
             osg::notify(osg::FATAL) << "Fatal nb normals " << nb << " != " << nbVertexes << std::endl;
             error();
         }
     }
-    if (geom->getColorArray()) {
-        attributes->getMaps()["Color"] = createJSONBufferArray(geom->getColorArray(), geom);
-        int nb = geom->getColorArray()->getNumElements();
+    if (geometry->getColorArray()) {
+        attributes->getMaps()["Color"] = createJSONBufferArray(geometry->getColorArray(), parent);
+        int nb = geometry->getColorArray()->getNumElements();
         if (nbVertexes != nb) {
             osg::notify(osg::FATAL) << "Fatal nb colors " << nb << " != " << nbVertexes << std::endl;
             error();
@@ -512,9 +517,9 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
         ss.str("");
         ss << "TexCoord" << i;
         //osg::notify(osg::NOTICE) << ss.str() << std::endl;
-        if (geom->getTexCoordArray(i)) {
-            attributes->getMaps()[ss.str()] = createJSONBufferArray(geom->getTexCoordArray(i), geom);
-            int nb = geom->getTexCoordArray(i)->getNumElements();
+        if (geometry->getTexCoordArray(i)) {
+            attributes->getMaps()[ss.str()] = createJSONBufferArray(geometry->getTexCoordArray(i), parent);
+            int nb = geometry->getTexCoordArray(i)->getNumElements();
             if (nbVertexes != nb) {
                 osg::notify(osg::FATAL) << "Fatal nb tex coord " << i << " " << nb << " != " << nbVertexes << std::endl;
                 error();
@@ -522,9 +527,9 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
         }
     }
 
-    osg::Array* tangents = getTangentSpaceArray(*geom);
+    osg::Array* tangents = getTangentSpaceArray(*geometry);
     if (tangents) {
-        attributes->getMaps()["Tangent"] = createJSONBufferArray(tangents, geom);
+        attributes->getMaps()["Tangent"] = createJSONBufferArray(tangents, parent);
         int nb = tangents->getNumElements();
         if (nbVertexes != nb) {
             osg::notify(osg::FATAL) << "Fatal nb tangent " << nb << " != " << nbVertexes << std::endl;
@@ -534,47 +539,47 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
 
     json->getMaps()["VertexAttributeList"] = attributes;
 
-    if (!geom->getPrimitiveSetList().empty()) {
+    if (!geometry->getPrimitiveSetList().empty()) {
         osg::ref_ptr<JSONArray> primitives = new JSONArray();
-        for (unsigned int i = 0; i < geom->getNumPrimitiveSets(); ++i) {
+        for (unsigned int i = 0; i < geometry->getNumPrimitiveSets(); ++i) {
             osg::ref_ptr<JSONObject> obj = new JSONObject;
-            osg::PrimitiveSet* primitive = geom->getPrimitiveSet(i);
+            osg::PrimitiveSet* primitive = geometry->getPrimitiveSet(i);
             if(!primitive) continue;
 
             if (primitive->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType) {
                 osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*>((primitive));
                 primitives->getArray().push_back(obj);
                 if (da->getMode() == GL_QUADS) {
-                    obj->getMaps()["DrawElementsUShort"] = createJSONDrawElements(da, geom);
+                    obj->getMaps()["DrawElementsUShort"] = createJSONDrawElements(da, parent);
                 } else {
-                    obj->getMaps()["DrawArrays"] = createJSONDrawArray(da, geom);
+                    obj->getMaps()["DrawArrays"] = createJSONDrawArray(da, parent);
                 }
             } else if (primitive->getType() == osg::PrimitiveSet::DrawElementsUIntPrimitiveType) {
                 osg::DrawElementsUInt* da = dynamic_cast<osg::DrawElementsUInt*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawElementsUInt"] = createJSONDrawElementsUInt(da, geom);
+                obj->getMaps()["DrawElementsUInt"] = createJSONDrawElementsUInt(da, parent);
 
             }  else if (primitive->getType() == osg::PrimitiveSet::DrawElementsUShortPrimitiveType) {
                 osg::DrawElementsUShort* da = dynamic_cast<osg::DrawElementsUShort*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawElementsUShort"] = createJSONDrawElementsUShort(da, geom);
+                obj->getMaps()["DrawElementsUShort"] = createJSONDrawElementsUShort(da, parent);
 
             }  else if (primitive->getType() == osg::PrimitiveSet::DrawElementsUBytePrimitiveType) {
                 osg::DrawElementsUByte* da = dynamic_cast<osg::DrawElementsUByte*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawElementsUByte"] = createJSONDrawElementsUByte(da, geom);
+                obj->getMaps()["DrawElementsUByte"] = createJSONDrawElementsUByte(da, parent);
 
             }  else if (primitive->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) {
                 osg::DrawArrayLengths* dal = dynamic_cast<osg::DrawArrayLengths*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawArrayLengths"] = createJSONDrawArrayLengths(dal, geom);
+                obj->getMaps()["DrawArrayLengths"] = createJSONDrawArrayLengths(dal, parent);
             } else {
-                osg::notify(osg::WARN) << "Primitive Type " << geom->getPrimitiveSetList()[i]->getType() << " not supported, skipping" << std::endl;
+                osg::notify(osg::WARN) << "Primitive Type " << geometry->getPrimitiveSetList()[i]->getType() << " not supported, skipping" << std::endl;
             }
         }
         json->getMaps()["PrimitiveSetList"] = primitives;
     }
-    if (geom->getComputeBoundingBoxCallback()) {
+    if (geometry->getComputeBoundingBoxCallback()) {
            osg::ref_ptr<JSONObject> jsonObj = new JSONObject;
            jsonObj->addUniqueID();
            json->getMaps()["osg.ComputeBoundingBoxCallback"] = jsonObj;
@@ -582,29 +587,35 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
     return json.get();
 }
 
-JSONObject* WriteVisitor::createJSONRigGeometry(osgAnimation::RigGeometry* rigGeom)
+JSONObject* WriteVisitor::createJSONRigGeometry(osgAnimation::RigGeometry* rigGeometry)
 {
     //TODO : Convert data to JSONVertexArray "Float32Array"
-    JSONObject *json = new JSONNode;
-    JSONObject *sourceGeometry = new JSONObject;
+    osg::ref_ptr<JSONObject> json = new JSONNode;
+    osg::ref_ptr<JSONObject> sourceGeometry = new JSONObject;
 
-    if(dynamic_cast<osg::Geometry*>(rigGeom->getSourceGeometry())) {
-        sourceGeometry->getMaps()["osg.Geometry"] = createJSONGeometry(rigGeom);
+    if(osgAnimation::MorphGeometry *morphGeometry = dynamic_cast<osgAnimation::MorphGeometry*>(rigGeometry->getSourceGeometry())) {
+        sourceGeometry->getMaps()["osgAnimation.MorphGeometry"] = createJSONMorphGeometry(morphGeometry, rigGeometry);
+    }
+    else {
+        osg::Geometry *geometry  = dynamic_cast<osg::Geometry*>(rigGeometry->getSourceGeometry());
+        if(geometry) {
+            sourceGeometry->getMaps()["osg.Geometry"] = createJSONGeometry(geometry, rigGeometry);
+        }
     }
 
-    json->getMaps()["SourceGeometry"] = sourceGeometry;
+    json->getMaps()["SourceGeometry"] = sourceGeometry.get();
 
-    osg::Array* bones = getAnimationBonesArray(*rigGeom);
-    osg::Array* weights = getAnimationWeightsArray(*rigGeom);
+    osg::Array* bones = getAnimationBonesArray(*rigGeometry);
+    osg::Array* weights = getAnimationWeightsArray(*rigGeometry);
     if (bones && weights) {
-        json->getMaps()["BoneMap"] = buildRigBoneMap(*rigGeom);
+        json->getMaps()["BoneMap"] = buildRigBoneMap(*rigGeometry);
 
         json->getMaps()["VertexAttributeList"] = new JSONObject;
-        osg::ref_ptr<JSONObject> attributes =  json->getMaps()["VertexAttributeList"];
-        int nbVertexes = rigGeom->getVertexArray()->getNumElements();
+        osg::ref_ptr<JSONObject> attributes = json->getMaps()["VertexAttributeList"];
+        int nbVertexes = rigGeometry->getSourceGeometry()->getVertexArray()->getNumElements();
 
-        attributes->getMaps()["Bones"] = createJSONBufferArray(bones, rigGeom);
-        attributes->getMaps()["Weights"] = createJSONBufferArray(weights, rigGeom);
+        attributes->getMaps()["Bones"] = createJSONBufferArray(bones, rigGeometry);
+        attributes->getMaps()["Weights"] = createJSONBufferArray(weights, rigGeometry);
         int nb = bones->getNumElements();
         if (nbVertexes != nb) {
             osg::notify(osg::FATAL) << "Fatal nb bones " << nb << " != " << nbVertexes << std::endl;
@@ -617,7 +628,33 @@ JSONObject* WriteVisitor::createJSONRigGeometry(osgAnimation::RigGeometry* rigGe
         }
     }
 
-    return json;
+    return json.release();
+}
+
+JSONObject* WriteVisitor::createJSONMorphGeometry(osgAnimation::MorphGeometry* morphGeometry, osg::Object* parent)
+{
+    if(!parent) {
+        parent = morphGeometry;
+    }
+
+    JSONObject* jsonGeometry = createJSONGeometry(morphGeometry, parent);
+    JSONArray* targetList = new JSONArray;
+
+    osgAnimation::MorphGeometry::MorphTargetList mTargetList = morphGeometry->getMorphTargetList();
+    typedef osgAnimation::MorphGeometry::MorphTargetList::iterator TargetIterator;
+
+    for(TargetIterator ti = mTargetList.begin(); ti != mTargetList.end(); ti++) {
+        osgAnimation::MorphGeometry::MorphTarget *morphTarget = &(*ti);
+        JSONObject *jsonGeometryObject = new JSONObject;
+        if(osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(morphTarget->getGeometry())) {
+            geometry->setPrimitiveSetList(osg::Geometry::PrimitiveSetList()); //delete unused drawArray
+            jsonGeometryObject->getMaps()["osg.Geometry"] = createJSONGeometry(geometry);
+            targetList->asArray()->getArray().push_back(jsonGeometryObject);
+        }
+    }
+    jsonGeometry->getMaps()["MorphTargets"] = targetList;
+
+    return jsonGeometry;
 }
 
 JSONObject* WriteVisitor::createJSONBlendFunc(osg::BlendFunc* sa)
@@ -797,8 +834,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     }
     jsonPlod->getMaps()["RangeMode"] = rangeMode;
     // Range List
-    //osg::ref_ptr<JSONArray> rangeList = new JSONArray;
-    JSONObject* rangeObject = new JSONObject;
+    osg::ref_ptr<JSONObject> rangeObject = new JSONObject;
     for (unsigned int i =0; i< plod->getRangeList().size(); i++)
     {
         std::stringstream ss;
@@ -831,7 +867,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
             osg::ref_ptr<osgDB::Options> options =  osgDB::Registry::instance()->getOptions()->cloneOptions();
             options->setPluginStringData(std::string("baseLodURL"), _baseLodURL);
 
-            osgDB::writeNodeFile(*n,fullFilePath, options );
+            osgDB::writeNodeFile(*n, fullFilePath, options.get());
 
         }
         else
@@ -839,7 +875,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
      }
     jsonPlod->getMaps()["RangeDataList"] = fileObject;
 
-    return jsonPlod.get();
+    return jsonPlod.release();
 }
 
 JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)

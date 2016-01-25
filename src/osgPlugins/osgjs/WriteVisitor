@@ -21,26 +21,30 @@
 #include <osg/BlendColor>
 #include <osg/BlendFunc>
 #include <osg/ValueObject>
-#include <osgText/Text>
 #include <osg/Array>
+#include <osgDB/FileNameUtils>
 
 #include <osgAnimation/RigGeometry>
+#include <osgAnimation/MorphGeometry>
 #include <osgAnimation/Bone>
 #include <osgAnimation/UpdateBone>
 
+#include <osgText/Text>
+#
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <map>
 #include <string>
 #include <algorithm>
+#include <sstream>
 
 #include "JSON_Objects"
 #include "Animation"
 #include "json_stream"
 
 
-#define WRITER_VERSION 7
+#define WRITER_VERSION 8
 
 
 osg::Array* getTangentSpaceArray(osg::Geometry& geometry);
@@ -65,8 +69,8 @@ public:
     bool _useExternalBinaryArray;
     bool _mergeAllBinaryFiles;
     bool _inlineImages;
-    bool _varint;
     int _maxTextureDimension;
+    bool _varint;
     std::map<KeyValue, std::string> _specificBuffers;
     std::map<std::string, std::ofstream*> _buffers;
 
@@ -77,13 +81,14 @@ public:
         return *_buffers[name];
     }
 
-    WriteVisitor(): osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {
-        _mergeAllBinaryFiles = false;
-        _useExternalBinaryArray = false;
-        _inlineImages = false;
-        _maxTextureDimension = 0;
-        _varint = false;
-    }
+    WriteVisitor() :
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _useExternalBinaryArray(false),
+        _mergeAllBinaryFiles(false),
+        _inlineImages(false),
+        _maxTextureDimension(0),
+        _varint(false)
+    {}
 
     ~WriteVisitor() {
         for(std::map<std::string, std::ofstream*>::iterator buffer = _buffers.begin() ;
@@ -93,12 +98,19 @@ public:
     }
 
     std::string getBinaryFilename(KeyValue flag=KeyValue()) const {
-        std::string suffix;
+        std::string suffix,
+                    prefix(_baseName);
         std::map<KeyValue, std::string>::const_iterator it_buffer = _specificBuffers.find(flag);
         if(it_buffer != _specificBuffers.end()) {
-            suffix = "_" + it_buffer->second;
+            if(osgDB::isAbsolutePath(it_buffer->second)) {
+                // if output is explicit, do not change it
+                return it_buffer->second;
+            }
+            else {
+                suffix = "_" + it_buffer->second;
+            }
         }
-        return std::string(_baseName) + suffix + ".bin";
+        return prefix + suffix + ".bin";
     }
 
     void closeBuffers() {
@@ -246,8 +258,9 @@ public:
     JSONObject* createJSONDrawArray(osg::DrawArrays* drawArray, osg::Object* parent = 0);
     JSONObject* createJSONDrawArrayLengths(osg::DrawArrayLengths* drawArray, osg::Object* parent = 0);
 
-    JSONObject* createJSONGeometry(osg::Geometry* geom);
-    JSONObject* createJSONRigGeometry(osgAnimation::RigGeometry* rGeom);
+    JSONObject* createJSONGeometry(osg::Geometry* geometry, osg::Object* parent=0);
+    JSONObject* createJSONRigGeometry(osgAnimation::RigGeometry* rigGeometry);
+    JSONObject* createJSONMorphGeometry(osgAnimation::MorphGeometry* morphGeom, osg::Object* parent=0);
 
     JSONObject* getParent() {
         if (_parents.empty()) {
@@ -281,8 +294,7 @@ public:
         osg::ref_ptr<JSONArray> updateCallbacks = new JSONArray;
         osg::Callback* nc = node.getUpdateCallback();
         while (nc) {
-            osgAnimation::BasicAnimationManager* am = dynamic_cast<osgAnimation::BasicAnimationManager*>(nc);
-            if (am) {
+            if(osgAnimation::BasicAnimationManager* am = dynamic_cast<osgAnimation::BasicAnimationManager*>(nc)) {
                 JSONArray* array = new JSONArray;
                 JSONObject* bam = new JSONObject;
                 translateObject(bam, am);
@@ -302,36 +314,50 @@ public:
                         array->getArray().push_back(obj);
                     }
                 }
-            } else {
-                osgAnimation::UpdateBone* upBone = dynamic_cast<osgAnimation::UpdateBone*>(nc);
-                if (upBone) {
-                    osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*upBone, this);
-                    if (jsonCallback.valid()) {
-                        osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
-                        jsonObject->getMaps()["osgAnimation.UpdateBone"] = jsonCallback;
-                        updateCallbacks->getArray().push_back(jsonObject);
-                    }
-                } else {
-                    osgAnimation::UpdateMatrixTransform* updateMT = dynamic_cast<osgAnimation::UpdateMatrixTransform*>(nc);
-                    if (updateMT) {
-                        osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*updateMT, this);
-                        if (jsonCallback.valid()) {
-                            osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
-                            jsonObject->getMaps()["osgAnimation.UpdateMatrixTransform"] = jsonCallback;
-                            updateCallbacks->getArray().push_back(jsonObject);
-                        }
-                    } else {
-                        osgAnimation::Skeleton::UpdateSkeleton* updateSk = dynamic_cast<osgAnimation::Skeleton::UpdateSkeleton*>(nc);
-                        if (updateSk) {
-                            osg::ref_ptr<JSONObject> json = new JSONNode;
-                            osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
-                            json->addUniqueID();
-                            _maps[&node] = json;
-                            jsonObject->getMaps()["osgAnimation.UpdateSkeleton"] = json;
-                            updateCallbacks->getArray().push_back(jsonObject);
-                        }
-                    }
+            }
+            else if(osgAnimation::UpdateBone* upBone = dynamic_cast<osgAnimation::UpdateBone*>(nc)) {
+                osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*upBone, this);
+                if (jsonCallback.valid()) {
+                    osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
+                    jsonObject->getMaps()["osgAnimation.UpdateBone"] = jsonCallback;
+                    updateCallbacks->getArray().push_back(jsonObject);
                 }
+            }
+            else if(osgAnimation::UpdateMatrixTransform* updateMT = dynamic_cast<osgAnimation::UpdateMatrixTransform*>(nc)) {
+                osg::ref_ptr<JSONObject> jsonCallback = createJSONUpdateMatrixTransform(*updateMT, this);
+                if (jsonCallback.valid()) {
+                    osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
+                    jsonObject->getMaps()["osgAnimation.UpdateMatrixTransform"] = jsonCallback;
+                    updateCallbacks->getArray().push_back(jsonObject);
+                }
+            }
+            else if(dynamic_cast<osgAnimation::Skeleton::UpdateSkeleton*>(nc)) {
+                osg::ref_ptr<JSONObject> json = new JSONNode;
+                osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
+                json->addUniqueID();
+                _maps[&node] = json;
+                jsonObject->getMaps()["osgAnimation.UpdateSkeleton"] = json;
+                updateCallbacks->getArray().push_back(jsonObject);
+            }
+            else if(osgAnimation::UpdateMorph* updateMorph = dynamic_cast<osgAnimation::UpdateMorph*>(nc)) {
+                osg::ref_ptr<JSONObject> json = new JSONNode;
+                osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
+                osg::ref_ptr<JSONObject> jsonTargetName = new JSONObject;
+                json->addUniqueID();
+                json->getMaps()["Name"] = new JSONValue<std::string>(updateMorph->getName());
+
+                unsigned int numTarget = updateMorph->getNumTarget();
+                for(unsigned int i = 0; i < numTarget; ++i) {
+                    std::ostringstream oss;
+                    oss << i;
+                    jsonTargetName->getMaps()[ oss.str() ] = new JSONValue<std::string>(updateMorph->getTargetName(i));
+                }
+                json->getMaps()["TargetMap"] = jsonTargetName;
+                json->getMaps()["TargetMap"] = jsonTargetName;
+
+                _maps[&node] = json;
+                jsonObject->getMaps()["osgAnimation.UpdateMorph"] = json;
+                updateCallbacks->getArray().push_back(jsonObject);
             }
             nc = nc->getNestedCallback();
         }
@@ -341,22 +367,24 @@ public:
         }
     }
 
-    void apply(osg::Drawable& drw) {
-        osgAnimation::RigGeometry * rGeom = dynamic_cast<osgAnimation::RigGeometry*>(&drw);
-        if (rGeom) {
-            JSONObject* json = createJSONRigGeometry(rGeom);
+    void apply(osg::Drawable& drawable) {
+        if(osgAnimation::RigGeometry * rigGeometry = dynamic_cast<osgAnimation::RigGeometry*>(&drawable)) {
+            JSONObject* json = createJSONRigGeometry(rigGeometry);
+            translateObject(json, rigGeometry);
             JSONObject* parent = getParent();
             parent->addChild("osgAnimation.RigGeometry", json);
-        } else {
-            osg::Geometry* geom = dynamic_cast<osg::Geometry*>(&drw);
-            if (geom) {
-                JSONObject* json = createJSONGeometry(geom);
-                JSONObject* parent = getParent();
-                parent->addChild("osg.Geometry", json);
-           }
         }
-        osgText::Text* text = dynamic_cast<osgText::Text*>(&drw);
-        if (text) {
+        else if(osgAnimation::MorphGeometry * morphGeometry = dynamic_cast<osgAnimation::MorphGeometry*>(&drawable)) {
+            JSONObject* json = createJSONMorphGeometry(morphGeometry);
+            JSONObject* parent = getParent();
+            parent->addChild("osgAnimation.MorphGeometry", json);
+        }
+        else if(osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(&drawable)) {
+            JSONObject* json = createJSONGeometry(geometry);
+            JSONObject* parent = getParent();
+            parent->addChild("osg.Geometry", json);
+        }
+        else if(osgText::Text* text = dynamic_cast<osgText::Text*>(&drawable)) {
             JSONObject* json = createJSONText(text);
             JSONObject* parent = getParent();
             parent->addChild("osgText.Text", json);
@@ -488,25 +516,7 @@ public:
         traverse(node);
         _parents.pop_back();
     }
-    void apply(osgText::Text& node) {
-        JSONObject* parent = getParent();
-        if (_maps.find(&node) != _maps.end()) {
-            parent->addChild("osgText.Text", _maps[&node]->getShadowObject());
-            return;
-        }
 
-        osg::ref_ptr<JSONObject> json = createJSONText(&node);
-        json->addUniqueID();
-        _maps[&node] = json;
-        parent->addChild("osgText.Text", json);
-        applyCallback(node, json);
-        createJSONStateSet(node, json);
-        initJsonObjectFromNode(node, *json);
-        _parents.push_back(json);
-        traverse(node);
-        _parents.pop_back();
-    }
-    
     void applyCommonMatrixTransform(const char * jsClassName, osg::ref_ptr<JSONObject> &json, osg::MatrixTransform &node, JSONObject* parent) {
         json->addUniqueID();
         _maps[&node] = json;
@@ -519,6 +529,26 @@ public:
         initJsonObjectFromNode(node, *json);
         json->getMaps()["Matrix"] = new JSONMatrix(node.getMatrix());
     }
+
+    void apply(osgText::Text& node) {
+        JSONObject* parent = getParent();
+        if (_maps.find(&node) != _maps.end()) {
+            parent->addChild("osgText.Text", _maps[&node]->getShadowObject());
+            return;
+        }
+
+        osg::ref_ptr<JSONObject> json = createJSONText(&node);
+        json->addUniqueID();
+        _maps[&node] = json.get();
+        parent->addChild("osgText.Text", json.get());
+        applyCallback(node, json.get());
+        createJSONStateSet(node, json.get());
+        initJsonObjectFromNode(node, *json);
+        _parents.push_back(json);
+        traverse(node);
+        _parents.pop_back();
+    }
+
     void apply(osg::MatrixTransform& node) {
         if (dynamic_cast<osgAnimation::Skeleton*>(&node)) {
            apply(static_cast<osgAnimation::Skeleton&>(node));
@@ -572,26 +602,28 @@ public:
             return;
         }
 
+        osg::ref_ptr<JSONObject> json = new JSONNode;
+
         osg::Vec3 min(0,0,0), max(0,0,0);
         JSONObject *bboxData = new JSONObject;
-        if (node.getUserValue("AABBonBone_min", min) ) {
-            unsigned int idx = node.getUserDataContainer()->getUserObjectIndex("AABBonBone_min");
-            node.getUserDataContainer()->removeUserObject(idx);
+        bool hasBoundindBox = ( node.getUserValue("AABBonBone_min", min) && node.getUserValue("AABBonBone_max", max) );
+
+        if (hasBoundindBox) {
+            unsigned int idxmin = node.getUserDataContainer()->getUserObjectIndex("AABBonBone_min");
+            node.getUserDataContainer()->removeUserObject(idxmin);
+            unsigned int idxmax = node.getUserDataContainer()->getUserObjectIndex("AABBonBone_max");
+            node.getUserDataContainer()->removeUserObject(idxmax);
+
+            if(node.getUserDataContainer() && node.getUserDataContainer()->getNumUserObjects() == 0)
+                node.setUserDataContainer(NULL);
+
+            bboxData->getMaps()["min"] = new JSONVec3Array(min);
+            bboxData->getMaps()["max"] = new JSONVec3Array(max);
+
+            json->getMaps()["BoundingBox"] = bboxData;
         }
-        if ( node.getUserValue("AABBonBone_max", max) ) {
-            unsigned int idx = node.getUserDataContainer()->getUserObjectIndex("AABBonBone_max");
-            node.getUserDataContainer()->removeUserObject(idx);
-        }
 
-        if(node.getUserDataContainer() && node.getUserDataContainer()->getNumUserObjects() == 0)
-            node.setUserDataContainer(NULL);
-
-        bboxData->getMaps()["min"] = new JSONVec3Array(min);
-        bboxData->getMaps()["max"] = new JSONVec3Array(max);
-
-        osg::ref_ptr<JSONObject> json = new JSONNode;
         json->getMaps()["InvBindMatrixInSkeletonSpace"] = new JSONMatrix(node.getInvBindMatrixInSkeletonSpace());
-        json->getMaps()["BoundingBox"] = bboxData;
 
         applyCommonMatrixTransform("osgAnimation.Bone", json, node, parent);
 
@@ -632,7 +664,6 @@ public:
     void inlineImages(bool use) { _inlineImages = use; }
     void setVarint(bool use) { _varint = use; }
     void setMaxTextureDimension(int use) { _maxTextureDimension = use; }
-    void setBaseLodURL(const std::string& baseLodURL) { _baseLodURL = baseLodURL; }
     void addSpecificBuffer(const std::string& bufferFlag) {
         if(bufferFlag.empty()) {
             return;
@@ -663,6 +694,7 @@ public:
         std::transform(buffer.begin(), buffer.end(), buffer.begin(), ::tolower);
         _specificBuffers[KeyValue(key, value)] = buffer;
     }
+    void setBaseLodURL(const std::string& baseLodURL) { _baseLodURL = baseLodURL; }
 };
 
 #endif

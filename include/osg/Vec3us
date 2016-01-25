@@ -144,6 +144,10 @@ class Vec3us
             return *this;
         }
 
+        /** Spherical Linear Interpolation.
+        As t goes from 0 to 1, the Quat object goes from "from" to "to". */
+        void slerp   ( value_type  t, const Vec3us& from, const Vec3us& to) {
+        }
 };    // end of class Vec3us
 
 /** multiply by vector components. */
