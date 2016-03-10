@@ -111,6 +111,9 @@ JSONObject* createLight(osg::Light* light);
 
 struct JSONNode : public JSONObject
 {
+    JSONNode()
+    { addUniqueID(); }
+
     void write(json_stream& str, WriteVisitor& visitor);
 };
 

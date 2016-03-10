@@ -479,7 +479,6 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geometry, osg::Objec
         return _maps[geometry]->getShadowObject();
 
     osg::ref_ptr<JSONObject> json = new JSONNode;
-    json->addUniqueID();
     _maps[geometry] = json;
 
     if (geometry->getStateSet())

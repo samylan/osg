@@ -334,7 +334,6 @@ public:
             else if(dynamic_cast<osgAnimation::Skeleton::UpdateSkeleton*>(nc)) {
                 osg::ref_ptr<JSONObject> json = new JSONNode;
                 osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
-                json->addUniqueID();
                 _maps[&node] = json;
                 jsonObject->getMaps()["osgAnimation.UpdateSkeleton"] = json;
                 updateCallbacks->getArray().push_back(jsonObject);
@@ -343,7 +342,6 @@ public:
                 osg::ref_ptr<JSONObject> json = new JSONNode;
                 osg::ref_ptr<JSONObject> jsonObject = new JSONObject;
                 osg::ref_ptr<JSONObject> jsonTargetName = new JSONObject;
-                json->addUniqueID();
                 json->getMaps()["Name"] = new JSONValue<std::string>(updateMorph->getName());
 
                 unsigned int numTarget = updateMorph->getNumTarget();
@@ -400,7 +398,6 @@ public:
         }
 
         osg::ref_ptr<JSONObject> json = new JSONNode;
-        json->addUniqueID();
         _maps[&node] = json;
 
         applyCallback(node, json.get());
@@ -425,7 +422,6 @@ public:
         }
 
         osg::ref_ptr<JSONObject> json = new JSONNode;
-        json->addUniqueID();
         _maps[&node] = json;
         parent->addChild("osg.Node", json.get());
 
@@ -473,7 +469,6 @@ public:
         }
 
         osg::ref_ptr<JSONObject> json = new JSONNode;
-        json->addUniqueID();
         _maps[&node] = json;
 
         applyCallback(node, json.get());
@@ -502,7 +497,6 @@ public:
         }
 
         osg::ref_ptr<JSONObject> json = new JSONNode;
-        json->addUniqueID();
         _maps[&node] = json;
 
         applyCallback(node, json.get());
@@ -565,7 +559,6 @@ public:
             return;
         }
         osg::ref_ptr<JSONObject> json = new JSONNode;
-        json->addUniqueID();
         _maps[&node] = json;
 
         applyCallback(node, json.get());
@@ -641,7 +634,6 @@ public:
         }
 
         osg::ref_ptr<JSONObject> json = new JSONNode;
-        json->addUniqueID();
         _maps[&node] = json;
 
         applyCallback(node, json.get());
