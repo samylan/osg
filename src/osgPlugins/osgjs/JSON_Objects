@@ -68,8 +68,23 @@ struct JSONObject : public JSONObjectBase
 {
     typedef std::map<std::string, osg::ref_ptr<JSONObject> > JSONMap;
     typedef std::vector<std::string> OrderList;
+
+    static unsigned int uniqueID;
+    std::string _bufferName;
     JSONMap _maps;
+
+    JSONObject() {}
+    JSONObject(const unsigned int id, const std::string& bufferName = "");
+
+    void addUniqueID();
+    unsigned int getUniqueID() const;
+    JSONObject* getShadowObject() { return new JSONObject(getUniqueID(), _bufferName); }
+
+    virtual void setBufferName(const std::string& name) { _bufferName = name; }
+    std::string getBufferName() { return _bufferName; }
+
     JSONMap& getMaps() { return _maps; }
+
     void writeOrder(json_stream& str, const OrderList& order, WriteVisitor& visitor);
     virtual void write(json_stream& str, WriteVisitor& visitor);
     void addChild(const std::string& type, JSONObject* child);
@@ -78,18 +93,6 @@ struct JSONObject : public JSONObjectBase
         return dynamic_cast<JSONValue<T> * > ( this);
     }
 
-    JSONObject(const unsigned int id, const std::string& bufferName = "");
-    JSONObject();
-    void addUniqueID();
-    unsigned int getUniqueID() const { return _uniqueID; }
-    JSONObject* getShadowObject() { return new JSONObject(_uniqueID, _bufferName); }
-
-    unsigned int _uniqueID;
-    static unsigned int uniqueID;
-
-    std::string _bufferName;
-    virtual void setBufferName(const std::string& name) { _bufferName = name; }
-    std::string getBufferName() { return _bufferName; }
     bool isVarintableIntegerBuffer(osg::Array const*) const;
     void encodeArrayAsVarintBuffer(osg::Array const*, std::vector<uint8_t>&) const;
     template<typename T>
@@ -157,10 +160,14 @@ template <class T>
 struct JSONValue : public JSONObject
 {
     T _value;
+
     JSONValue(const T& v) {
         _value = v;
     }
+
     T& getValue() { return _value; }
+    T getValue() const { return _value; }
+
     virtual void write(json_stream& str, WriteVisitor& visitor) {
         str << _value ;
     }

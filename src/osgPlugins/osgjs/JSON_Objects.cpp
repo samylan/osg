@@ -19,6 +19,7 @@
 int JSONObjectBase::level = 0;
 unsigned int JSONObject::uniqueID = 0;
 
+
 std::string JSONObjectBase::indent()
 {
     std::string str;
@@ -55,20 +56,25 @@ void JSONNode::write(json_stream& str, WriteVisitor& visitor)
 
 JSONObject::JSONObject(const unsigned int id, const std::string& bufferName)
 {
-    _uniqueID = id;
     _bufferName = bufferName;
     _maps["UniqueID"] = new JSONValue<unsigned int>(id);
 }
 
-JSONObject::JSONObject()
-{
-    _uniqueID = 0xffffffff;
-}
-
 void JSONObject::addUniqueID()
 {
-    _uniqueID = JSONObject::uniqueID++;
-    _maps["UniqueID"] = new JSONValue<unsigned int>(_uniqueID);
+    if(_maps.find("UniqueID") == _maps.end()) {
+        _maps["UniqueID"] = new JSONValue<unsigned int>(JSONObject::uniqueID ++);
+    }
+}
+
+unsigned int JSONObject::getUniqueID() const
+{
+    JSONMap::const_iterator iterator = _maps.find("UniqueID");
+    if(iterator == _maps.end()) {
+        return 0xffffffff;
+    }
+    const JSONValue<unsigned int>* uid = dynamic_cast<JSONValue<unsigned int>*>(iterator->second.get());
+    return uid->getValue();
 }
 
 void JSONObject::addChild(const std::string& type, JSONObject* child)
@@ -353,7 +359,7 @@ void JSONVertexArray::write(json_stream& str, WriteVisitor& visitor)
         if (visitor._mergeAllBinaryFiles)
             url << bufferName;
         else
-            url << basename << "_" << _uniqueID << ".bin";
+            url << basename << "_" << getUniqueID() << ".bin";
     }
 
     std::string type;
