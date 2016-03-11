@@ -358,7 +358,6 @@ JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array, osg::Object* 
         return _maps[array]->getShadowObject();
 
     osg::ref_ptr<JSONBufferArray> json = new JSONBufferArray(array);
-    json->addUniqueID();
     _maps[array] = json;
     if(_mergeAllBinaryFiles) {
         setBufferName(json.get(), parent, array);
@@ -372,7 +371,6 @@ JSONObject* WriteVisitor::createJSONDrawElementsUInt(osg::DrawElementsUInt* de, 
         return _maps[de]->getShadowObject();
 
     JSONDrawElements<osg::DrawElementsUInt>* json = new JSONDrawElements<osg::DrawElementsUInt>(*de);
-    json->addUniqueID();
     _maps[de] = json;
     if(_mergeAllBinaryFiles) {
         setBufferName(json, parent, de);
@@ -386,7 +384,6 @@ JSONObject* WriteVisitor::createJSONDrawElementsUShort(osg::DrawElementsUShort* 
         return _maps[de]->getShadowObject();
 
     JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de);
-    json->addUniqueID();
     _maps[de] = json;
     if(_mergeAllBinaryFiles) {
         setBufferName(json, parent, de);
@@ -400,7 +397,6 @@ JSONObject* WriteVisitor::createJSONDrawElementsUByte(osg::DrawElementsUByte* de
         return _maps[de]->getShadowObject();
 
     JSONDrawElements<osg::DrawElementsUByte>* json = new JSONDrawElements<osg::DrawElementsUByte>(*de);
-    json->addUniqueID();
     _maps[de] = json;
     if(_mergeAllBinaryFiles) {
         setBufferName(json, parent, de);
@@ -432,7 +428,6 @@ JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray, osg
         de->push_back(base + 3);
     }
     JSONDrawElements<osg::DrawElementsUShort>* json = new JSONDrawElements<osg::DrawElementsUShort>(*de);
-    json->addUniqueID();
     _maps[drawArray] = json;
     if(_mergeAllBinaryFiles) {
         setBufferName(json, parent, drawArray);
@@ -446,7 +441,6 @@ JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da, osg::Object* 
         return _maps[da]->getShadowObject();
 
     osg::ref_ptr<JSONDrawArray> json = new JSONDrawArray(*da);
-    json->addUniqueID();
     _maps[da] = json;
     if(_mergeAllBinaryFiles) {
         setBufferName(json.get(), parent, da);
@@ -460,7 +454,6 @@ JSONObject* WriteVisitor::createJSONDrawArrayLengths(osg::DrawArrayLengths* da, 
         return _maps[da]->getShadowObject();
 
     osg::ref_ptr<JSONDrawArrayLengths> json = new JSONDrawArrayLengths(*da);
-    json->addUniqueID();
     _maps[da] = json;
     if(_mergeAllBinaryFiles) {
         setBufferName(json.get(), parent, da);
@@ -478,7 +471,8 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geometry, osg::Objec
     if (_maps.find(geometry) != _maps.end())
         return _maps[geometry]->getShadowObject();
 
-    osg::ref_ptr<JSONObject> json = new JSONNode;
+    osg::ref_ptr<JSONObject> json = new JSONObject;
+    json->addUniqueID();
     _maps[geometry] = json;
 
     if (geometry->getStateSet())
@@ -589,7 +583,8 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geometry, osg::Objec
 JSONObject* WriteVisitor::createJSONRigGeometry(osgAnimation::RigGeometry* rigGeometry)
 {
     //TODO : Convert data to JSONVertexArray "Float32Array"
-    osg::ref_ptr<JSONObject> json = new JSONNode;
+    osg::ref_ptr<JSONObject> json = new JSONObject;
+    json->addUniqueID();
     osg::ref_ptr<JSONObject> sourceGeometry = new JSONObject;
 
     if(osgAnimation::MorphGeometry *morphGeometry = dynamic_cast<osgAnimation::MorphGeometry*>(rigGeometry->getSourceGeometry())) {
@@ -719,7 +714,6 @@ JSONObject* WriteVisitor::createJSONMaterial(osg::Material* material)
         return _maps[material]->getShadowObject();
 
     osg::ref_ptr<JSONObject> jsonMaterial = new JSONMaterial;
-    jsonMaterial->addUniqueID();
     _maps[material] = jsonMaterial;
 
     translateObject(jsonMaterial.get(), material);
@@ -740,7 +734,6 @@ JSONObject* WriteVisitor::createJSONLight(osg::Light* light)
         return _maps[light]->getShadowObject();
 
     osg::ref_ptr<JSONObject> jsonLight = new JSONLight;
-    jsonLight->addUniqueID();
     _maps[light] = jsonLight;
 
     translateObject(jsonLight.get(), light);
@@ -779,7 +772,7 @@ JSONObject* WriteVisitor::createJSONText(osgText::Text* text)
     if (_maps.find(text) != _maps.end())
         return _maps[text]->getShadowObject();
 
-    osg::ref_ptr<JSONObject> jsonText = new JSONNode;
+    osg::ref_ptr<JSONObject> jsonText = new JSONObject;
     jsonText->addUniqueID();
     _maps[text] = jsonText;
     jsonText->getMaps()["Text"] = new JSONValue<std::string>( text->getText().createUTF8EncodedString()  );
@@ -810,9 +803,7 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
     }
 
     osg::ref_ptr<JSONObject> jsonPlod = new JSONNode;
-    jsonPlod->addUniqueID();
     _maps[plod] = jsonPlod;
-
 
     // Center Mode
     osg::ref_ptr<JSONValue<std::string> > centerMode = new JSONValue<std::string>("USE_BOUNDING_SPHERE_CENTER");
@@ -934,7 +925,6 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
 
     osg::ref_ptr<JSONObject> jsonStateSet = new JSONStateSet;
     _maps[stateset] = jsonStateSet;
-    jsonStateSet->addUniqueID();
 
     translateObject(jsonStateSet.get(), stateset);
 

@@ -284,6 +284,7 @@ static void addJSONChannel(osgAnimation::Channel* channel, JSONObject& anim, Wri
 JSONObject* createJSONAnimation(osgAnimation::Animation* anim, WriteVisitor* writer)
 {
     osg::ref_ptr<JSONObject> json = new JSONObject;
+    json->addUniqueID();
     json->getMaps()["Channels"] = new JSONArray();
     json->getMaps()["Name"] = new JSONValue<std::string>(anim->getName());
 
@@ -296,6 +297,7 @@ JSONObject* createJSONAnimation(osgAnimation::Animation* anim, WriteVisitor* wri
 JSONObject* createJSONUpdateMatrixTransform(osgAnimation::UpdateMatrixTransform& acb, WriteVisitor* writer)
 {
     osg::ref_ptr<JSONObject> json = new JSONObject;
+    json->addUniqueID();
     json->getMaps()["Name"] = new JSONValue<std::string>(acb.getName());
 
     osg::ref_ptr<JSONArray> jsonStackedArray = new JSONArray();
