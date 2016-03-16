@@ -39,21 +39,6 @@ typedef signed __int32 int32_t;
 
 class WriteVisitor;
 
-struct Vec5
-{
-    float _v[5];
-    Vec5() {}
-    Vec5(float a0, float a1, float a2, float a3, float a4) {
-        _v[0] = a0;
-        _v[1] = a1;
-        _v[2] = a2;
-        _v[3] = a3;
-        _v[4] = a4;
-    };
-    inline float& operator [] (int i) { return _v[i]; }
-    inline float operator [] (int i) const { return _v[i]; }
-};
-
 struct JSONObjectBase : public osg::Referenced
 {
     static int level;
@@ -130,11 +115,6 @@ struct JSONArray : public JSONObject
     JSONArray* asArray() { return this; }
 };
 
-struct JSONKeyframes : public JSONArray
-{
-    virtual void write(json_stream& str, WriteVisitor& visitor);
-};
-
 
 struct JSONVec3Array : public JSONArray
 {
@@ -146,11 +126,6 @@ struct JSONVec3Array : public JSONArray
 struct JSONVec4Array : public JSONVec3Array
 {
     JSONVec4Array(const osg::Vec4&);
-};
-
-struct JSONVec5Array : public JSONVec3Array
-{
-    JSONVec5Array(const Vec5&);
 };
 
 struct JSONVec2Array : public JSONVec3Array

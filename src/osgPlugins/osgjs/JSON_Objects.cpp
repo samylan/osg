@@ -585,13 +585,6 @@ JSONVec4Array::JSONVec4Array(const osg::Vec4& v) : JSONVec3Array()
     }
 }
 
-JSONVec5Array::JSONVec5Array(const Vec5& v) : JSONVec3Array()
-{
-    for (int i = 0; i < 5; ++i) {
-        _array.push_back(new JSONValue<float>(v[i]));
-    }
-}
-
 JSONVec2Array::JSONVec2Array(const osg::Vec2& v) : JSONVec3Array()
 {
     for (int i = 0; i < 2; ++i) {
@@ -620,26 +613,6 @@ void JSONVec3Array::write(json_stream& str,WriteVisitor& visitor)
     }
     str << "]";
 }
-
-void JSONKeyframes::write(json_stream& str,WriteVisitor& visitor)
-{
-    JSONObjectBase::level++;
-    str << "[" << std::endl << JSONObjectBase::indent();
-    for (unsigned int i = 0; i < _array.size(); i++) {
-        if (_array[i].valid()) {
-            _array[i]->write(str, visitor);
-        } else {
-            str << "undefined";
-        }
-        if (i != _array.size() -1) {
-            str << ",";
-            str << "\n" << JSONObjectBase::indent();
-        }
-    }
-    str << " ]";
-    JSONObjectBase::level--;
-}
-
 
 void JSONArray::write(json_stream& str,WriteVisitor& visitor)
 {
