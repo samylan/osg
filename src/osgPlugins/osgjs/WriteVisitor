@@ -44,7 +44,7 @@
 #include "json_stream"
 
 
-#define WRITER_VERSION 8
+#define WRITER_VERSION 9
 
 
 osg::Array* getTangentSpaceArray(osg::Geometry& geometry);
