@@ -73,7 +73,20 @@ bool addJSONChannel(const std::string& channelType, T* channel, bool packByCoord
             values = valuesArray;
         }
 
-        jsKeys->getMaps()["Key"] = writer->createJSONBufferArray(values.get(), parent);
+		osg::ref_ptr<JSONArray> jsKeysArray = new JSONArray;
+		// Because there is no Vec*Array in WebGL, we separate each x,y,z component of the Vec*Array into its own array.
+		auto numComponents = KeyframeArray::ElementDataType::num_components;
+		for (int i = 0; i < numComponents; i++) {
+			osg::ref_ptr<osg::FloatArray> valueArray = new osg::FloatArray;// TODO : choose the corresponding WebGL Array
+			for (unsigned int j = 0; j < keys->size(); j++) {
+				KeyframeType value = (*keys)[j].getValue();
+				KeyframeType::value_type componentValue = value[i];
+				valueArray->push_back(componentValue);
+			}
+			jsKeysArray->asArray()->getArray().push_back(writer->createJSONBufferArray(valueArray.get(), parent));
+		}
+		
+		jsKeys->getMaps()["Key"] = jsKeysArray;
         json->getMaps()["KeyFrames"] = jsKeys;
 
         osg::ref_ptr<JSONObject> jsonChannel = new JSONObject();
